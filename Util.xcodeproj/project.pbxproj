@@ -7,16 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		CABCBB6B14D07F8D00A735F5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CABCBB6A14D07F8D00A735F5 /* Foundation.framework */; };
-		CABCBB7114D07F8D00A735F5 /* Util.m in Sources */ = {isa = PBXBuildFile; fileRef = CABCBB7014D07F8D00A735F5 /* Util.m */; };
+		CABCBB7B14D0A21200A735F5 /* GlesUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = CABCBB7914D0A21200A735F5 /* GlesUtil.h */; };
+		CABCBB7F14D0A28700A735F5 /* TriStrip.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */; };
+		CABCBB8014D0A28700A735F5 /* TriStrip.h in Headers */ = {isa = PBXBuildFile; fileRef = CABCBB7E14D0A28700A735F5 /* TriStrip.h */; };
+		CABCBB8D14D0A52C00A735F5 /* GlesUtil.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CABCBB8C14D0A52C00A735F5 /* GlesUtil.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		CABCBB6714D07F8D00A735F5 /* libUtil.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libUtil.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		CABCBB6A14D07F8D00A735F5 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
-		CABCBB6E14D07F8D00A735F5 /* Util-Prefix.pch */ = {isa = PBXFileReference; path = "Util-Prefix.pch"; sourceTree = "<group>"; };
-		CABCBB6F14D07F8D00A735F5 /* Util.h */ = {isa = PBXFileReference; path = Util.h; sourceTree = "<group>"; };
-		CABCBB7014D07F8D00A735F5 /* Util.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Util.m; sourceTree = "<group>"; };
+		CABCBB7914D0A21200A735F5 /* GlesUtil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GlesUtil.h; sourceTree = "<group>"; };
+		CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TriStrip.cpp; sourceTree = "<group>"; };
+		CABCBB7E14D0A28700A735F5 /* TriStrip.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TriStrip.h; sourceTree = "<group>"; };
+		CABCBB8C14D0A52C00A735F5 /* GlesUtil.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GlesUtil.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -24,7 +26,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CABCBB6B14D07F8D00A735F5 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -34,8 +35,10 @@
 		CABCBB5C14D07F8D00A735F5 = {
 			isa = PBXGroup;
 			children = (
-				CABCBB6C14D07F8D00A735F5 /* Util */,
-				CABCBB6914D07F8D00A735F5 /* Frameworks */,
+				CABCBB8C14D0A52C00A735F5 /* GlesUtil.cpp */,
+				CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */,
+				CABCBB7E14D0A28700A735F5 /* TriStrip.h */,
+				CABCBB7914D0A21200A735F5 /* GlesUtil.h */,
 				CABCBB6814D07F8D00A735F5 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -48,32 +51,6 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		CABCBB6914D07F8D00A735F5 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				CABCBB6A14D07F8D00A735F5 /* Foundation.framework */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		CABCBB6C14D07F8D00A735F5 /* Util */ = {
-			isa = PBXGroup;
-			children = (
-				CABCBB6F14D07F8D00A735F5 /* Util.h */,
-				CABCBB7014D07F8D00A735F5 /* Util.m */,
-				CABCBB6D14D07F8D00A735F5 /* Supporting Files */,
-			);
-			path = Util;
-			sourceTree = "<group>";
-		};
-		CABCBB6D14D07F8D00A735F5 /* Supporting Files */ = {
-			isa = PBXGroup;
-			children = (
-				CABCBB6E14D07F8D00A735F5 /* Util-Prefix.pch */,
-			);
-			name = "Supporting Files";
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -81,6 +58,8 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CABCBB7B14D0A21200A735F5 /* GlesUtil.h in Headers */,
+				CABCBB8014D0A28700A735F5 /* TriStrip.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -135,7 +114,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CABCBB7114D07F8D00A735F5 /* Util.m in Sources */,
+				CABCBB7F14D0A28700A735F5 /* TriStrip.cpp in Sources */,
+				CABCBB8D14D0A52C00A735F5 /* GlesUtil.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -186,10 +166,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DSTROOT = /tmp/Util.dst;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "Util/Util-Prefix.pch";
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PREFIX_HEADER = "";
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SHARED_PRECOMPS_DIR = "";
 				SKIP_INSTALL = YES;
 			};
 			name = Debug;
@@ -198,10 +179,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DSTROOT = /tmp/Util.dst;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "Util/Util-Prefix.pch";
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PREFIX_HEADER = "";
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SHARED_PRECOMPS_DIR = "";
 				SKIP_INSTALL = YES;
 			};
 			name = Release;
@@ -225,6 +207,7 @@
 				CABCBB7614D07F8D00A735F5 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
