@@ -35,10 +35,10 @@
 		CABCBB5C14D07F8D00A735F5 = {
 			isa = PBXGroup;
 			children = (
+				CABCBB7914D0A21200A735F5 /* GlesUtil.h */,
 				CABCBB8C14D0A52C00A735F5 /* GlesUtil.cpp */,
 				CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */,
 				CABCBB7E14D0A28700A735F5 /* TriStrip.h */,
-				CABCBB7914D0A21200A735F5 /* GlesUtil.h */,
 				CABCBB6814D07F8D00A735F5 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -168,10 +168,12 @@
 				DSTROOT = /tmp/Util.dst;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = "";
+				HEADER_SEARCH_PATHS = "$(ILM_BASE_DIR)/Imath";
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SHARED_PRECOMPS_DIR = "";
 				SKIP_INSTALL = YES;
+				USER_HEADER_SEARCH_PATHS = "$(ILM_BASE_DIR)/Iex $(ILM_BASE_DIR)/Imath";
 			};
 			name = Debug;
 		};
@@ -181,10 +183,12 @@
 				DSTROOT = /tmp/Util.dst;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = "";
+				HEADER_SEARCH_PATHS = "$(ILM_BASE_DIR)/Imath";
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SHARED_PRECOMPS_DIR = "";
 				SKIP_INSTALL = YES;
+				USER_HEADER_SEARCH_PATHS = "$(ILM_BASE_DIR)/Iex $(ILM_BASE_DIR)/Imath";
 			};
 			name = Release;
 		};

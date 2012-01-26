@@ -11,17 +11,29 @@ class TriStrip {
 public:
   TriStrip() {}
   ~TriStrip() {}
-  void Init(size_t vertexCount, size_t indexCount);
+  enum Flags { UV_FLAG=1, MATERIAL_FLAG=2 };
+  void Init(size_t vertexCount, size_t indexCount, unsigned long flags);
+  void Clear();
+  bool Append(const TriStrip &tristrip);
+
+  // Mutable access
   Imath::V3f &P(size_t i) { return mP[i]; }
+  unsigned short &idx(size_t i) { return mIdx[i]; }
+  unsigned short &material(size_t i) { return mMaterial[i]; }
+  Imath::V2f &UV(size_t i) { return mUV[i]; }
+  
+  // Constant access
   const Imath::V3f &P(size_t i) const { return mP[i]; }
-  Imath::V2f &uv(size_t i) { return mUV[i]; }
   const Imath::V2f &uv(size_t i) const { return mUV[i]; }
-  void Append(const TriStrip &tristrip);
+  const unsigned short &idx(size_t i) const { return mIdx[i]; }
+  const unsigned short &material(size_t i) const { return mMaterial[i]; }
   
 private:
-  std::vector<Imath::V3f> mP;
+  unsigned long mFlags;
+  std::vector<Imath::V3f> mP;                       
+  std::vector<unsigned short> mIdx;
   std::vector<Imath::V2f> mUV;
-  std::vector<short> idx;
+  std::vector<unsigned short> mMaterial;
 };
 
 
