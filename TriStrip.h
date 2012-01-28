@@ -3,13 +3,20 @@
 #ifndef TRISTRIP_H
 #define TRISTRIP_H
 
-#include <ImathVec.h>
 #include <vector>
 
+#include <ImathVec.h>
+
+
+// Stores the geometry buffers required to render a triangle strip.
+// Utility functions for accessing individual vertex and index values,
+// as well as Append, which contacenates two strips, joining them
+// with degenerate vertices.  Flags are used to control which attributes
+// are active.
 
 class TriStrip {
 public:
-  TriStrip() {}
+  TriStrip() : mFlags(0) {}
   ~TriStrip() {}
   enum Flags { UV_FLAG=1, MATERIAL_FLAG=2 };
   void Init(size_t vertexCount, size_t indexCount, unsigned long flags);

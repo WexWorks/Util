@@ -1,6 +1,7 @@
 //  Copyright (c) 2012 The 11ers. All rights reserved.
 
 #include "GlesUtil.h"
+
 #include <stdlib.h>
 
 
@@ -8,7 +9,7 @@ static GLint gErrorCode = GL_NO_ERROR;
 
 
 bool GlesUtil::Error() {
-  gErrorCode = glGetError();
+  gErrorCode = glGetError();            // Note: GLES only has one active err
   return gErrorCode != GL_NO_ERROR;
 }
 
@@ -127,7 +128,7 @@ GLuint GlesUtil::CreateBuffer(GLenum target, GLsizeiptr bytes, void *data,
 }
 
 
-bool GlesUtil::UpdateSubBuffer(GLuint id, GLenum target, GLintptr offset,
+bool GlesUtil::StoreSubBuffer(GLuint id, GLenum target, GLintptr offset,
                                GLsizeiptr size, void *data) {
   glBindBuffer(target, id);
   glBufferSubData(target, offset, size, data);
