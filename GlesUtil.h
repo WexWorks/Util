@@ -30,8 +30,8 @@ GLuint CreateProgram(GLuint vp, GLuint fp);
 //   Usage:  GL_STATIC_DRAW, GL_DYNAMIC_DRAW, GL_STRAM_DRAW
 GLuint CreateBuffer(GLenum target, GLsizeiptr bytes, void *data,
                     GLenum usage);
-bool UpdateSubBuffer(GLuint id, GLenum target, GLintptr offset,
-                     GLsizeiptr size, void *data);
+bool StoreSubBuffer(GLuint id, GLenum target, GLintptr offset,
+                    GLsizeiptr size, void *data);
 
 };      // namespace GlesUtil
 
