@@ -9,7 +9,7 @@ static GLint gErrorCode = GL_NO_ERROR;
 
 
 bool GlesUtil::Error() {
-  gErrorCode = glGetError();
+  gErrorCode = glGetError();      // GLES2 only has a single outstanding error
   return gErrorCode != GL_NO_ERROR;
 }
 

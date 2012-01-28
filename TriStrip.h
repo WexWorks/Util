@@ -8,6 +8,12 @@
 #include <ImathVec.h>
 
 
+// Stores the geometry buffers required to render a triangle strip.
+// Utility functions for accessing individual vertex and index values,
+// as well as Append, which contacenates two strips, joining them
+// with degenerate vertices.  Flags are used to control which attributes
+// are active.
+
 class TriStrip {
 public:
   TriStrip() : mFlags(0) {}
