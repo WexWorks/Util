@@ -1,8 +1,9 @@
 //  Copyright (c) 2012 The 11ers. All rights reserved.
 
 #include "TriStrip.h"
-#include <string.h>
+
 #include <assert.h>
+#include <string.h>
 
 
 void TriStrip::Clear() {
