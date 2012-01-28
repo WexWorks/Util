@@ -3,13 +3,14 @@
 #ifndef TRISTRIP_H
 #define TRISTRIP_H
 
-#include <ImathVec.h>
 #include <vector>
+
+#include <ImathVec.h>
 
 
 class TriStrip {
 public:
-  TriStrip() {}
+  TriStrip() : mFlags(0) {}
   ~TriStrip() {}
   enum Flags { UV_FLAG=1, MATERIAL_FLAG=2 };
   void Init(size_t vertexCount, size_t indexCount, unsigned long flags);
