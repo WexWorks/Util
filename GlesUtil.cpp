@@ -28,6 +28,7 @@ const char *GlesUtil::ErrorString() {
 
 bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
                             GLenum minFilter, GLenum magFilter,
+                            GLenum clampS, GLenum clampT,
                             GLsizei w, GLsizei h, GLenum format, GLenum type,
                             const void *pix) {
   glBindTexture(target, tex);
@@ -38,6 +39,8 @@ bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
   
   glTexParameteri(target, GL_TEXTURE_MIN_FILTER, minFilter);
   glTexParameteri(target, GL_TEXTURE_MAG_FILTER, magFilter);
+  glTexParameteri(target, GL_TEXTURE_WRAP_S, clampS);
+  glTexParameteri(target, GL_TEXTURE_WRAP_T, clampT);
   
   bool needs_mip_chain = minFilter != GL_NEAREST && minFilter != GL_LINEAR;
   needs_mip_chain |= magFilter && magFilter != GL_NEAREST;

@@ -10,7 +10,8 @@ void TriStrip::Clear() {
   mFlags = 0;
   mP.resize(0);
   mIdx.resize(0);
-  mUV.resize(0);
+  for (size_t i = 0; i < kMaxAttr; ++i)
+    mA[i].resize(0);
   mMaterial.resize(0);
 }
 
@@ -20,8 +21,10 @@ void TriStrip::Init(size_t vertexCount, size_t indexCount, unsigned long flags){
   mFlags = flags;
   mP.resize(vertexCount);
   mIdx.resize(indexCount);
-  if (flags & UV_FLAG)
-    mUV.resize(vertexCount);
+  for (size_t i = 0; i < kMaxAttr; ++i) {
+    if (AttrEnabled(i))
+      mA[i].resize(vertexCount);
+  }
   if (flags & MATERIAL_FLAG)
     mMaterial.resize(vertexCount);
 }
@@ -61,10 +64,12 @@ bool TriStrip::Append(const TriStrip &tristrip) {
   for (size_t i = 0, j = firstNewIdx; i < addIdxCount; ++i, ++j)
     mIdx[j] = tristrip.mIdx[i] + oldVCount;
   
-  if (mFlags & UV_FLAG) {
-    mUV.resize(vCount);
-    bytes = addVCount * sizeof(Imath::V2f);
-    memcpy(&mUV[oldVCount], &tristrip.mUV[0], bytes);
+  for (size_t i = 0; i < kMaxAttr; ++i) {
+    if (AttrEnabled(i)) {
+      mA[i].resize(vCount);
+      bytes = addVCount * sizeof(Imath::V4f);
+      memcpy(&mA[i][oldVCount], &tristrip.mA[i][0], bytes);
+    }
   }
   
   if (mFlags & MATERIAL_FLAG) {
