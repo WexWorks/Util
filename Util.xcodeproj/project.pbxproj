@@ -169,12 +169,15 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = "";
 				GCC_VERSION = com.apple.compilers.llvmgcc42;
-				HEADER_SEARCH_PATHS = "$(ILM_BASE_DIR)/Imath";
+				HEADER_SEARCH_PATHS = (
+					"$(ILM_BASE_DIR)/Iex",
+					"$(ILM_BASE_DIR)/Imath",
+				);
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SHARED_PRECOMPS_DIR = "";
 				SKIP_INSTALL = YES;
-				USER_HEADER_SEARCH_PATHS = "$(ILM_BASE_DIR)/Iex $(ILM_BASE_DIR)/Imath";
+				USER_HEADER_SEARCH_PATHS = "";
 			};
 			name = Debug;
 		};
@@ -185,12 +188,15 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = "";
 				GCC_VERSION = com.apple.compilers.llvmgcc42;
-				HEADER_SEARCH_PATHS = "$(ILM_BASE_DIR)/Imath";
+				HEADER_SEARCH_PATHS = (
+					"$(ILM_BASE_DIR)/Iex",
+					"$(ILM_BASE_DIR)/Imath",
+				);
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SHARED_PRECOMPS_DIR = "";
 				SKIP_INSTALL = YES;
-				USER_HEADER_SEARCH_PATHS = "$(ILM_BASE_DIR)/Iex $(ILM_BASE_DIR)/Imath";
+				USER_HEADER_SEARCH_PATHS = "";
 			};
 			name = Release;
 		};

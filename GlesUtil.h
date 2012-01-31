@@ -23,10 +23,14 @@ const char *ErrorString();
 //   Filters: GL_NEAREST, GL_LINEAR, GL_NEAREST_MIPMAP_NEAREST,
 //            GL_NEAREST_MIPMAP_LINEAR, GL_LINEAR_MIPMAP_NEAREST,
 //            GL_LINEAR_MIPMAP_LINEAR
+//            Note: Avoid mips with min=near|linear & mag=near
+//   Wraps:   GL_CLAMP_TO_EDGE, GL_REPEAT, GL_MIRRORED_REPEAT
+//            Note: Rectangular textures require clamp or GL_OES_texture_npot
 //   Format:  GL_RGBA, GL_RGB, GL_LIMINANCE_ALPHA, GL_LUMINANCE, GL_ALPHA
 //   Type:    GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT_4_4_4_4, *_5_5_5_1, *_5_6_5
 bool StoreTexture(GLuint tex, GLenum target,
                   GLenum minFilter, GLenum magFilter,
+                  GLenum clampS, GLenum clampT,
                   GLsizei w, GLsizei h, GLenum format, GLenum type,
                   const void *pix);
 
