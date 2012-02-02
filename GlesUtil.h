@@ -33,6 +33,8 @@ bool StoreTexture(GLuint tex, GLenum target,
                   GLenum clampS, GLenum clampT,
                   GLsizei w, GLsizei h, GLenum format, GLenum type,
                   const void *pix);
+bool DrawTexture(GLuint tex, const float ndcViewport[4]);
+
 
 // Shader functions:
 //   Type: GL_VERTEX_SHADER, GL_FRAGMENT_SHADER
