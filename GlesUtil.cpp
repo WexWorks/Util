@@ -26,34 +26,21 @@ const char *GlesUtil::ErrorString() {
 }
 
 
-bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
-                            GLenum minFilter, GLenum magFilter,
-                            GLenum clampS, GLenum clampT,
-                            GLsizei w, GLsizei h, GLenum format, GLenum type,
-                            const void *pix) {
-  glBindTexture(target, tex);
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  glTexImage2D(target, 0, format, w, h, 0, format, type, pix);
+bool GlesUtil::DrawQuad2f(GLuint aP, float x0, float y0, float x1, float y1,
+                          GLuint aUV, float u0, float v0, float u1, float v1) {
+  const float P[8] = {x0, y0,  x0, y1,  x1, y0,  x1, y1 };
+  const float UV[8] = {u0, v0,  u0, v1,  u1, v0,  u1, v1 };
+  glEnableVertexAttribArray(aUV);
+  glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
+  glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   if (Error())
     return false;
-  
-  glTexParameteri(target, GL_TEXTURE_MIN_FILTER, minFilter);
-  glTexParameteri(target, GL_TEXTURE_MAG_FILTER, magFilter);
-  glTexParameteri(target, GL_TEXTURE_WRAP_S, clampS);
-  glTexParameteri(target, GL_TEXTURE_WRAP_T, clampT);
-  
-  bool needs_mip_chain = minFilter != GL_NEAREST && minFilter != GL_LINEAR;
-  needs_mip_chain |= magFilter && magFilter != GL_NEAREST;
-  if (needs_mip_chain)
-    glGenerateMipmap(target);
-  if (Error())
-    return false;
-  
   return true;
 }
 
-
-bool GlesUtil::DrawTexture(GLuint tex, const float ndcViewport[4]) {
+bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1,float y1){
   static bool gInitialized = false;
   static GLuint gProgram = 0;
   static GLuint gAP = 0, gAUV = 0, gUCTex = 0;
@@ -94,25 +81,38 @@ bool GlesUtil::DrawTexture(GLuint tex, const float ndcViewport[4]) {
     if (Error())
       return false;
   }
-
+  
   glDisable(GL_DEPTH_TEST);
   glDisable(GL_CULL_FACE);
-  
   glUseProgram(gProgram);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, tex);
   glUniform1i(gUCTex, 0);
   
-  glEnableVertexAttribArray(gAP);
-  const float x0 = ndcViewport[0];
-  const float y0 = ndcViewport[1];
-  const float x1 = x0 + ndcViewport[2];
-  const float y1 = y0 + ndcViewport[3];
-  const float P[8] = {x0, y0,  x0, y1,  x1, y0,  x1, y1 };
-  const float UV[8] = {0, 0,  0, 1,  1, 0,  1, 1 };
-  glVertexAttribPointer(gAUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
-  glVertexAttribPointer(gAP, 2, GL_FLOAT, GL_FALSE, 0, P);
-  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  return DrawQuad2f(gAP, x0, y0, x1, y1, gAUV, 0, 0, 1, 1);
+}
+
+
+bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
+                            GLenum minFilter, GLenum magFilter,
+                            GLenum clampS, GLenum clampT,
+                            GLsizei w, GLsizei h, GLenum format, GLenum type,
+                            const void *pix) {
+  glBindTexture(target, tex);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTexImage2D(target, 0, format, w, h, 0, format, type, pix);
+  if (Error())
+    return false;
+  
+  glTexParameteri(target, GL_TEXTURE_MIN_FILTER, minFilter);
+  glTexParameteri(target, GL_TEXTURE_MAG_FILTER, magFilter);
+  glTexParameteri(target, GL_TEXTURE_WRAP_S, clampS);
+  glTexParameteri(target, GL_TEXTURE_WRAP_T, clampT);
+  
+  bool needs_mip_chain = minFilter != GL_NEAREST && minFilter != GL_LINEAR;
+  needs_mip_chain |= magFilter && magFilter != GL_NEAREST;
+  if (needs_mip_chain)
+    glGenerateMipmap(target);
   if (Error())
     return false;
   

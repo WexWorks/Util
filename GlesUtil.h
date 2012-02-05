@@ -18,6 +18,11 @@ namespace GlesUtil {
 bool Error();
 const char *ErrorString();
 
+// Drawing utilities:
+bool DrawQuad2f(GLuint aP, float x0, float y0, float x1, float y1,
+                GLuint aUV, float u0, float v0, float u1, float v1);
+bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1); // NDC
+  
 // Texture functions:
 //   Target:  GL_TEXTURE_2D, GL_TEXTURE_CUBE_MAP
 //   Filters: GL_NEAREST, GL_LINEAR, GL_NEAREST_MIPMAP_NEAREST,
@@ -33,7 +38,6 @@ bool StoreTexture(GLuint tex, GLenum target,
                   GLenum clampS, GLenum clampT,
                   GLsizei w, GLsizei h, GLenum format, GLenum type,
                   const void *pix);
-bool DrawTexture(GLuint tex, const float ndcViewport[4]);
 
 
 // Shader functions:
