@@ -14,7 +14,6 @@ namespace GlesUtil {
 // Called internally as needed by utility functions, and should be
 // called by applications that call OpenGLES functions directly.
 // It is up to the caller to use ErrorString to display messages.
-
 bool Error();
 const char *ErrorString();
 
@@ -38,7 +37,6 @@ bool StoreTexture(GLuint tex, GLenum target,
                   GLenum clampS, GLenum clampT,
                   GLsizei w, GLsizei h, GLenum format, GLenum type,
                   const void *pix);
-
 
 // Shader functions:
 //   Type: GL_VERTEX_SHADER, GL_FRAGMENT_SHADER

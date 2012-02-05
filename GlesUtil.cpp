@@ -31,8 +31,8 @@ bool GlesUtil::DrawQuad2f(GLuint aP, float x0, float y0, float x1, float y1,
   const float P[8] = {x0, y0,  x0, y1,  x1, y0,  x1, y1 };
   const float UV[8] = {u0, v0,  u0, v1,  u1, v0,  u1, v1 };
   glEnableVertexAttribArray(aUV);
-  glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
   glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
   glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   if (Error())
@@ -40,8 +40,9 @@ bool GlesUtil::DrawQuad2f(GLuint aP, float x0, float y0, float x1, float y1,
   return true;
 }
 
+
 bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1,float y1){
-  static bool gInitialized = false;
+  static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
   static GLuint gAP = 0, gAUV = 0, gUCTex = 0;
   if (!gInitialized) {
@@ -82,8 +83,6 @@ bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1,float y1){
       return false;
   }
   
-  glDisable(GL_DEPTH_TEST);
-  glDisable(GL_CULL_FACE);
   glUseProgram(gProgram);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, tex);
