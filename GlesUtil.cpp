@@ -26,6 +26,72 @@ const char *GlesUtil::ErrorString() {
 }
 
 
+bool GlesUtil::DrawQuad2f(GLuint aP, float x0, float y0, float x1, float y1,
+                          GLuint aUV, float u0, float v0, float u1, float v1) {
+  const float P[8] = {x0, y0,  x0, y1,  x1, y0,  x1, y1 };
+  const float UV[8] = {u0, v0,  u0, v1,  u1, v0,  u1, v1 };
+  glEnableVertexAttribArray(aUV);
+  glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  if (Error())
+    return false;
+  return true;
+}
+
+
+bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1,float y1){
+  static bool gInitialized = false;             // WARNING: Static variables!
+  static GLuint gProgram = 0;
+  static GLuint gAP = 0, gAUV = 0, gUCTex = 0;
+  if (!gInitialized) {
+    gInitialized = true;
+    
+    // Note: the program below is leaked and should be destroyed in _atexit()
+    static const char *dbgVpCode =
+    "attribute vec4 aP;\n"
+    "attribute vec2 aUV;\n"
+    "varying vec2 vUV;\n"
+    "void main() {\n"
+    "  vUV = aUV;\n"
+    "  gl_Position = aP;\n"
+    "}\n";
+    static const char *dbgFpCode =
+    "precision mediump float;\n"
+    "varying vec2 vUV;\n"
+    "uniform sampler2D uCTex;\n"
+    "void main() {\n"
+    "  gl_FragColor = texture2D(uCTex, vUV);\n"
+    "}\n";
+    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, dbgVpCode);
+    if (!vp)
+      return false;
+    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, dbgFpCode);
+    if (!fp)
+      return false;
+    gProgram = GlesUtil::CreateProgram(vp, fp);
+    if (!gProgram)
+      return false;
+    glDeleteShader(vp);
+    glDeleteShader(fp);
+    glUseProgram(gProgram);
+    gAUV = glGetAttribLocation(gProgram, "aUV");
+    gAP = glGetAttribLocation(gProgram, "aP");
+    gUCTex = glGetUniformLocation(gProgram, "uCTex");
+    if (Error())
+      return false;
+  }
+  
+  glUseProgram(gProgram);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, tex);
+  glUniform1i(gUCTex, 0);
+  
+  return DrawQuad2f(gAP, x0, y0, x1, y1, gAUV, 0, 0, 1, 1);
+}
+
+
 bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
                             GLenum minFilter, GLenum magFilter,
                             GLenum clampS, GLenum clampT,
