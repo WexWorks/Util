@@ -37,7 +37,7 @@ bool TriStrip::Append(const TriStrip &tristrip) {
   if (tristrip.mP.empty())
       return true;
   size_t maxIdx = std::numeric_limits<unsigned short>::max();
-  if (mIdx.size() + tristrip.mIdx.size() > maxIdx)
+  if (mP.size() + tristrip.mP.size() > maxIdx)
     return false;
 
   const size_t oldVCount = mP.size();
