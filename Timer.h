@@ -33,7 +33,7 @@ public:
   }
 
 private:
-  TimerVal start_time_;
+  TimerVal mStartTime;
 };
 
 

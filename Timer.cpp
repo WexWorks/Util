@@ -15,14 +15,14 @@ double Timer::Elapsed() const {
   TimerVal end_time;
 #if defined(__APPLE__) || defined(__linux) || defined(__unix) || defined(__posix)
   gettimeofday(&end_time, NULL);
-  return end_time.tv_sec - start_time_.tv_sec + 0.000001 * (end_time.tv_usec
-      - start_time_.tv_usec);
+  return end_time.tv_sec - mStartTime.tv_sec + 0.000001 * (end_time.tv_usec
+      - mStartTime.tv_usec);
 #endif
 #if defined(_WIN64) || defined(_WIN32)
   QueryPerformanceCounter(&end_time);
   LARGE_INTEGER countsPerSecond;
   QueryPerformanceFrequency(&countsPerSecond);
-  return (end_time.QuadPart - start_time_.QuadPart) /
+  return (end_time.QuadPart - mStartTime.QuadPart) /
   double(countsPerSecond.QuadPart);
 #endif
 }
@@ -30,10 +30,10 @@ double Timer::Elapsed() const {
 
 void Timer::Restart() {
 #if defined(__APPLE__) || defined(__linux) || defined(__unix) || defined(__posix)
-  gettimeofday(&start_time_, NULL);
+  gettimeofday(&mStartTime, NULL);
 #endif
 #if defined(_WIN64) || defined(_WIN32)
-  QueryPerformanceCounter(&start_time_);
+  QueryPerformanceCounter(&mStartTime);
 #endif
 }
 
