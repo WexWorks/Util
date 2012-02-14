@@ -11,6 +11,8 @@
 		CABCBB7F14D0A28700A735F5 /* TriStrip.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */; };
 		CABCBB8014D0A28700A735F5 /* TriStrip.h in Headers */ = {isa = PBXBuildFile; fileRef = CABCBB7E14D0A28700A735F5 /* TriStrip.h */; };
 		CABCBB8D14D0A52C00A735F5 /* GlesUtil.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CABCBB8C14D0A52C00A735F5 /* GlesUtil.cpp */; };
+		CAFE51FA14EAC06F00C78E0B /* Timer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CAFE51F814EAC06F00C78E0B /* Timer.cpp */; };
+		CAFE51FB14EAC06F00C78E0B /* Timer.h in Headers */ = {isa = PBXBuildFile; fileRef = CAFE51F914EAC06F00C78E0B /* Timer.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,6 +21,8 @@
 		CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TriStrip.cpp; sourceTree = "<group>"; };
 		CABCBB7E14D0A28700A735F5 /* TriStrip.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TriStrip.h; sourceTree = "<group>"; };
 		CABCBB8C14D0A52C00A735F5 /* GlesUtil.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GlesUtil.cpp; sourceTree = "<group>"; };
+		CAFE51F814EAC06F00C78E0B /* Timer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Timer.cpp; sourceTree = "<group>"; };
+		CAFE51F914EAC06F00C78E0B /* Timer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Timer.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -35,6 +39,8 @@
 		CABCBB5C14D07F8D00A735F5 = {
 			isa = PBXGroup;
 			children = (
+				CAFE51F814EAC06F00C78E0B /* Timer.cpp */,
+				CAFE51F914EAC06F00C78E0B /* Timer.h */,
 				CABCBB7914D0A21200A735F5 /* GlesUtil.h */,
 				CABCBB8C14D0A52C00A735F5 /* GlesUtil.cpp */,
 				CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */,
@@ -60,6 +66,7 @@
 			files = (
 				CABCBB7B14D0A21200A735F5 /* GlesUtil.h in Headers */,
 				CABCBB8014D0A28700A735F5 /* TriStrip.h in Headers */,
+				CAFE51FB14EAC06F00C78E0B /* Timer.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -116,6 +123,7 @@
 			files = (
 				CABCBB7F14D0A28700A735F5 /* TriStrip.cpp in Sources */,
 				CABCBB8D14D0A52C00A735F5 /* GlesUtil.cpp in Sources */,
+				CAFE51FA14EAC06F00C78E0B /* Timer.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
