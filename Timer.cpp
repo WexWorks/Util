@@ -41,9 +41,9 @@ void Timer::Restart() {
 const char *
 Timer::String(double seconds) {
   static int buf_num = 0;
-  static const int buf_count = 8;
-  static char buffer[buf_count][1024];
-  int b = buf_num++ % buf_count;
+  static const int buf_count = 8;         // Hack to allow multiple calls
+  static char buffer[buf_count][1024];    // in the same printf().
+  int b = buf_num++ % buf_count;          // WARNING: Not (very) thread safe!
 
   buffer[b][0] = '\0';
 
