@@ -18,9 +18,11 @@ bool Error();
 const char *ErrorString();
 
 // Drawing utilities:
+//   Coordinates are in NDC space [-1, -1] x [1, 1]
 bool DrawQuad2f(GLuint aP, float x0, float y0, float x1, float y1,
                 GLuint aUV, float u0, float v0, float u1, float v1);
-bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1); // NDC
+bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
+                   float u0, float v0, float u1, float v1);
   
 // Texture functions:
 //   Target:  GL_TEXTURE_2D, GL_TEXTURE_CUBE_MAP

@@ -41,7 +41,8 @@ bool GlesUtil::DrawQuad2f(GLuint aP, float x0, float y0, float x1, float y1,
 }
 
 
-bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1,float y1){
+bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
+                             float u0, float v0, float u1, float v1) {
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
   static GLuint gAP = 0, gAUV = 0, gUCTex = 0;
@@ -88,7 +89,7 @@ bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1,float y1){
   glBindTexture(GL_TEXTURE_2D, tex);
   glUniform1i(gUCTex, 0);
   
-  return DrawQuad2f(gAP, x0, y0, x1, y1, gAUV, 0, 0, 1, 1);
+  return DrawQuad2f(gAP, x0, y0, x1, y1, gAUV, u0, v0, u1, v1);
 }
 
 
@@ -110,7 +111,7 @@ bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
   
   bool needs_mip_chain = minFilter != GL_NEAREST && minFilter != GL_LINEAR;
   needs_mip_chain |= magFilter && magFilter != GL_NEAREST;
-  if (needs_mip_chain)
+  if (pix && needs_mip_chain)
     glGenerateMipmap(target);
   if (Error())
     return false;
