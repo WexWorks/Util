@@ -1,4 +1,4 @@
-// Copyright (c) 2011 by WexWorks, LLC -- All Rights Reserved
+// Copyright (c) 2012 by The 11ers, LLC -- All Rights Reserved
 
 #ifndef TIMER_H
 #define TIMER_H
