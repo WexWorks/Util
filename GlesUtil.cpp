@@ -26,7 +26,7 @@ const char *GlesUtil::ErrorString() {
 }
 
 
-bool GlesUtil::DrawQuad2f(GLuint aP, float x0, float y0, float x1, float y1,
+bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
                           GLuint aUV, float u0, float v0, float u1, float v1) {
   const float P[8] = {x0, y0,  x0, y1,  x1, y0,  x1, y1 };
   const float UV[8] = {u0, v0,  u0, v1,  u1, v0,  u1, v1 };
@@ -89,7 +89,7 @@ bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
   glBindTexture(GL_TEXTURE_2D, tex);
   glUniform1i(gUCTex, 0);
   
-  return DrawQuad2f(gAP, x0, y0, x1, y1, gAUV, u0, v0, u1, v1);
+  return DrawBox2f(gAP, x0, y0, x1, y1, gAUV, u0, v0, u1, v1);
 }
 
 
@@ -133,7 +133,7 @@ GLuint GlesUtil::CreateShader(GLenum type, const char *source_code) {
     GLint infoLen = 0;
     glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLen);
     if (infoLen) {
-      char* buf = (char*) malloc(infoLen);
+      char *buf = (char*) malloc(infoLen);
       if (buf) {
         glGetShaderInfoLog(shader, infoLen, NULL, buf);
         free(buf);

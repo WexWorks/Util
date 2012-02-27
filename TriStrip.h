@@ -1,4 +1,4 @@
-//  Created by Daniel Wexler on 1/25/12.
+// Copyright (c) 2012 by The 11ers, LLC -- All Rights Reserved
 
 #ifndef TRISTRIP_H
 #define TRISTRIP_H
