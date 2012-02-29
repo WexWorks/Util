@@ -27,7 +27,7 @@ public:
   // Mutable access
   Imath::V3f &P(size_t i) { return mP[i]; }
   Imath::V4f &Attr(size_t a, size_t v) { return mA[a][v]; }
-  unsigned short &Idx(size_t i) { return mIdx[i]; }
+  unsigned &Idx(size_t i) { return mIdx[i]; }
   unsigned short &Material(size_t i) { return mMaterial[i]; }
   
   // Constant access
@@ -36,7 +36,7 @@ public:
   const Imath::V3f &P(size_t i) const { return mP[i]; }
   const Imath::V4f &Attr(size_t a, size_t v) const { return mA[a][v]; }
   bool AttrEnabled(size_t i) const { return mFlags & (1L << i); }
-  const unsigned short &Idx(size_t i) const { return mIdx[i]; }
+  const unsigned &Idx(size_t i) const { return mIdx[i]; }
   const unsigned short &Material(size_t i) const { return mMaterial[i]; }
   
 private:
@@ -44,7 +44,7 @@ private:
   
   unsigned long mFlags;
   std::vector<Imath::V3f> mP;
-  std::vector<unsigned short> mIdx;
+  std::vector<unsigned> mIdx;
   std::vector<Imath::V4f> mA[kMaxAttr];
   std::vector<unsigned short> mMaterial;
 };
