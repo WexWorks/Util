@@ -96,3 +96,18 @@ bool TriStrip::Append(const TriStrip &tristrip) {
   
   return true;
 }
+
+
+void TriStrip::ToLines(std::vector<unsigned int> &lineIdx) const {
+  lineIdx.reserve(VertexCount()*3);
+  for (size_t i = 0; i < IndexCount() - 4; ++i) {
+    lineIdx.push_back(mIdx[i]);
+    lineIdx.push_back(mIdx[i+1]);
+    if (mIdx[i+1] == mIdx[i+2] && mIdx[i+3] == mIdx[i+4]) {
+      i += 3;     // Skip degenerates
+      continue;
+    }
+    lineIdx.push_back(mIdx[i]);
+    lineIdx.push_back(mIdx[i+2]);
+  }
+}

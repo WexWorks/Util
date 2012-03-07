@@ -23,7 +23,8 @@ public:
   void Clear();
   void Reserve(size_t vertexCount, size_t indexCount);
   bool Append(const TriStrip &tristrip);
-
+  void ToLines(std::vector<unsigned int> &lineIdx) const;
+  
   // Mutable access
   Imath::V3f &P(size_t i) { return mP[i]; }
   Imath::V4f &Attr(size_t a, size_t v) { return mA[a][v]; }
