@@ -100,14 +100,19 @@ bool TriStrip::Append(const TriStrip &tristrip) {
 
 void TriStrip::ToLines(std::vector<unsigned int> &lineIdx) const {
   lineIdx.reserve(VertexCount()*3);
-  for (size_t i = 0; i < IndexCount() - 4; ++i) {
+  for (size_t i = 0; i < IndexCount() - 2; ++i) {
     lineIdx.push_back(mIdx[i]);
     lineIdx.push_back(mIdx[i+1]);
-    if (mIdx[i+1] == mIdx[i+2] && mIdx[i+3] == mIdx[i+4]) {
+    if (i < IndexCount() - 4 &&
+        mIdx[i+1] == mIdx[i+2] && mIdx[i+3] == mIdx[i+4]) {
       i += 3;     // Skip degenerates
       continue;
     }
     lineIdx.push_back(mIdx[i]);
     lineIdx.push_back(mIdx[i+2]);
   }
+  
+  // Close off the final triangle
+  lineIdx.push_back(mIdx[IndexCount()-2]);
+  lineIdx.push_back(mIdx[IndexCount()-1]);
 }
