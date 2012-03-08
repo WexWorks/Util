@@ -28,13 +28,35 @@ const char *GlesUtil::ErrorString() {
 
 bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
                           GLuint aUV, float u0, float v0, float u1, float v1) {
-  const float P[8] = {x0, y0,  x0, y1,  x1, y0,  x1, y1 };
-  const float UV[8] = {u0, v0,  u0, v1,  u1, v0,  u1, v1 };
+  const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
+  const float UV[8] = { u0, v0,  u0, v1,  u1, v0,  u1, v1 };
   glEnableVertexAttribArray(aUV);
   glEnableVertexAttribArray(aP);
   glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
   glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  if (Error())
+    return false;
+  return true;
+}
+
+
+bool GlesUtil::DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
+                              float w, float h, GLuint aUV) {
+  float xi0 = x0 + w;                        // inner box
+  float yi0 = y0 + h;
+  float xi1 = x1 - w;
+  float yi1 = y1 - h;
+  const float P[16] = { x0, y0,  x0, y1,  x1, y0,  x1, y1,
+                        xi0, yi0, xi0, yi1, xi1, yi0, xi1, yi1 };
+  const float UV[16] = { 0, 0, 0.25, 0, 0.75, 0, 0.5, 0,
+                         0, 1, 0.25, 1, 0.75, 1, 0.5, 1 };
+  const unsigned short idx[10] = { 4, 0, 5, 1, 7, 3, 6, 2, 4, 0 };
+  glEnableVertexAttribArray(aUV);
+  glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
+  glDrawElements(GL_TRIANGLE_STRIP, 10, GL_UNSIGNED_SHORT, idx);
   if (Error())
     return false;
   return true;
@@ -50,7 +72,7 @@ bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
     gInitialized = true;
     
     // Note: the program below is leaked and should be destroyed in _atexit()
-    static const char *dbgVpCode =
+    static const char *vpCode =
     "attribute vec4 aP;\n"
     "attribute vec2 aUV;\n"
     "varying vec2 vUV;\n"
@@ -58,17 +80,17 @@ bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
     "  vUV = aUV;\n"
     "  gl_Position = aP;\n"
     "}\n";
-    static const char *dbgFpCode =
+    static const char *fpCode =
     "precision mediump float;\n"
     "varying vec2 vUV;\n"
     "uniform sampler2D uCTex;\n"
     "void main() {\n"
     "  gl_FragColor = texture2D(uCTex, vUV);\n"
     "}\n";
-    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, dbgVpCode);
+    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
     if (!vp)
       return false;
-    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, dbgFpCode);
+    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
     if (!fp)
       return false;
     gProgram = GlesUtil::CreateProgram(vp, fp);
