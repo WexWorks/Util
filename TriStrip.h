@@ -23,12 +23,12 @@ public:
   void Clear();
   void Reserve(size_t vertexCount, size_t indexCount);
   bool Append(const TriStrip &tristrip);
-  void ToLines(std::vector<unsigned int> &lineIdx) const;
+  void ToLines(std::vector<unsigned short> &lineIdx) const;
   
   // Mutable access
   Imath::V3f &P(size_t i) { return mP[i]; }
   Imath::V4f &Attr(size_t a, size_t v) { return mA[a][v]; }
-  unsigned &Idx(size_t i) { return mIdx[i]; }
+  unsigned short &Idx(size_t i) { return mIdx[i]; }
   unsigned short &Material(size_t i) { return mMaterial[i]; }
   
   // Constant access
@@ -37,7 +37,7 @@ public:
   const Imath::V3f &P(size_t i) const { return mP[i]; }
   const Imath::V4f &Attr(size_t a, size_t v) const { return mA[a][v]; }
   bool AttrEnabled(size_t i) const { return mFlags & (1L << i); }
-  const unsigned &Idx(size_t i) const { return mIdx[i]; }
+  const unsigned short &Idx(size_t i) const { return mIdx[i]; }
   const unsigned short &Material(size_t i) const { return mMaterial[i]; }
   
 private:
@@ -45,7 +45,7 @@ private:
   
   unsigned long mFlags;
   std::vector<Imath::V3f> mP;
-  std::vector<unsigned> mIdx;
+  std::vector<unsigned short> mIdx;
   std::vector<Imath::V4f> mA[kMaxAttr];
   std::vector<unsigned short> mMaterial;
 };

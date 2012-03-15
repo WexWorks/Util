@@ -8,7 +8,6 @@
 
 
 void TriStrip::Clear() {
-  mFlags = 0;
   mP.resize(0);
   mIdx.resize(0);
   for (size_t i = 0; i < kMaxAttr; ++i)
@@ -48,8 +47,8 @@ bool TriStrip::Append(const TriStrip &tristrip) {
     return false;
   if (tristrip.mP.empty())
       return true;
-  const size_t maxIdx = std::numeric_limits<unsigned>::max();
-  if (mP.size() + tristrip.mP.size() > maxIdx)
+  const size_t maxIdx = std::numeric_limits<unsigned short>::max();
+  if (mP.size() + tristrip.mP.size() + 4 > maxIdx)
     return false;
 
   const size_t oldVCount = mP.size();
@@ -71,8 +70,8 @@ bool TriStrip::Append(const TriStrip &tristrip) {
     // vertices of the new strip to join them with two degenerate tris
     firstNewIdx += 4;
     mIdx[oldIdxCount+0] = mIdx[oldIdxCount-1];
-    const unsigned firstIdx = tristrip.mIdx[0] + oldVCount;
-    const unsigned secondIdx = tristrip.mIdx[1] + oldVCount;
+    const unsigned short firstIdx = tristrip.mIdx[0] + oldVCount;
+    const unsigned short secondIdx = tristrip.mIdx[1] + oldVCount;
     mIdx[oldIdxCount+1] = firstIdx;
     mIdx[oldIdxCount+2] = firstIdx;
     mIdx[oldIdxCount+3] = secondIdx;
@@ -98,7 +97,7 @@ bool TriStrip::Append(const TriStrip &tristrip) {
 }
 
 
-void TriStrip::ToLines(std::vector<unsigned int> &lineIdx) const {
+void TriStrip::ToLines(std::vector<unsigned short> &lineIdx) const {
   lineIdx.reserve(VertexCount()*3);
   for (size_t i = 0; i < IndexCount() - 2; ++i) {
     lineIdx.push_back(mIdx[i]);
