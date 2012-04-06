@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CA7EC400152E8A2A00882848 /* Json.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CA7EC3FE152E8A2A00882848 /* Json.cpp */; };
+		CA7EC401152E8A2A00882848 /* Json.h in Headers */ = {isa = PBXBuildFile; fileRef = CA7EC3FF152E8A2A00882848 /* Json.h */; };
 		CABCBB7B14D0A21200A735F5 /* GlesUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = CABCBB7914D0A21200A735F5 /* GlesUtil.h */; };
 		CABCBB7F14D0A28700A735F5 /* TriStrip.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */; };
 		CABCBB8014D0A28700A735F5 /* TriStrip.h in Headers */ = {isa = PBXBuildFile; fileRef = CABCBB7E14D0A28700A735F5 /* TriStrip.h */; };
@@ -16,6 +18,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		CA7EC3FE152E8A2A00882848 /* Json.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Json.cpp; sourceTree = "<group>"; };
+		CA7EC3FF152E8A2A00882848 /* Json.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Json.h; sourceTree = "<group>"; };
 		CABCBB6714D07F8D00A735F5 /* libUtil.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libUtil.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		CABCBB7914D0A21200A735F5 /* GlesUtil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GlesUtil.h; sourceTree = "<group>"; };
 		CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TriStrip.cpp; sourceTree = "<group>"; };
@@ -39,6 +43,8 @@
 		CABCBB5C14D07F8D00A735F5 = {
 			isa = PBXGroup;
 			children = (
+				CA7EC3FE152E8A2A00882848 /* Json.cpp */,
+				CA7EC3FF152E8A2A00882848 /* Json.h */,
 				CAFE51F814EAC06F00C78E0B /* Timer.cpp */,
 				CAFE51F914EAC06F00C78E0B /* Timer.h */,
 				CABCBB7914D0A21200A735F5 /* GlesUtil.h */,
@@ -67,6 +73,7 @@
 				CABCBB7B14D0A21200A735F5 /* GlesUtil.h in Headers */,
 				CABCBB8014D0A28700A735F5 /* TriStrip.h in Headers */,
 				CAFE51FB14EAC06F00C78E0B /* Timer.h in Headers */,
+				CA7EC401152E8A2A00882848 /* Json.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -124,6 +131,7 @@
 				CABCBB7F14D0A28700A735F5 /* TriStrip.cpp in Sources */,
 				CABCBB8D14D0A52C00A735F5 /* GlesUtil.cpp in Sources */,
 				CAFE51FA14EAC06F00C78E0B /* Timer.cpp in Sources */,
+				CA7EC400152E8A2A00882848 /* Json.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
