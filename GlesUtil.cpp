@@ -13,7 +13,7 @@ bool GlesUtil::Error() {
   gErrorCode = glGetError();            // Note: GLES only has one active err
   return gErrorCode != GL_NO_ERROR;
 #else
-  return true;
+  return false;
 #endif
 }
 
