@@ -9,8 +9,12 @@ static GLint gErrorCode = GL_NO_ERROR;
 
 
 bool GlesUtil::Error() {
+#if DEBUG
   gErrorCode = glGetError();            // Note: GLES only has one active err
   return gErrorCode != GL_NO_ERROR;
+#else
+  return false;
+#endif
 }
 
 
