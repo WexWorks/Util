@@ -6,6 +6,8 @@
 #include <string.h>
 #include <limits>
 
+using Imath::V3f;
+
 
 void TriStrip::Clear() {
   mP.resize(0);
@@ -114,4 +116,58 @@ void TriStrip::ToLines(std::vector<unsigned short> &lineIdx) const {
   // Close off the final triangle
   lineIdx.push_back(mIdx[IndexCount()-2]);
   lineIdx.push_back(mIdx[IndexCount()-1]);
+}
+
+
+void TriStrip::InitTransform(const TriStrip &src, const Imath::M44f &T) {
+  mFlags = src.mFlags;
+  mIdx = src.mIdx;
+  for (size_t i = 0; i < kMaxAttr; ++i)
+    mA[i] = src.mA[i];
+  mMaterial = src.mMaterial;
+  mP.resize(src.mP.size());
+  for (size_t i = 0; i < src.mP.size(); ++i)
+    mP[i] = src.mP[i] * T;
+}
+
+
+void TriStrip::InitDisc(const Imath::V3f &center, const Imath::V3f &N,
+                        float radius, size_t vertexCount,
+                        unsigned long flags, int uvAttrIdx) {
+  mFlags = flags;
+  V3f X = N.cross(V3f(1, 0, 0));
+  if (X.length() < 0.001)
+    X = N.cross(V3f(0, 0, 1));
+  V3f Y = N.cross(V3f(0, 1, 0));
+  if (Y.length() < 0.001)
+    Y = N.cross(V3f(0, 0, 1));
+  mP.push_back(center);
+  V3f P = radius * Y;
+  mP.push_back(P);
+  const float k = 1.0 / (vertexCount - 1);
+  for (size_t i = 1; i < vertexCount; ++i) {
+    float theta = 2 * M_PI * k * i;
+    float u = sinf(theta);
+    float v = cosf(theta);
+    P = radius * (u * X + v * Y);
+    mP.push_back(P);
+
+    mIdx.push_back(i);
+    mIdx.push_back(0);
+    mIdx.push_back(i+1);
+  }
+  
+  mIdx.push_back(1);
+  assert(vertexCount == mP.size() - 1);
+  for (size_t i = 0; i < kMaxAttr; ++i) {
+    if (AttrEnabled(i))
+      mA[i].resize(mP.size());
+    if (i == uvAttrIdx) {
+      for (size_t j = 0; j < vertexCount; ++j) {
+        float theta = 2 * M_PI * k * i;
+        mA[i][j].x = sinf(theta);
+        mA[i][j].y = cosf(theta);
+      }
+    }
+  }
 }
