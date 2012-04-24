@@ -2,6 +2,7 @@
 
 #include "GlesUtil.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 
@@ -124,6 +125,8 @@ bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
                             GLenum clampS, GLenum clampT,
                             GLsizei w, GLsizei h, GLenum format, GLenum type,
                             const void *pix) {
+  if (magFilter != GL_NEAREST && magFilter != GL_LINEAR)
+    return false;
   glBindTexture(target, tex);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   glTexImage2D(target, 0, format, w, h, 0, format, type, pix);
@@ -135,12 +138,24 @@ bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
   glTexParameteri(target, GL_TEXTURE_WRAP_S, clampS);
   glTexParameteri(target, GL_TEXTURE_WRAP_T, clampT);
   
-  bool needs_mip_chain = minFilter != GL_NEAREST && minFilter != GL_LINEAR;
-  needs_mip_chain |= magFilter && magFilter != GL_NEAREST;
+  const bool needs_mip_chain = minFilter != GL_NEAREST && minFilter !=GL_LINEAR;
   if (pix && needs_mip_chain)
     glGenerateMipmap(target);
   if (Error())
     return false;
+  
+#if DEBUG
+  bool isPow2 = false;
+  for (size_t i = 1; i < 12; ++i) {
+    if (w == (1L << i)) {
+      isPow2 = true;
+      break;
+    }
+  }
+  isPow2 = isPow2 && w == h;
+  assert(!needs_mip_chain || isPow2);
+  assert((clampS == GL_CLAMP_TO_EDGE && clampT == GL_CLAMP_TO_EDGE) || isPow2);
+#endif
   
   return true;
 }
