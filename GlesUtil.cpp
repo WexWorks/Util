@@ -70,53 +70,14 @@ bool GlesUtil::DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
 
 bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                              float u0, float v0, float u1, float v1) {
-  static bool gInitialized = false;             // WARNING: Static variables!
-  static GLuint gProgram = 0;
-  static GLuint gAP = 0, gAUV = 0, gUCTex = 0;
-  if (!gInitialized) {
-    gInitialized = true;
-    
-    // Note: the program below is leaked and should be destroyed in _atexit()
-    static const char *vpCode =
-    "attribute vec4 aP;\n"
-    "attribute vec2 aUV;\n"
-    "varying vec2 vUV;\n"
-    "void main() {\n"
-    "  vUV = aUV;\n"
-    "  gl_Position = aP;\n"
-    "}\n";
-    static const char *fpCode =
-    "precision mediump float;\n"
-    "varying vec2 vUV;\n"
-    "uniform sampler2D uCTex;\n"
-    "void main() {\n"
-    "  gl_FragColor = texture2D(uCTex, vUV);\n"
-    "}\n";
-    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
-    if (!vp)
-      return false;
-    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
-    if (!fp)
-      return false;
-    gProgram = GlesUtil::CreateProgram(vp, fp);
-    if (!gProgram)
-      return false;
-    glDeleteShader(vp);
-    glDeleteShader(fp);
-    glUseProgram(gProgram);
-    gAUV = glGetAttribLocation(gProgram, "aUV");
-    gAP = glGetAttribLocation(gProgram, "aP");
-    gUCTex = glGetUniformLocation(gProgram, "uCTex");
-    if (Error())
-      return false;
-  }
-  
-  glUseProgram(gProgram);
+  GLuint aP, aUV, uTex;
+  GLuint program = TextureProgram(&aP, &aUV, &uTex);
+  glUseProgram(program);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, tex);
-  glUniform1i(gUCTex, 0);
+  glUniform1i(uTex, 0);
   
-  return DrawBox2f(gAP, x0, y0, x1, y1, gAUV, u0, v0, u1, v1);
+  return DrawBox2f(aP, x0, y0, x1, y1, aUV, u0, v0, u1, v1);
 }
 
 
@@ -222,6 +183,55 @@ GLuint GlesUtil::CreateProgram(GLuint vp, GLuint fp) {
     return 0;
   
   return program;
+}
+
+
+GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uTex) {
+  static bool gInitialized = false;             // WARNING: Static variables!
+  static GLuint gProgram = 0;
+  static GLuint gAP = 0, gAUV = 0, gUCTex = 0;
+  if (!gInitialized) {
+    gInitialized = true;
+    
+    // Note: the program below is leaked and should be destroyed in _atexit()
+    static const char *vpCode =
+    "attribute vec4 aP;\n"
+    "attribute vec2 aUV;\n"
+    "varying vec2 vUV;\n"
+    "void main() {\n"
+    "  vUV = aUV;\n"
+    "  gl_Position = aP;\n"
+    "}\n";
+    static const char *fpCode =
+    "precision mediump float;\n"
+    "varying vec2 vUV;\n"
+    "uniform sampler2D uCTex;\n"
+    "void main() {\n"
+    "  gl_FragColor = texture2D(uCTex, vUV);\n"
+    "}\n";
+    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
+    if (!vp)
+      return false;
+    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    if (!fp)
+      return false;
+    gProgram = GlesUtil::CreateProgram(vp, fp);
+    if (!gProgram)
+      return false;
+    glDeleteShader(vp);
+    glDeleteShader(fp);
+    glUseProgram(gProgram);
+    gAUV = glGetAttribLocation(gProgram, "aUV");
+    gAP = glGetAttribLocation(gProgram, "aP");
+    gUCTex = glGetUniformLocation(gProgram, "uCTex");
+    if (Error())
+      return false;
+  }
+  
+  *aP = gAP;
+  *aUV = gAUV;
+  *uTex = gUCTex;
+  return gProgram;
 }
 
 
