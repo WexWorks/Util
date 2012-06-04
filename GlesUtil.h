@@ -46,6 +46,7 @@ bool StoreTexture(GLuint tex, GLenum target,
 //   Type: GL_VERTEX_SHADER, GL_FRAGMENT_SHADER
 GLuint CreateShader(GLenum type, const char *source_code);
 GLuint CreateProgram(GLuint vp, GLuint fp);
+GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uTex);
   
 // Buffer functions:
 //   Target: GL_ARRAY_BUFFER, GL_ELEMNT_ARRAY_BUFFER
