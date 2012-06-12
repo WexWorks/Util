@@ -122,6 +122,13 @@ bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
 }
 
 
+GLint GlesUtil::MaxTextureSize() {
+  GLint texSize;
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &texSize);
+  return texSize;
+}
+
+
 GLuint GlesUtil::CreateShader(GLenum type, const char *source_code) {
   GLuint shader = glCreateShader(type);
   if (!shader)
