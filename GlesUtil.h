@@ -41,6 +41,7 @@ bool StoreTexture(GLuint tex, GLenum target,
                   GLenum clampS, GLenum clampT,
                   GLsizei w, GLsizei h, GLenum format, GLenum type,
                   const void *pix);
+GLint MaxTextureSize();
 
 // Shader functions:
 //   Type: GL_VERTEX_SHADER, GL_FRAGMENT_SHADER
