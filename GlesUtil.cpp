@@ -193,6 +193,50 @@ GLuint GlesUtil::CreateProgram(GLuint vp, GLuint fp) {
 }
 
 
+GLuint GlesUtil::ConstantProgram(GLuint *aP, GLuint *uC) {
+  static bool gInitialized = false;             // WARNING: Static variables!
+  static GLuint gProgram = 0;
+  static GLuint gAP = 0, gUC = 0;
+  if (!gInitialized) {
+    gInitialized = true;
+    
+    // Note: the program below is leaked and should be destroyed in _atexit()
+    static const char *vpCode =
+    "attribute vec4 aP;\n"
+    "attribute vec2 aUV;\n"
+    "void main() {\n"
+    "  gl_Position = aP;\n"
+    "}\n";
+    static const char *fpCode =
+    "precision mediump float;\n"
+    "uniform vec4 uC;\n"
+    "void main() {\n"
+    "  gl_FragColor = uC;\n"
+    "}\n";
+    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
+    if (!vp)
+      return false;
+    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    if (!fp)
+      return false;
+    gProgram = GlesUtil::CreateProgram(vp, fp);
+    if (!gProgram)
+      return false;
+    glDeleteShader(vp);
+    glDeleteShader(fp);
+    glUseProgram(gProgram);
+    gAP = glGetAttribLocation(gProgram, "aP");
+    gUC = glGetUniformLocation(gProgram, "uC");
+    if (Error())
+      return false;
+  }
+  
+  *aP = gAP;
+  *uC = gUC;
+  return gProgram;
+}
+
+
 GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uTex) {
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;

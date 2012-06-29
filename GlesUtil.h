@@ -47,6 +47,7 @@ GLint MaxTextureSize();
 //   Type: GL_VERTEX_SHADER, GL_FRAGMENT_SHADER
 GLuint CreateShader(GLenum type, const char *source_code);
 GLuint CreateProgram(GLuint vp, GLuint fp);
+GLuint ConstantProgram(GLuint *aP, GLuint *uC);
 GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uTex);
   
 // Buffer functions:
