@@ -205,6 +205,8 @@
 					"$(ILM_BASE_DIR)/Iex",
 					"$(ILM_BASE_DIR)/Imath",
 				);
+				OTHER_CFLAGS = "";
+				OTHER_CPLUSPLUSFLAGS = "";
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SHARED_PRECOMPS_DIR = "";
@@ -224,6 +226,9 @@
 					"$(ILM_BASE_DIR)/Iex",
 					"$(ILM_BASE_DIR)/Imath",
 				);
+				OTHER_CFLAGS = "";
+				"OTHER_CFLAGS[arch=*]" = "-DNDEBUG";
+				OTHER_CPLUSPLUSFLAGS = "-DNDEBUG";
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SHARED_PRECOMPS_DIR = "";
