@@ -131,8 +131,8 @@ GLint GlesUtil::MaxTextureSize() {
 
 
 bool GlesUtil::IsMSAAResolutionSupported(GLuint w, GLuint h) {
-  const GLint maxSize = MaxTextureSize();
-  return w < maxSize && h < maxSize;
+  const GLint maxSize = MaxTextureSize() / 2;
+  return w <= maxSize && h <= maxSize;
 }
 
 
