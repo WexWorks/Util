@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 static GLint gErrorCode = GL_NO_ERROR;
@@ -126,6 +127,12 @@ GLint GlesUtil::MaxTextureSize() {
   GLint texSize;
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &texSize);
   return texSize;
+}
+
+
+bool GlesUtil::IsMSAAResolutionSupported(GLuint w, GLuint h) {
+  const GLint maxSize = MaxTextureSize() / 2;
+  return w <= maxSize && h <= maxSize;
 }
 
 
@@ -307,4 +314,12 @@ bool GlesUtil::StoreSubBuffer(GLuint id, GLenum target, GLintptr offset,
   if (Error())
     return false;
   return true;
+}
+
+
+bool GlesUtil::IsExtensionEnabled(const char *extension) {
+  static const unsigned char *extensionString = NULL;
+  if (!extensionString)
+    extensionString = glGetString(GL_EXTENSIONS);
+  return strstr((const char *)extensionString, extension) != NULL;
 }
