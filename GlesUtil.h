@@ -58,6 +58,11 @@ GLuint CreateBuffer(GLenum target, GLsizeiptr bytes, void *data,
 bool StoreSubBuffer(GLuint id, GLenum target, GLintptr offset,
                     GLsizeiptr size, void *data);
 
+// Check for a named extension:
+// 
+bool IsExtensionEnabled(const char *extension);
+bool IsMSAAResolutionSupported(GLuint w, GLuint h);
+  
 };      // namespace GlesUtil
 
 
