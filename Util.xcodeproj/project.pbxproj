@@ -200,7 +200,7 @@
 				DSTROOT = /tmp/Util.dst;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = "";
-				GCC_VERSION = com.apple.compilers.llvmgcc42;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				HEADER_SEARCH_PATHS = (
 					"$(ILM_BASE_DIR)/Iex",
 					"$(ILM_BASE_DIR)/Imath",
@@ -221,7 +221,7 @@
 				DSTROOT = /tmp/Util.dst;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = "";
-				GCC_VERSION = com.apple.compilers.llvmgcc42;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				HEADER_SEARCH_PATHS = (
 					"$(ILM_BASE_DIR)/Iex",
 					"$(ILM_BASE_DIR)/Imath",
