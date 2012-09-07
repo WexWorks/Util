@@ -4,6 +4,7 @@
 #define TRISTRIP_H
 
 #include <vector>
+#include <assert.h>
 
 #include <ImathMatrix.h>
 #include <ImathVec.h>
@@ -30,19 +31,26 @@ public:
   void ToLines(std::vector<unsigned short> &lineIdx) const;
   
   // Mutable access
-  Imath::V3f &P(size_t i) { return mP[i]; }
-  Imath::V4f &Attr(size_t a, size_t v) { return mA[a][v]; }
-  unsigned short &Idx(size_t i) { return mIdx[i]; }
-  unsigned short &Material(size_t i) { return mMaterial[i]; }
+  Imath::V3f &P(size_t i) {  assert(i < mP.size()); return mP[i]; }
+  Imath::V4f &Attr(size_t a, size_t v) {
+    assert(a < kMaxAttr); assert(v < mA[a].size()); return mA[a][v]; }
+  unsigned short &Idx(size_t i) { assert(i < mIdx.size()); return mIdx[i]; }
+  unsigned short &Material(size_t i) {
+    assert(i < mMaterial.size()); return mMaterial[i]; }
   
   // Constant access
   size_t VertexCount() const { return mP.size(); }
   size_t IndexCount() const { return mIdx.size(); }
-  const Imath::V3f &P(size_t i) const { return mP[i]; }
-  const Imath::V4f &Attr(size_t a, size_t v) const { return mA[a][v]; }
-  bool AttrEnabled(size_t i) const { return mFlags & (1L << i); }
-  const unsigned short &Idx(size_t i) const { return mIdx[i]; }
-  const unsigned short &Material(size_t i) const { return mMaterial[i]; }
+  bool Empty() const { return mIdx.size() == 0; }
+  const Imath::V3f &P(size_t i) const { assert(i < mP.size()); return mP[i]; }
+  const Imath::V4f &Attr(size_t a, size_t v) const {
+    assert(a < kMaxAttr); assert(v < mA[a].size()); return mA[a][v]; }
+  bool AttrEnabled(size_t i) const {
+    assert(i < kMaxAttr); return mFlags & (1L << i); }
+  const unsigned short &Idx(size_t i) const {
+    assert(i < mIdx.size()); return mIdx[i]; }
+  const unsigned short &Material(size_t i) const {
+    assert(i < mMaterial.size());return mMaterial[i]; }
   
 private:
   static const size_t kMaxAttr = 3;  
