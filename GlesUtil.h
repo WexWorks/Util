@@ -24,7 +24,11 @@ bool DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
 bool DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
                     float w, float h, GLuint aUV);
 bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
-                   float u0, float v0, float u1, float v1);
+                     float u0, float v0, float u1, float v1);
+// Since we can't draw a texture in constant color wrap mode we do it in a
+// function that implements in shader.
+bool DrawTextureWrapBlack2f(GLuint tex, float x0, float y0, float x1, float y1,
+                     float u0, float v0, float u1, float v1);
   
 // Texture functions:
 //   Target:  GL_TEXTURE_2D, GL_TEXTURE_CUBE_MAP
@@ -49,6 +53,7 @@ GLuint CreateShader(GLenum type, const char *source_code);
 GLuint CreateProgram(GLuint vp, GLuint fp);
 GLuint ConstantProgram(GLuint *aP, GLuint *uC);
 GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uTex);
+GLuint TextureProgramWrapBlack(GLuint *aP, GLuint *aUV, GLuint *uTex);
   
 // Buffer functions:
 //   Target: GL_ARRAY_BUFFER, GL_ELEMNT_ARRAY_BUFFER
