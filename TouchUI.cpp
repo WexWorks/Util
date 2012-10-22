@@ -86,7 +86,6 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         }
         if (mIsPanning) {
           const float panVel[2] = { pan[0] - mPrevPan[0], pan[1] - mPrevPan[1] };
-          printf("Pan 1: ");
           OnPan(phase, pan[0], pan[1], panVel[0], panVel[1]);
           mPrevPan[0] = pan[0];
           mPrevPan[1] = pan[1];
@@ -1448,9 +1447,6 @@ bool FrameViewer::Draw() {
   glClearColor(0.5, 0.5, 0.5, 0);
   glClear(GL_COLOR_BUFFER_BIT);
   
-  printf("Scale = %f, center = [%f, %f]\n", mScale,
-         mCenterUV[0], mCenterUV[1]);
-
   if (CurFrame()) {
     // Compute the NDC & UV rectangle for the image and draw
     class Frame &frame(*CurFrame());
