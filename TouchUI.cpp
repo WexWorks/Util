@@ -27,9 +27,9 @@ int Sprite::mSpriteUOpacity = 0;
 // Widget
 //
 
-static float length(const int p0[2], const int p1[2]) {
-  float dx = p0[0] - p1[0];
-  float dy = p0[1] - p1[1];
+static float length(int ax, int ay, int bx, int by) {
+  float dx = ax - bx;
+  float dy = ay - by;
   return sqrtf(dx * dx + dy * dy);
 }
 
@@ -41,25 +41,40 @@ static float length(const int p0[2], const int p1[2]) {
 
 bool Widget::ProcessGestures(const tui::Event &event) {
 
-  // FIXME: Follow event ids, not just first two touches!
-  bool multiTouch = event.touchVec.size() > 1;
-  
-  switch (event.phase) {
-    case TOUCH_BEGAN:
-      mTouchStart[0][0] = event.touchVec[0].x;
-      mTouchStart[0][1] = event.touchVec[0].y;
-      if (multiTouch) {
-        mTouchStart[1][0] = event.touchVec[1].x;
-        mTouchStart[1][1] = event.touchVec[1].y;
+  EventPhase phase = event.phase;         // Change if touch ids change
+  size_t idx[mTouchStart.size()];         // Vector indices of start touches
+  if (mTouchStart.size() != event.touchVec.size()) {
+    phase = TOUCH_BEGAN;                  // Restart when # touches changes
+  } else {
+    for (size_t i = 0; i < mTouchStart.size(); ++i) {
+      size_t j = 0;
+      for (/*EMPTY*/; j < event.touchVec.size(); ++j) {
+        if (event.touchVec[j].id == mTouchStart[i].id)
+          break;
       }
+      if (j < event.touchVec.size()) {
+        idx[i] = j;                       // Identify touch index in vector
+      } else {
+        phase = TOUCH_BEGAN;              // Restart if we lose a touch
+        break; // Can't find previous touch, start over?
+      }
+    }
+  }
+
+  switch (phase) {
+    case TOUCH_BEGAN:
+      mTouchStart.clear();
+      mTouchStart = event.touchVec;
+      mIsPanning = false;                 // Avoid jump due to mPrevPan tracking
+      mIsScaling = false;
       break;
     case TOUCH_MOVED:
-      if (multiTouch) {
+      if (mTouchStart.size() > 1) {       // Multitouch processing
         // Compute the pan based on the distance between the segment midpoints
-        const float m1[2] = { 0.5*(event.touchVec[0].x + event.touchVec[1].x),
-                              0.5*(event.touchVec[0].y + event.touchVec[1].y) };
-        const float m0[2] = { 0.5*(mTouchStart[0][0] + mTouchStart[1][0]),
-                              0.5*(mTouchStart[0][1] + mTouchStart[1][1]) };
+        const float m1[2] = { 0.5*(event.touchVec[idx[0]].x + event.touchVec[idx[1]].x),
+                              0.5*(event.touchVec[idx[0]].y + event.touchVec[idx[1]].y) };
+        const float m0[2] = { 0.5*(mTouchStart[0].x + mTouchStart[1].x),
+                              0.5*(mTouchStart[0].y + mTouchStart[1].y) };
         const float pan[2] = { m1[0] - m0[0], m1[1] - m0[1] };
         EventPhase phase = TOUCH_MOVED;
         if (!mIsPanning &&
@@ -71,16 +86,18 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         }
         if (mIsPanning) {
           const float panVel[2] = { pan[0] - mPrevPan[0], pan[1] - mPrevPan[1] };
+          printf("Pan 1: ");
           OnPan(phase, pan[0], pan[1], panVel[0], panVel[1]);
           mPrevPan[0] = pan[0];
           mPrevPan[1] = pan[1];
         }
 
         // Compute the scale based on the ratio of the segment lengths
-        float len0 = length(mTouchStart[0], mTouchStart[1]);
-        const int p0[2] = { event.touchVec[0].x, event.touchVec[0].y };
-        const int p1[2] = { event.touchVec[1].x, event.touchVec[1].y };
-        float len1 = length(p0, p1);
+        float len0 = length(mTouchStart[0].x, mTouchStart[0].y,
+                            mTouchStart[1].x, mTouchStart[1].y);
+        const int p0[2] = { event.touchVec[idx[0]].x, event.touchVec[idx[0]].y };
+        const int p1[2] = { event.touchVec[idx[1]].x, event.touchVec[idx[1]].y };
+        float len1 = length(p0[0], p0[1], p1[0], p1[1]);
         float scale = len1 / len0;
         phase = TOUCH_MOVED;
         if (!mIsScaling && (scale > 1+kMinScale || scale < 1-kMinScale)) {
@@ -93,11 +110,11 @@ bool Widget::ProcessGestures(const tui::Event &event) {
           mPrevScale = scale;
         }
 
-      } else {
-        // Single-touch: translate by the difference between the previous
-        // and the current touch locations, accounting for scale.
-        const float pan[2] = { event.touchVec[0].x - mTouchStart[0][0],
-                               event.touchVec[0].y - mTouchStart[0][1] };
+      } else {                              // Single-touch processing
+        // Translate by the difference between the previous and
+        // the current touch locations, accounting for scale.
+        const float pan[2] = { event.touchVec[idx[0]].x - mTouchStart[0].x,
+                               event.touchVec[idx[0]].y - mTouchStart[0].y };
         EventPhase phase = TOUCH_MOVED;
         if (!mIsPanning &&
             (fabsf(pan[0]) > kMinPanPix || fabsf(pan[1]) > kMinPanPix)) {
@@ -116,9 +133,10 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       break;
     case TOUCH_CANCELLED: /*FALLTHRU*/
     case TOUCH_ENDED:
+      mTouchStart.clear();
       if (mIsScaling) {
-        const float m0[2] = { 0.5*(event.touchVec[0].x + event.touchVec[1].x),
-                              0.5*(event.touchVec[0].y + event.touchVec[1].y) };
+        const float m0[2] = { 0.5*(event.touchVec[idx[0]].x + event.touchVec[idx[1]].x),
+                              0.5*(event.touchVec[idx[0]].y + event.touchVec[idx[1]].y) };
         mIsScaling = false;
         OnScale(TOUCH_ENDED, mPrevScale, 1, m0[0], m0[1]);
       }

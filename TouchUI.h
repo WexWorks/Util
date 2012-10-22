@@ -3,6 +3,7 @@
 #ifndef TOUCH_UI_H_
 #define TOUCH_UI_H_
 
+#include <map>
 #include <vector>
 #include <string>
 
@@ -51,8 +52,7 @@ namespace tui {
   public:
     Widget() : mIsEnabled(true), mIsHidden(false), mIsScaling(false),
                mIsPanning(false), mPrevScale(0) {
-      memset(mTouchStart, 0, sizeof(mTouchStart));
-                 memset(mPrevPan, 0, sizeof(mPrevPan));
+      memset(mPrevPan, 0, sizeof(mPrevPan));
     }
     virtual ~Widget() {}
     
@@ -87,7 +87,6 @@ namespace tui {
     virtual void Hide(bool status) { mIsHidden = status; }
     
   private:
-    static const int kMaxTouchCount = 2;      // Ignore all but first two touch
     static const float kMinScale = 0.01;      // Min scaling amount before event
     static const int kMinPanPix = 10;         // Min pan motion before event
 
@@ -98,7 +97,7 @@ namespace tui {
     bool mIsHidden;                           // Stop drawing
     bool mIsScaling;                          // True if processing scale event
     bool mIsPanning;                          // True if processing pan event
-    int mTouchStart[kMaxTouchCount][2];       // [x,y] for first K touches
+    std::vector<Event::Touch> mTouchStart;    // Tracking touches
     float mPrevScale, mPrevPan[2];            // Last reported, for velocity
   };
   
