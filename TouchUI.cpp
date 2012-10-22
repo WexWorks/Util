@@ -1325,6 +1325,18 @@ bool FrameViewer::SetTransitionFrames(class Frame *left, class Frame *right) {
 }
 
 
+// Helper functions to convert magnitude in image UV space into NDC units.
+
+float FrameViewer::ConvertUToNDC(const class Frame &frame, float u) const {
+  return 2 * u * mScale * frame.Width() / Width();
+}
+
+
+float FrameViewer::ConvertVToNDC(const class Frame &frame, float v) const {
+  return 2 * v * mScale * frame.Height() / Height();
+}
+
+
 // Compute the NDC and UV rectangles needed to render the current
 // frame using mScale and mCenterUV. We compute these on-demand
 // rather than storing them to ensure that they are always valid
@@ -1343,7 +1355,7 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     *u0 = mCenterUV[0] - halfWidthUV;         // Fill the UV rect around center
     *u1 = mCenterUV[0] + halfWidthUV;
     if (*u0 < 0) {                            // Adjust NDC if UV out of range
-      const float inset = -2 * *u0 * sw / Width();
+      const float inset = ConvertUToNDC(frame, -1 * *u0);
       if (frame.InvertHorizontal())
         *x1 -= inset;
       else
@@ -1351,7 +1363,7 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
       *u0 = 0;
     }
     if (*u1 > 1) {                            // Adjust NDC if UV out of range
-      const float inset = 2 * (*u1 - 1) * sw / Width();
+      const float inset = ConvertUToNDC(frame, *u1 - 1);
       if (frame.InvertHorizontal())
         *x0 += inset;
       else
@@ -1362,7 +1374,9 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     const float pad = (Width() - sw) / float(Width());
     *x0 = -1 + pad;                           // Pad left & right edges
     *x1 = 1 - pad;
-    mCenterUV[0] = 0.5;
+    const float offset = ConvertUToNDC(frame, 0.5 - mCenterUV[0]);
+    *x0 += offset;                            // Allow image to float
+    *x1 += offset;
     *u0 = 0;
     *u1 = 1;
   }
@@ -1374,7 +1388,7 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     *v0 = mCenterUV[1] - halfHeightUV;        // Fill the UV rect around center
     *v1 = mCenterUV[1] + halfHeightUV;
     if (*v0 < 0) {                            // Adjust NDC if UV out of range
-      const float inset = -2 * *v0 * sh / Height();
+      const float inset = ConvertVToNDC(frame, -1 * *v0);
       if (frame.InvertVertical())
         *y1 -= inset;
       else
@@ -1382,7 +1396,7 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
       *v0 = 0;
     }
     if (*v1 > 1) {                            // Adjust NDC if UV out of range
-      const float inset = 2 * (*v1 - 1) * sh / Height();
+      const float inset = ConvertVToNDC(frame, *v1 - 1);
       if (frame.InvertVertical())
         *y0 += inset;
       else
@@ -1393,11 +1407,14 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     const float pad = (Height() - sh) / float(Height());
     *y0 = -1 + pad;                           // Pad the top & bottom edges
     *y1 = 1 - pad;
-    mCenterUV[1] = 0.5;
+    const float offset = ConvertVToNDC(frame, 0.5 - mCenterUV[1]);
+    *y0 -= offset;                            // Allow image to float
+    *y1 -= offset;
     *v0 = 0;
     *v1 = 1;
   }
 
+  // Invert the texture coordinates as specified by the frame
   if (frame.InvertHorizontal())
     std::swap(*u0, *u1);
   if (frame.InvertVertical())

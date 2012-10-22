@@ -499,6 +499,8 @@ namespace tui {
     void ComputeFrameDisplayRect(const class Frame &frame, float *x0, float *y0,
                                  float *x1, float *y1, float *u0, float *v0,
                                  float *u1, float *v1);
+    float ConvertUToNDC(const class Frame &frame, float u) const;
+    float ConvertVToNDC(const class Frame &frame, float u) const;
     
     class Frame *mFrame[kMaxFrameCount];      // Managed frames
     float mScale;                             // Image scale, 1 -> 1 pixel
