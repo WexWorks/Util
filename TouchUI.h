@@ -51,8 +51,9 @@ namespace tui {
   class Widget {
   public:
     Widget() : mIsEnabled(true), mIsHidden(false), mIsScaling(false),
-               mIsPanning(false), mPrevScale(0) {
+               mIsPanning(false), mPrevScale(0), mPrevScaleVel(0) {
       memset(mPrevPan, 0, sizeof(mPrevPan));
+      memset(mPrevPanVel, 0, sizeof(mPrevPanVel));
     }
     virtual ~Widget() {}
     
@@ -68,7 +69,7 @@ namespace tui {
       return ProcessGestures(event);
     }
     
-    // Helper function to track touch events and call the Gesture functions
+    // Track touch events and call the Gesture event callbacks
     virtual bool ProcessGestures(const Event &event);
     
     // Gesture callbacks invoked by ProcessGestures. Return true if consumed.
@@ -77,6 +78,8 @@ namespace tui {
                          float originX, float originY) { return false; }
     virtual bool OnPan(EventPhase phase, float panX, float panY,
                        float velocityX, float velocityY) { return false; }
+    virtual bool IsScaling() const { return mIsScaling; }
+    virtual bool IsPanning() const { return mIsPanning; }
     
     // Enable state indicates whether Touch events are processed
     virtual bool Enabled() const { return mIsEnabled; }
@@ -98,7 +101,8 @@ namespace tui {
     bool mIsScaling;                          // True if processing scale event
     bool mIsPanning;                          // True if processing pan event
     std::vector<Event::Touch> mTouchStart;    // Tracking touches
-    float mPrevScale, mPrevPan[2];            // Last reported, for velocity
+    float mPrevScale, mPrevPan[2];            // Last reported values
+    float mPrevScaleVel, mPrevPanVel[2];      // Last reported velocity
   };
   
   
@@ -448,7 +452,7 @@ namespace tui {
   // left or right, or pinch/zoom to reach parent and child views.
   class FrameViewer : public AnimatedViewport {
   public:
-    // Manages a rectangular region that can be panned, zoomed and rotated.
+    // Manages a rectangular region that can be panned and zoomed
     class Frame {
     public:
       Frame() : mFrameViewer(NULL) {}
@@ -469,12 +473,15 @@ namespace tui {
         FrameViewer *mFrameViewer;            // Backpointer
     };
     
-    FrameViewer() : mScale(1) {
+    FrameViewer() : mScale(1), mScaleVelocity(0), mIsTargetScaleActive(false),
+                    mIsTargetCenterActive(false), mScaleMin(0), mScaleMax(0) {
       memset(mFrame, 0, sizeof(mFrame));
       memset(mCenterUV, 0, sizeof(mCenterUV));
+      memset(mCenterVelocityUV, 0, sizeof(mCenterVelocityUV));
     }
     virtual ~FrameViewer() {}
     
+    virtual bool Init(int x, int y, int w, int h);
     virtual bool SetFrame(Frame *frame);      // Set current frame
     virtual Frame *Frame() const { return mFrame[CUR_FRAME]; }
     virtual bool SetTransitionFrames(class Frame *left, class Frame *right);
@@ -490,11 +497,13 @@ namespace tui {
   protected:
     enum { CUR_FRAME=0, LEFT_FRAME=1, RIGHT_FRAME=2, IN_FRAME, OUT_FRAME };
     static const int kMaxFrameCount = 3;      // Managed frames
+    static const float kDamping = 0.7;        // Viscous damping
 
     FrameViewer(const FrameViewer &);         // Disallow copy ctor
     void operator=(const FrameViewer &);      // Disallow assignment
     
     class Frame *CurFrame() const { return mFrame[CUR_FRAME]; }
+    void ComputeScaleRange();
     void ComputeFrameDisplayRect(const class Frame &frame, float *x0, float *y0,
                                  float *x1, float *y1, float *u0, float *v0,
                                  float *u1, float *v1);
@@ -502,8 +511,12 @@ namespace tui {
     float ConvertVToNDC(const class Frame &frame, float u) const;
     
     class Frame *mFrame[kMaxFrameCount];      // Managed frames
-    float mScale;                             // Image scale, 1 -> 1 pixel
-    float mCenterUV[2];                       // Center of screen in UV 0 -> 1
+    float mScale, mScaleVelocity;             // Image scale, 1 -> 1 pixel
+    float mCenterUV[2], mCenterVelocityUV[2]; // Center of screen in UV 0 -> 1
+    float mTargetScale;                       // Rubberband targets
+    bool mIsTargetScaleActive;                // True if we use target scale
+    bool mIsTargetCenterActive;               // True if we use target center
+    float mScaleMin, mScaleMax;               // Valid scale range
   };
   
 } // namespace tui

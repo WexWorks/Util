@@ -1,4 +1,3 @@
-
 // Copyright (c) 2011 by The 11ers, LLC -- All Rights Reserved
 
 #include "TouchUI.h"
@@ -6,7 +5,6 @@
 #include <math.h>
 #include <assert.h>
 #include <GlesUtil.h>
-#include <ImathMatrix.h>
 
 
 using namespace tui;
@@ -41,10 +39,10 @@ static float length(int ax, int ay, int bx, int by) {
 
 bool Widget::ProcessGestures(const tui::Event &event) {
 
-  EventPhase phase = event.phase;         // Change if touch ids change
+  EventPhase trackingPhase = event.phase; // Change if touch ids change
   size_t idx[mTouchStart.size()];         // Vector indices of start touches
   if (mTouchStart.size() != event.touchVec.size()) {
-    phase = TOUCH_BEGAN;                  // Restart when # touches changes
+    trackingPhase = TOUCH_BEGAN;          // Restart when # touches changes
   } else {
     for (size_t i = 0; i < mTouchStart.size(); ++i) {
       size_t j = 0;
@@ -55,38 +53,41 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       if (j < event.touchVec.size()) {
         idx[i] = j;                       // Identify touch index in vector
       } else {
-        phase = TOUCH_BEGAN;              // Restart if we lose a touch
+        trackingPhase = TOUCH_BEGAN;      // Restart if we lose a touch
         break; // Can't find previous touch, start over?
       }
     }
   }
+  
+  // Localize the two touch events we track
+  const Event::Touch &t0(event.touchVec[idx[0]]), &t1(event.touchVec[idx[1]]);
 
-  switch (phase) {
+  switch (trackingPhase) {
     case TOUCH_BEGAN:
-      mTouchStart.clear();
-      mTouchStart = event.touchVec;
+      mTouchStart.clear();                // Unnecessary?
+      mTouchStart = event.touchVec;       // Save initial touch down info
       mIsPanning = false;                 // Avoid jump due to mPrevPan tracking
       mIsScaling = false;
       break;
     case TOUCH_MOVED:
       if (mTouchStart.size() > 1) {       // Multitouch processing
         // Compute the pan based on the distance between the segment midpoints
-        const float m1[2] = { 0.5*(event.touchVec[idx[0]].x + event.touchVec[idx[1]].x),
-                              0.5*(event.touchVec[idx[0]].y + event.touchVec[idx[1]].y) };
-        const float m0[2] = { 0.5*(mTouchStart[0].x + mTouchStart[1].x),
-                              0.5*(mTouchStart[0].y + mTouchStart[1].y) };
-        const float pan[2] = { m1[0] - m0[0], m1[1] - m0[1] };
-        EventPhase phase = TOUCH_MOVED;
+        const float mid0[2] = { 0.5 * (mTouchStart[0].x + mTouchStart[1].x),
+                                0.5 * (mTouchStart[0].y + mTouchStart[1].y) };
+        const float mid1[2] = { 0.5 * (t0.x + t1.x), 0.5 * (t0.y + t1.y) };
+        const float pan[2] = { mid1[0] - mid0[0], mid1[1] - mid0[1] };
+        EventPhase gesturePhase = TOUCH_MOVED;
         if (!mIsPanning &&
             (fabsf(pan[0]) > kMinPanPix || fabsf(pan[1]) > kMinPanPix)) {
           mIsPanning = true;
-          phase = TOUCH_BEGAN;
+          gesturePhase = TOUCH_BEGAN;
           mPrevPan[0] = pan[0];
           mPrevPan[1] = pan[1];
         }
         if (mIsPanning) {
-          const float panVel[2] = { pan[0] - mPrevPan[0], pan[1] - mPrevPan[1] };
-          OnPan(phase, pan[0], pan[1], panVel[0], panVel[1]);
+          mPrevPanVel[0] = pan[0] - mPrevPan[0];
+          mPrevPanVel[1] = pan[1] - mPrevPan[1];
+          OnPan(gesturePhase, pan[0], pan[1], mPrevPanVel[0], mPrevPanVel[1]);
           mPrevPan[0] = pan[0];
           mPrevPan[1] = pan[1];
         }
@@ -94,37 +95,36 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         // Compute the scale based on the ratio of the segment lengths
         float len0 = length(mTouchStart[0].x, mTouchStart[0].y,
                             mTouchStart[1].x, mTouchStart[1].y);
-        const int p0[2] = { event.touchVec[idx[0]].x, event.touchVec[idx[0]].y };
-        const int p1[2] = { event.touchVec[idx[1]].x, event.touchVec[idx[1]].y };
-        float len1 = length(p0[0], p0[1], p1[0], p1[1]);
-        float scale = len1 / len0;
-        phase = TOUCH_MOVED;
+        float len1 = length(t0.x, t0.y, t1.x, t1.y);
+        float scale = len1 / len0;        // Relative scale change
+        gesturePhase = TOUCH_MOVED;       // Default to move
         if (!mIsScaling && (scale > 1+kMinScale || scale < 1-kMinScale)) {
           mIsScaling = true;
-          phase = TOUCH_BEGAN;
+          gesturePhase = TOUCH_BEGAN;     // First scale event,
           mPrevScale = scale;
         }
         if (mIsScaling) {
-          OnScale(phase, scale, scale - mPrevScale, m1[0], m1[1]);
+          mPrevScaleVel = scale - mPrevScale;
+          OnScale(gesturePhase, scale, mPrevScaleVel, mid1[0], mid1[1]);
           mPrevScale = scale;
         }
 
       } else {                              // Single-touch processing
         // Translate by the difference between the previous and
         // the current touch locations, accounting for scale.
-        const float pan[2] = { event.touchVec[idx[0]].x - mTouchStart[0].x,
-                               event.touchVec[idx[0]].y - mTouchStart[0].y };
-        EventPhase phase = TOUCH_MOVED;
+        const float pan[2] = {t0.x - mTouchStart[0].x, t0.y - mTouchStart[0].y};
+        EventPhase gesturePhase = TOUCH_MOVED;
         if (!mIsPanning &&
             (fabsf(pan[0]) > kMinPanPix || fabsf(pan[1]) > kMinPanPix)) {
           mIsPanning = true;
-          phase = TOUCH_BEGAN;
+          gesturePhase = TOUCH_BEGAN;
           mPrevPan[0] = pan[0];
           mPrevPan[1] = pan[1];
         }
         if (mIsPanning) {
-          const float panVel[2] = { pan[0] - mPrevPan[0], pan[1] - mPrevPan[1]};
-          OnPan(phase, pan[0], pan[1], panVel[0], panVel[1]);
+          mPrevPanVel[0] = pan[0] - mPrevPan[0];
+          mPrevPanVel[1] = pan[1] - mPrevPan[1];
+          OnPan(gesturePhase, pan[0], pan[1], mPrevPanVel[0], mPrevPanVel[1]);
           mPrevPan[0] = pan[0];
           mPrevPan[1] = pan[1];
         }
@@ -134,14 +134,14 @@ bool Widget::ProcessGestures(const tui::Event &event) {
     case TOUCH_ENDED:
       mTouchStart.clear();
       if (mIsScaling) {
-        const float m0[2] = { 0.5*(event.touchVec[idx[0]].x + event.touchVec[idx[1]].x),
-                              0.5*(event.touchVec[idx[0]].y + event.touchVec[idx[1]].y) };
+        const float mid[2] = { 0.5*(t0.x + t1.x), 0.5*(t0.y + t1.y) };
         mIsScaling = false;
-        OnScale(TOUCH_ENDED, mPrevScale, 1, m0[0], m0[1]);
+        OnScale(TOUCH_ENDED, mPrevScale, mPrevScaleVel, mid[0], mid[1]);
       }
       if (mIsPanning) {
         mIsPanning = false;
-        OnPan(TOUCH_ENDED, mPrevPan[0], mPrevPan[1], 0, 0);
+        OnPan(TOUCH_ENDED, mPrevPan[0], mPrevPan[1],
+              mPrevPanVel[0], mPrevPanVel[1]);
       }
       break;
   }
@@ -642,7 +642,8 @@ bool FlinglistImpl::Draw() {
       scissor[3] -= scissor[1] + scissor[3] - vp[1] - vp[3];
     if (scissor[2] <= 0 || scissor[3] <= 0)
       continue;
-    glViewport(frameViewport[0], frameViewport[1], frameViewport[2], frameViewport[3]);
+    glViewport(frameViewport[0], frameViewport[1],
+               frameViewport[2], frameViewport[3]);
     glScissor(scissor[0], scissor[1], scissor[2], scissor[3]);
     if (GlesUtil::Error())
       return false;
@@ -958,7 +959,7 @@ bool FlinglistImpl::Dormant() const {
 
 // Find the specified frame and set it as a snap (rubber band) target
 
-bool FlinglistImpl::Snap(const tui::FlinglistImpl::Frame *frame, float seconds) {
+bool FlinglistImpl::Snap(const tui::FlinglistImpl::Frame *frame, float seconds){
   for (size_t i = 0; i < mFrameVec.size(); ++i) {
     if (mFrameVec[i] == frame) {
       SnapIdx(i, seconds);
@@ -1275,7 +1276,7 @@ bool Button::Pressed() const {
 
 
 bool ImageButton::Init(int x, int y, int w, int h, bool blend,
-                       unsigned int defaultTexture, unsigned int pressedTexture) {
+                       unsigned int defaultTexture,unsigned int pressedTexture){
   if (!Button::Init(x, y, w, h))
     return false;
   
@@ -1328,9 +1329,43 @@ void CheckboxButton::SetSelected(bool status) {
 // FrameViewer
 //
 
+
+void FrameViewer::ComputeScaleRange() {
+  if (!CurFrame())
+    return;
+  
+  // Compute the scale so that the entire image fits within
+  // the screen boundary, comparing the aspect ratios of the
+  // screen and the image and fitting to the proper axis.
+  const float frameAspect = Width()/float(Height());
+  const float imageAspect = CurFrame()->Width() / float(CurFrame()->Height());
+  const float frameToImageRatio = frameAspect / imageAspect;
+  
+  if (frameToImageRatio < 1) {                // Frame narrower than image
+    mScaleMin = Width() / float(CurFrame()->Width());
+  } else {                                    // Image narrower than frame
+    mScaleMin = Height() / float(CurFrame()->Height());
+  }
+  
+  mScaleMax = 8;
+  assert(mScaleMin < mScaleMax);
+}
+
+
+bool FrameViewer::Init(int x, int y, int w, int h) {
+  if (!AnimatedViewport::Init(x, y, w, h))
+    return false;
+  ComputeScaleRange();
+  Step(0.001);                                // Clamp scale and animate
+  return true;
+}
+
+
 bool FrameViewer::SetFrame(class Frame *frame) {
   mFrame[CUR_FRAME] = frame;
   frame->OnFrameActive();
+  ComputeScaleRange();
+  Step(0.001);                                // Clamp scale and animate
   return true;
 }
 
@@ -1461,11 +1496,94 @@ bool FrameViewer::Draw() {
 
 
 bool FrameViewer::Step(float seconds) {
+  if (seconds == 0)
+    return true;
+  if (!CurFrame())
+    return true;
+  
+  // Apply inertial scaling
+  mScaleVelocity *= kDamping;
+  if (fabsf(mScaleVelocity) < 0.01)
+    mScaleVelocity = 0;
+  else if (!IsScaling())
+    mScale += mScaleVelocity * seconds;
+  if (mScale > mScaleMax) {
+    mTargetScale = mScaleMax;
+    mIsTargetScaleActive = true;
+  } else if (mScale < mScaleMin) {
+    mTargetScale = mScaleMin;
+    mIsTargetScaleActive = true;
+    mIsTargetCenterActive = true;
+  }
+  
+  // Apply target scale if enabled & not actively moving
+  if (!IsScaling() && mIsTargetScaleActive) {
+    if (fabs(mScale - mTargetScale) < 0.01) {
+      mScale = mTargetScale;
+      mScaleVelocity = 0;
+      mIsTargetScaleActive = false;
+    } else {
+      mScale += 10 * seconds * (mTargetScale - mScale);
+    }
+  }
+
+  // Apply inertial panning
+  mCenterVelocityUV[0] *= kDamping;
+  mCenterVelocityUV[1] *= kDamping;
+  if (fabsf(mCenterVelocityUV[0]) < 1.0 / CurFrame()->Width())
+    mCenterVelocityUV[0] = 0;
+  if (fabsf(mCenterVelocityUV[1]) < 1.0 / CurFrame()->Height())
+    mCenterVelocityUV[1] = 0;
+  if (!IsPanning() && mCenterVelocityUV[0] != 0)
+    mCenterUV[0] += mCenterVelocityUV[0] * seconds;
+  if (!IsPanning() && mCenterVelocityUV[1] != 0)
+    mCenterUV[1] += mCenterVelocityUV[1] * seconds;
+
+  // Have we translated out of the "valid" range?
+  float x0, y0, x1, y1, u0, v0, u1, v1;
+  ComputeFrameDisplayRect(*CurFrame(), &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+  if (fabsf(x0) != fabsf(x1))
+    mIsTargetCenterActive = true;
+  if (fabsf(y0) != fabsf(y1))
+    mIsTargetCenterActive = true;
+
+  // Apply target panning if enabled and & actively moving
+  if (!IsPanning() && mIsTargetCenterActive) {
+    // Since we move toward the center, adjust the speed based on aspect
+    float aspect = CurFrame()->Width() / float(CurFrame()->Height());
+    float uOff = 0, vOff = 0;
+    
+    // Move toward the center of the screen [0.5, 0.5]
+    // FIXME: The finished check is not exact and it should clamp to the
+    //        final value, which means we need to compute the center value
+    //        required to exactly balance the image at the edges when zoomed.
+    // FIXME: The speed of motion is too variable, depending on the image
+    //        resolution and aspect ratio. Make it consistent!
+    if (fabsf(fabsf(x0) - fabsf(x1)) > 0.25 / CurFrame()->Width()) {
+      uOff = 10 / mScale / aspect * seconds * (0.5 - mCenterUV[0]);
+    }
+    if (fabsf(fabsf(y0) - fabsf(y1)) > 0.25 / CurFrame()->Height()) {
+      vOff = 10 / mScale * aspect * seconds * (0.5 - mCenterUV[1]);
+    }
+    if (uOff == 0 && vOff == 0) {
+      mIsTargetCenterActive = false;
+    } else if (!IsPanning()) {
+      mCenterUV[0] += uOff;
+      mCenterUV[1] += vOff;
+    }
+  }
+
   return true;
 }
 
 
 bool FrameViewer::Dormant() const {
+  if (mIsTargetCenterActive || mIsTargetScaleActive)
+    return false;
+  if (mScaleVelocity != 0)
+    return false;
+  if (mCenterVelocityUV[0] != 0 || mCenterVelocityUV[1] != 0)
+    return false;
   return true;
 }
 
@@ -1475,13 +1593,16 @@ bool FrameViewer::Dormant() const {
 
 bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
                           float originX, float originY) {
-  if (!CurFrame())                                        // Reject if no frame
+  if (!CurFrame())                            // Reject if no current frame
     return false;
-  
-  if (phase != TOUCH_MOVED)                               // Ignore begin/end
-    return true;
-  
-  mScale *= 1 + velocity;                                 // Multiply scales
+
+  if (phase == TOUCH_MOVED) {                 // Update scale on move
+    float s = mScale * (1 + velocity);
+    if (s < mScaleMin || s > mScaleMax)
+      velocity *= 0.5;                        // Make it harder to pull
+    mScale *= 1 + velocity;                   // Multiply scales
+  }
+  mScaleVelocity = phase == TOUCH_ENDED ? 30 * velocity : 0;
 
   // Compute the visible NDC & UV display rectangles of the image
   class Frame *frame = CurFrame();
@@ -1508,20 +1629,32 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
 
 bool FrameViewer::OnPan(EventPhase phase, float panX, float panY,
                         float velocityX, float velocityY) {
-  if (!CurFrame())                                        // Reject if no frame
+  if (!CurFrame())                            // Reject if no current frame
     return false;
   
-  if (phase != TOUCH_MOVED)                               // Ignore begin/end
-    return true;
-
   // Convert velocity into image UV coordinates
   class Frame *frame = CurFrame();
   float x0, y0, x1, y1, u0, v0, u1, v1;
   ComputeFrameDisplayRect(*frame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
-  float velocityU = 2 * (u1 - u0) * velocityX / Width() / (x1 - x0);
-  float velocityV = 2 * (v1 - v0) * velocityY / Height() / (y1 - y0);
-  mCenterUV[0] -= velocityU;
-  mCenterUV[1] -= velocityV;
+  float velocityU = -2 * (u1 - u0) * velocityX / Width() / (x1 - x0);
+  float velocityV = -2 * (v1 - v0) * velocityY / Height() / (y1 - y0);
+  
+  if (fabsf(x0) != fabsf(x1))                 // Translated off-center
+    velocityU *= 0.5;
+  if (fabsf(y0) != fabsf(y1))
+    velocityV *= 0.5;
+  
+  if (phase == TOUCH_MOVED) {                 // Update position on move
+    mCenterUV[0] += velocityU;
+    mCenterUV[1] += velocityV;
+  }
+  
+  if (phase == TOUCH_ENDED) {                 // Update animation on end
+    mCenterVelocityUV[0] = 30 * velocityU;
+    mCenterVelocityUV[1] = 30 * velocityV;
+  } else {                                    // Disable animation on move/begin
+    mCenterVelocityUV[0] = mCenterVelocityUV[1] = 0;
+  }
   
   return true;
 }
@@ -1534,22 +1667,10 @@ bool FrameViewer::SnapCurrentToFitFrame() {
   if (!CurFrame())
     return false;
   
-  mCenterUV[0] = 0.5;                                     // Center image
+  mCenterUV[0] = 0.5;                         // Center image
   mCenterUV[1] = 0.5;
+  mScale = mScaleMin;                         // Fit image to screen
 
-  // Compute the scale so that the entire image fits within
-  // the screen boundary, comparing the aspect ratios of the
-  // screen and the image and fitting to the proper axis.
-  const float frameAspect = Width()/float(Height());
-  const float imageAspect = CurFrame()->Width() / float(CurFrame()->Height());
-  const float frameToImageRatio = frameAspect / imageAspect;
-  
-  if (frameToImageRatio < 1) {                            // Frame narrower
-    mScale = Width() / float(CurFrame()->Width());
-  } else {                                                // Image narrower
-    mScale = Height() / float(CurFrame()->Height());
-  }
-  
   return true;
 }
 
