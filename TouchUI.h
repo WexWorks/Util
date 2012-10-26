@@ -7,6 +7,9 @@
 #include <vector>
 #include <string>
 
+namespace GlesUtil { class Text; };
+
+
 /*
  The touch user interface library provides a lightweight,
  non-invasive widget collection with OpenGL-ES rendering.  TouchUI is
@@ -418,14 +421,14 @@ namespace tui {
   // Button that draws one of two images depending on pressed state
   class ImageButton : public Button {
   public:
-    ImageButton() :
-    mDefaultTexture(0),
-    mPressedTexture(0),
-    mBlendEnabled(false) {}
+    ImageButton() : mDefaultTexture(0), mPressedTexture(0),
+                    mBlendEnabled(false) {}
     virtual ~ImageButton() {}
+    
     virtual bool Init(int x, int y, int w, int h, bool blend,
                       unsigned int defaultTexture, unsigned int pressedTexture);
     virtual bool Draw();
+    
   protected:
     unsigned int mDefaultTexture;             // Default texture id
     unsigned int mPressedTexture;             // Transient pressed texture id
@@ -434,16 +437,43 @@ namespace tui {
   
   
   // Maintains selection state with button semantics
-  class CheckboxButton : public ImageButton {
+  class CheckboxButton : public Button {
   public:
+    CheckboxButton() : mSelected(false), mBlendEnabled(false),
+                       mDeselectedTex(0), mPressedTex(0), mSelectedTex(0) {}
     virtual ~CheckboxButton() {}
-    virtual void SetSelected(bool status);
-    virtual bool Selected() const { return FindPress((size_t)-1) >= 0; }
+    
+    virtual bool Init(int x, int y, int w, int h, bool blend,
+                      unsigned int deselectedTex, unsigned int pressedTex,
+                      unsigned int selectedTex);
+    virtual bool Draw();
+    virtual void SetSelected(bool status) { mSelected = true; }
+    virtual bool Selected() const { return mSelected; }
+    
   protected:
     virtual bool InvokeTouchTap(const Event::Touch &touch) {
       SetSelected(!Selected());
-      return ImageButton::InvokeTouchTap(touch);
+      return Button::InvokeTouchTap(touch);
     }
+    
+    bool mSelected;
+    bool mBlendEnabled;
+    unsigned int mDeselectedTex, mPressedTex, mSelectedTex;
+  };
+  
+  
+  // Manages a set of CheckboxButtons, ensuring that only a single
+  // checkbox of the group is selected at any given time.
+  class RadioGroup : public Group {
+  public:
+    virtual bool Add(CheckboxButton *button) { return Add(button); }
+    virtual bool Remove(CheckboxButton *button) { return Remove(button); }
+    virtual void SetSelected(CheckboxButton *button);
+    virtual bool Touch(const Event &event);
+    
+  private:
+    virtual bool Add(Widget *widget);
+    virtual bool Remove(Widget *widget);
   };
   
   
@@ -517,6 +547,26 @@ namespace tui {
     bool mIsTargetScaleActive;                // True if we use target scale
     bool mIsTargetCenterActive;               // True if we use target center
     float mScaleMin, mScaleMax;               // Valid scale range
+  };
+  
+  
+  // Renders text into a box with a specified alignment.
+  class TextBox : public ViewportWidget {
+  public:
+    enum Align { Left, Right, Center };
+
+    TextBox() : mAlign(Left) {}
+    virtual ~TextBox() {}
+    
+    virtual bool Init(int x, int y, int w, int h, GlesUtil::Text *gltext);
+    virtual void SetText(const char *text) { mText = text; }
+    virtual void SetAlign(Align align) { mAlign = align; }
+    virtual bool Draw();
+    
+  protected:
+    Align mAlign;
+    std::string mText;
+    GlesUtil::Text *mGlesText;
   };
   
 } // namespace tui

@@ -105,6 +105,7 @@ public:
   
   // Compute the width of text in pixels.
   GLuint ComputeWidth(const char *text) const;
+  GLuint Height() const { return mCharDim[1]; }
   
   
 private:

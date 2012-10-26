@@ -191,12 +191,12 @@ bool Group::Draw() {
 
 
 bool Group::Touch(const Event &event) {
-  bool err = false;
+  bool consumed = false;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
-    if (!mWidgetVec[i]->Touch(event))
-      err = true;
+    if (mWidgetVec[i]->Touch(event))
+      consumed = true;
   }
-  return err;
+  return consumed;
 }
 
 
@@ -1312,16 +1312,68 @@ bool ImageButton::Draw() {
 }
 
 
-void CheckboxButton::SetSelected(bool status) {
-  std::vector<Press>::iterator p;
-  for (p = mPressVec.begin(); p != mPressVec.end(); ++p)
-    if (p->id == (size_t)-1)
-      break;
-  if (p != mPressVec.end() && !status) {
-    mPressVec.erase(p);
-  } else if (p == mPressVec.end() && status) {
-    mPressVec.push_back(Press((size_t)-1, true, 0, 0));
+bool CheckboxButton::Init(int x, int y, int w, int h, bool blend,
+                          unsigned int deselectedTex, unsigned int pressedTex,
+                          unsigned int selectedTex) {
+  if (!Button::Init(x, y, w, h))
+    return false;
+  
+  if (deselectedTex == 0 || pressedTex == 0 || selectedTex == 0)
+    return false;
+  
+  mBlendEnabled = blend;
+  mDeselectedTex = deselectedTex;
+  mPressedTex = pressedTex;
+  mSelectedTex = selectedTex;
+  
+  return true;
+}
+
+
+bool CheckboxButton::Draw() {
+  if (Hidden())
+    return true;
+  
+  if (mBlendEnabled) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
+  } else {
+    glDisable(GL_BLEND);
   }
+  glViewport(Left(), Bottom(), Width(), Height());
+  
+  unsigned int texture = Pressed() ? mPressedTex : Selected() ?
+                                    mSelectedTex : mDeselectedTex;
+  if (!GlesUtil::DrawTexture2f(texture, -1, -1, 1, 1, 0, 1, 1, 0))
+    return false;
+  
+  return true;
+}
+
+
+void RadioGroup::SetSelected(CheckboxButton *button) {
+  // Deselect all the other buttons
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mWidgetVec[i]);
+    if (cb && cb != button)
+      cb->SetSelected(false);
+  }
+  
+  button->SetSelected(true);
+}
+
+
+bool RadioGroup::Touch(const Event &event) {
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mWidgetVec[i]);
+    if (cb->Touch(event)) {
+      SetSelected(cb);
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 
@@ -1674,3 +1726,38 @@ bool FrameViewer::SnapCurrentToFitFrame() {
   return true;
 }
 
+
+//
+// TextBox
+//
+
+bool TextBox::Init(int x, int y, int w, int h, GlesUtil::Text *gltext) {
+  if (!ViewportWidget::Init(x, y, w, h))
+    return false;
+  mGlesText = gltext;
+  return true;
+}
+
+
+bool TextBox::Draw() {
+  size_t pos = 0;
+  float y = Height() - mGlesText->Height();
+  for (size_t nextPos = mText.find('\n', pos); pos != std::string::npos;
+       pos = nextPos, nextPos = mText.find('\n', pos), y -=mGlesText->Height()){
+    assert(nextPos == std::string::npos || nextPos - pos < 4096);
+    char buf[4096];
+    size_t bytes = nextPos == std::string::npos ? mText.length() - pos :
+                              nextPos - pos;
+    memcpy(buf, &mText.c_str()[pos], bytes);
+    buf[bytes] = '\0';
+    float x;
+    switch (mAlign) {
+      case Left:   x = 0;                                              break;
+      case Right:  x = Width() - mGlesText->ComputeWidth(buf);         break;
+      case Center: x = Width() / 2 - mGlesText->ComputeWidth(buf) / 2; break;
+    }
+    if (!mGlesText->Draw(buf, x, y))
+      return false;
+  }
+  return true;
+}
