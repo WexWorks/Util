@@ -472,14 +472,14 @@ namespace tui {
     virtual bool Touch(const Event &event);
     
   private:
-    virtual bool Add(Widget *widget);
-    virtual bool Remove(Widget *widget);
+    virtual bool Add(Widget *widget) { return Group::Add(widget); }
+    virtual bool Remove(Widget *widget) { return Group::Add(widget); }
   };
   
   
-  // Manages a set of rectangular frames with pan and zoom and transitions.
-  // At most two frames are visible at any time. Can scroll to views to the
-  // left or right, or pinch/zoom to reach parent and child views.
+  // Manages a rectangular frame with pan and zoom.
+  // Animated "soft limits" keep the image within a set of bounds,
+  // but allow some movement past the edge.
   class FrameViewer : public AnimatedViewport {
   public:
     // Manages a rectangular region that can be panned and zoomed
@@ -492,8 +492,6 @@ namespace tui {
       // into the current viewport.
       virtual bool Draw(float x0, float y0, float x1, float y1,
                         float u0, float v0, float u1, float v1) { return true; }
-      virtual void OnFrameActive() {}         // Called when made current
-      virtual void OnFrameInactive() {}       // Called when no longer current
       virtual bool InvertVertical() const { return false; }
       virtual bool InvertHorizontal() const { return false; }
       virtual size_t Width() const = 0;       // Width of frame image in pixels
@@ -503,9 +501,11 @@ namespace tui {
         FrameViewer *mFrameViewer;            // Backpointer
     };
     
-    FrameViewer() : mScale(1), mScaleVelocity(0), mIsTargetScaleActive(false),
-                    mIsTargetCenterActive(false), mScaleMin(0), mScaleMax(0) {
-      memset(mFrame, 0, sizeof(mFrame));
+    FrameViewer() : mFrame(NULL),
+                    mScale(1), mScaleVelocity(0),
+                    mIsTargetScaleActive(false),
+                    mIsTargetCenterActive(false),
+                    mScaleMin(0), mScaleMax(0) {
       memset(mCenterUV, 0, sizeof(mCenterUV));
       memset(mCenterVelocityUV, 0, sizeof(mCenterVelocityUV));
     }
@@ -513,8 +513,7 @@ namespace tui {
     
     virtual bool Init(int x, int y, int w, int h);
     virtual bool SetFrame(Frame *frame);      // Set current frame
-    virtual Frame *Frame() const { return mFrame[CUR_FRAME]; }
-    virtual bool SetTransitionFrames(class Frame *left, class Frame *right);
+    virtual Frame *Frame() const { return mFrame; }
     virtual bool Draw();                      // Render all visible views
     virtual bool Step(float seconds);         // Animate views
     virtual bool Dormant() const;             // True if all views dormant
@@ -525,14 +524,11 @@ namespace tui {
     virtual bool SnapCurrentToFitFrame();     // Whole image in frame
 
   protected:
-    enum { CUR_FRAME=0, LEFT_FRAME=1, RIGHT_FRAME=2, IN_FRAME, OUT_FRAME };
-    static const int kMaxFrameCount = 3;      // Managed frames
     static const float kDamping = 0.7;        // Viscous damping
 
     FrameViewer(const FrameViewer &);         // Disallow copy ctor
     void operator=(const FrameViewer &);      // Disallow assignment
     
-    class Frame *CurFrame() const { return mFrame[CUR_FRAME]; }
     void ComputeScaleRange();
     void ComputeFrameDisplayRect(const class Frame &frame, float *x0, float *y0,
                                  float *x1, float *y1, float *u0, float *v0,
@@ -540,7 +536,7 @@ namespace tui {
     float ConvertUToNDC(const class Frame &frame, float u) const;
     float ConvertVToNDC(const class Frame &frame, float u) const;
     
-    class Frame *mFrame[kMaxFrameCount];      // Managed frames
+    class Frame *mFrame;                      // Active frame
     float mScale, mScaleVelocity;             // Image scale, 1 -> 1 pixel
     float mCenterUV[2], mCenterVelocityUV[2]; // Center of screen in UV 0 -> 1
     float mTargetScale;                       // Rubberband targets

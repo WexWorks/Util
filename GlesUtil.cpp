@@ -524,3 +524,21 @@ bool GlesUtil::Text::Draw(const char *text, float x, float y) {
   
   return true;
 }
+
+
+GLuint GlesUtil::Text::ComputeWidth(const char *text) const {
+  if (text == NULL)
+    return 0;
+  
+  size_t len = strlen(text);
+  if (len == 0)
+    return 0;
+  
+  GLuint x = 0;
+  for (size_t i = 0; i < len; ++i) {
+    const int k = text[i] - mFirstASCII;              // Glyph index
+    x += mCharWidth[k];                            // Kerning offset in X
+  }
+  
+  return x;
+}

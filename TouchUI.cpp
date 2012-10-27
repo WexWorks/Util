@@ -1383,20 +1383,20 @@ bool RadioGroup::Touch(const Event &event) {
 
 
 void FrameViewer::ComputeScaleRange() {
-  if (!CurFrame())
+  if (!mFrame)
     return;
   
   // Compute the scale so that the entire image fits within
   // the screen boundary, comparing the aspect ratios of the
   // screen and the image and fitting to the proper axis.
   const float frameAspect = Width()/float(Height());
-  const float imageAspect = CurFrame()->Width() / float(CurFrame()->Height());
+  const float imageAspect = mFrame->Width() / float(mFrame->Height());
   const float frameToImageRatio = frameAspect / imageAspect;
   
   if (frameToImageRatio < 1) {                // Frame narrower than image
-    mScaleMin = Width() / float(CurFrame()->Width());
+    mScaleMin = Width() / float(mFrame->Width());
   } else {                                    // Image narrower than frame
-    mScaleMin = Height() / float(CurFrame()->Height());
+    mScaleMin = Height() / float(mFrame->Height());
   }
   
   mScaleMax = 8;
@@ -1414,17 +1414,9 @@ bool FrameViewer::Init(int x, int y, int w, int h) {
 
 
 bool FrameViewer::SetFrame(class Frame *frame) {
-  mFrame[CUR_FRAME] = frame;
-  frame->OnFrameActive();
+  mFrame = frame;
   ComputeScaleRange();
   Step(0.001);                                // Clamp scale and animate
-  return true;
-}
-
-
-bool FrameViewer::SetTransitionFrames(class Frame *left, class Frame *right) {
-  mFrame[LEFT_FRAME] = left;
-  mFrame[RIGHT_FRAME] = right;
   return true;
 }
 
@@ -1534,9 +1526,9 @@ bool FrameViewer::Draw() {
   glClearColor(0.5, 0.5, 0.5, 0);
   glClear(GL_COLOR_BUFFER_BIT);
   
-  if (CurFrame()) {
+  if (mFrame) {
     // Compute the NDC & UV rectangle for the image and draw
-    class Frame &frame(*CurFrame());
+    class Frame &frame(*mFrame);
     float x0, y0, x1, y1, u0, v0, u1, v1;
     ComputeFrameDisplayRect(frame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
     if (!frame.Draw(x0, y0, x1, y1, u0, v0, u1, v1))
@@ -1550,7 +1542,7 @@ bool FrameViewer::Draw() {
 bool FrameViewer::Step(float seconds) {
   if (seconds == 0)
     return true;
-  if (!CurFrame())
+  if (!mFrame)
     return true;
   
   // Apply inertial scaling
@@ -1582,9 +1574,9 @@ bool FrameViewer::Step(float seconds) {
   // Apply inertial panning
   mCenterVelocityUV[0] *= kDamping;
   mCenterVelocityUV[1] *= kDamping;
-  if (fabsf(mCenterVelocityUV[0]) < 1.0 / CurFrame()->Width())
+  if (fabsf(mCenterVelocityUV[0]) < 1.0 / mFrame->Width())
     mCenterVelocityUV[0] = 0;
-  if (fabsf(mCenterVelocityUV[1]) < 1.0 / CurFrame()->Height())
+  if (fabsf(mCenterVelocityUV[1]) < 1.0 / mFrame->Height())
     mCenterVelocityUV[1] = 0;
   if (!IsPanning() && mCenterVelocityUV[0] != 0)
     mCenterUV[0] += mCenterVelocityUV[0] * seconds;
@@ -1593,7 +1585,7 @@ bool FrameViewer::Step(float seconds) {
 
   // Have we translated out of the "valid" range?
   float x0, y0, x1, y1, u0, v0, u1, v1;
-  ComputeFrameDisplayRect(*CurFrame(), &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+  ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   if (fabsf(x0) != fabsf(x1))
     mIsTargetCenterActive = true;
   if (fabsf(y0) != fabsf(y1))
@@ -1602,7 +1594,7 @@ bool FrameViewer::Step(float seconds) {
   // Apply target panning if enabled and & actively moving
   if (!IsPanning() && mIsTargetCenterActive) {
     // Since we move toward the center, adjust the speed based on aspect
-    float aspect = CurFrame()->Width() / float(CurFrame()->Height());
+    float aspect = mFrame->Width() / float(mFrame->Height());
     float uOff = 0, vOff = 0;
     
     // Move toward the center of the screen [0.5, 0.5]
@@ -1611,10 +1603,10 @@ bool FrameViewer::Step(float seconds) {
     //        required to exactly balance the image at the edges when zoomed.
     // FIXME: The speed of motion is too variable, depending on the image
     //        resolution and aspect ratio. Make it consistent!
-    if (fabsf(fabsf(x0) - fabsf(x1)) > 0.25 / CurFrame()->Width()) {
+    if (fabsf(fabsf(x0) - fabsf(x1)) > 0.25 / mFrame->Width()) {
       uOff = 10 / mScale / aspect * seconds * (0.5 - mCenterUV[0]);
     }
-    if (fabsf(fabsf(y0) - fabsf(y1)) > 0.25 / CurFrame()->Height()) {
+    if (fabsf(fabsf(y0) - fabsf(y1)) > 0.25 / mFrame->Height()) {
       vOff = 10 / mScale * aspect * seconds * (0.5 - mCenterUV[1]);
     }
     if (uOff == 0 && vOff == 0) {
@@ -1645,7 +1637,7 @@ bool FrameViewer::Dormant() const {
 
 bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
                           float originX, float originY) {
-  if (!CurFrame())                            // Reject if no current frame
+  if (!mFrame)                            // Reject if no current frame
     return false;
 
   if (phase == TOUCH_MOVED) {                 // Update scale on move
@@ -1657,7 +1649,7 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
   mScaleVelocity = phase == TOUCH_ENDED ? 30 * velocity : 0;
 
   // Compute the visible NDC & UV display rectangles of the image
-  class Frame *frame = CurFrame();
+  class Frame *frame = mFrame;
   float x0, y0, x1, y1, u0, v0, u1, v1;
   ComputeFrameDisplayRect(*frame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   
@@ -1681,11 +1673,11 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
 
 bool FrameViewer::OnPan(EventPhase phase, float panX, float panY,
                         float velocityX, float velocityY) {
-  if (!CurFrame())                            // Reject if no current frame
+  if (!mFrame)                            // Reject if no current frame
     return false;
   
   // Convert velocity into image UV coordinates
-  class Frame *frame = CurFrame();
+  class Frame *frame = mFrame;
   float x0, y0, x1, y1, u0, v0, u1, v1;
   ComputeFrameDisplayRect(*frame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   float velocityU = -2 * (u1 - u0) * velocityX / Width() / (x1 - x0);
@@ -1716,7 +1708,7 @@ bool FrameViewer::OnPan(EventPhase phase, float panX, float panY,
 // within the current frame.
 
 bool FrameViewer::SnapCurrentToFitFrame() {
-  if (!CurFrame())
+  if (!mFrame)
     return false;
   
   mCenterUV[0] = 0.5;                         // Center image
