@@ -1544,6 +1544,9 @@ bool FrameViewer::Step(float seconds) {
     return true;
   if (!mFrame)
     return true;
+
+  if (!mFrame->Step(seconds))
+    return false;
   
   // Apply inertial scaling
   mScaleVelocity *= kDamping;

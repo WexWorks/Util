@@ -139,7 +139,7 @@ bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
   if (pix && needs_mip_chain)
     glGenerateMipmap(bindTarget);
   
-  glBindTexture(GL_TEXTURE_2D, 0);
+  glBindTexture(bindTarget, 0);
   if (Error())
     return false;
   
@@ -156,6 +156,20 @@ bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
   assert((clampS == GL_CLAMP_TO_EDGE && clampT == GL_CLAMP_TO_EDGE) || isPow2);
 #endif
   
+  return true;
+}
+
+
+bool GlesUtil::StoreSubTexture(GLuint tex, GLenum target, GLint miplevel,
+                               GLint x, GLint y, GLsizei w, GLsizei h,
+                               GLenum format, GLenum type,
+                               const void *pix) {
+  glBindTexture(target, tex);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTexSubImage2D(target, miplevel, x, y, w, h, format, type, pix);
+  glBindTexture(target, 0);
+  if (Error())
+    return false;
   return true;
 }
 

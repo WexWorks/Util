@@ -109,6 +109,29 @@ namespace tui {
   };
   
   
+  // Group operations
+  class Group : public Widget {
+  public:
+    Group() {}
+    virtual ~Group() {}
+    
+    virtual bool Add(Widget *widget);
+    virtual bool Remove(Widget *widget);
+    virtual void Clear();
+    
+    // Perform the following actions on all the widgets in the group
+    virtual bool Draw();
+    virtual bool Touch(const Event &event);
+    virtual bool Enabled() const;
+    virtual void Enable(bool status);
+    virtual bool Hidden() const;
+    virtual void Hide(bool status);
+    
+  protected:
+    std::vector<Widget *> mWidgetVec;         // Grouped widgets
+  };
+  
+  
   // Base class for all rectangular widgets
   class ViewportWidget : public Widget {
   public:
@@ -136,29 +159,6 @@ namespace tui {
     
   protected:
     int mViewport[4];                         // [x, y, w, h]
-  };
-  
-  
-  // Group operations
-  class Group : public Widget {
-  public:
-    Group() {}
-    virtual ~Group() {}
-    
-    virtual bool Add(Widget *widget);
-    virtual bool Remove(Widget *widget);
-    virtual void Clear();
-    
-    // Perform the following actions on all the widgets in the group
-    virtual bool Draw();
-    virtual bool Touch(const Event &event);
-    virtual bool Enabled() const;
-    virtual void Enable(bool status);
-    virtual bool Hidden() const;
-    virtual void Hide(bool status);
-
-  protected:
-    std::vector<Widget *> mWidgetVec;         // Grouped widgets
   };
   
   
@@ -485,20 +485,18 @@ namespace tui {
     // Manages a rectangular region that can be panned and zoomed
     class Frame {
     public:
-      Frame() : mFrameViewer(NULL) {}
-      virtual void Init(FrameViewer *viewer) { mFrameViewer = viewer; }
+      Frame() {}
+      virtual ~Frame() {}
       
       // Draw the UV region [u0,v0]x[u1,v1] into NDC rect [x0,y0]x[x1,y1]
       // into the current viewport.
       virtual bool Draw(float x0, float y0, float x1, float y1,
                         float u0, float v0, float u1, float v1) { return true; }
+      virtual bool Step(float seconds) { return true; }
       virtual bool InvertVertical() const { return false; }
       virtual bool InvertHorizontal() const { return false; }
       virtual size_t Width() const = 0;       // Width of frame image in pixels
       virtual size_t Height() const = 0;      // Height of frame image in pixels
-      
-      protected:
-        FrameViewer *mFrameViewer;            // Backpointer
     };
     
     FrameViewer() : mFrame(NULL),
@@ -563,6 +561,32 @@ namespace tui {
     Align mAlign;
     std::string mText;
     GlesUtil::Text *mGlesText;
+  };
+  
+  
+  // A collection of tabs that can be re-ordered and sized to fit a display
+  class TabBar : public AnimatedViewport {
+  public:
+    // A tab that can be pressed or dragged and often changes size
+    class Tab {
+      virtual bool Draw(int x, int y, int w, int h) { return true; }
+      virtual void OnTouchTap(const Event::Touch &touch) {}
+      virtual void OnDrag(const Event::Touch &touch, const int touchStart[2]) {}
+    };
+
+    TabBar() : mCurTab(-1) {}
+    
+    virtual bool Add(Tab *tab) { mTabVec.push_back(tab); return true; }
+    virtual bool Draw() { return true; }
+    virtual bool Step(float seconds) { return true; }
+    virtual bool Dormant() const { return true; }
+    const Tab *Selected() const {
+      if (mCurTab < 0) return NULL; return mTabVec[mCurTab];
+    }
+    
+  protected:
+    std::vector<Tab *> mTabVec;
+    int mCurTab;
   };
   
 } // namespace tui
