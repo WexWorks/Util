@@ -136,7 +136,7 @@ bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
                                minFilter != GL_LINEAR &&
                                (bindTarget == GL_TEXTURE_2D ||
                                 target == GL_TEXTURE_CUBE_MAP_NEGATIVE_Z);
-  if (pix && needs_mip_chain)
+  if (needs_mip_chain)
     glGenerateMipmap(bindTarget);
   
   glBindTexture(bindTarget, 0);
@@ -444,7 +444,7 @@ bool GlesUtil::Text::Init(GLuint cellW, GLuint cellH,
   if (!GlesUtil::StoreTexture(mFontTex, GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR,
                               GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
                               mFontTexDim[0], mFontTexDim[1],
-                              glformat, GL_UNSIGNED_BYTE, alpha))
+                              glformat, GL_UNSIGNED_BYTE, alpha, "Font"))
     return false;
   
   return true;

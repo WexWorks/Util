@@ -493,8 +493,8 @@ namespace tui {
       virtual bool Draw(float x0, float y0, float x1, float y1,
                         float u0, float v0, float u1, float v1) { return true; }
       virtual bool Step(float seconds) { return true; }
-      virtual bool InvertVertical() const { return false; }
-      virtual bool InvertHorizontal() const { return false; }
+      virtual bool IsVerticalInverted() const { return false; }
+      virtual bool IsHorizontalInverted() const { return false; }
       virtual size_t Width() const = 0;       // Width of frame image in pixels
       virtual size_t Height() const = 0;      // Height of frame image in pixels
     };
@@ -580,7 +580,12 @@ namespace tui {
     virtual bool Draw() { return true; }
     virtual bool Step(float seconds) { return true; }
     virtual bool Dormant() const { return true; }
-    const Tab *Selected() const {
+    virtual void Select(Tab *tab) {
+      std::vector<Tab *>::const_iterator i  = std::find(mTabVec.begin(),
+                                                        mTabVec.end(), tab);
+      mCurTab = i == mTabVec.end() ? -1 : i - mTabVec.begin();
+    }
+    virtual const Tab *Selected() const {
       if (mCurTab < 0) return NULL; return mTabVec[mCurTab];
     }
     

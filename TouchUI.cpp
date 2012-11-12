@@ -275,7 +275,7 @@ bool Sprite::Init(int x, int y, int w, int h, float opacity,
     GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
     if (!fp)
       return false;
-    mSpriteProgram = GlesUtil::CreateProgram(vp, fp);
+    mSpriteProgram = GlesUtil::CreateProgram(vp, fp, "tui::Sprite");
     if (!mSpriteProgram)
       return false;
     glDeleteShader(vp);
@@ -403,7 +403,7 @@ bool FlinglistImpl::Init(int x, int y, int w, int h, int frameDim,
     GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fp_code);
     if (!vp)
       return false;
-    mFlingProgram = GlesUtil::CreateProgram(vp, fp);
+    mFlingProgram = GlesUtil::CreateProgram(vp, fp, "tui::Fling");
     if (!mFlingProgram)
       return false;
     glDeleteShader(vp);
@@ -432,7 +432,7 @@ bool FlinglistImpl::Init(int x, int y, int w, int h, int frameDim,
     fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, glow_fp_code);
     if (!fp)
       return false;
-    mGlowProgram = GlesUtil::CreateProgram(vp, fp);
+    mGlowProgram = GlesUtil::CreateProgram(vp, fp, "tui::FlingGlow");
     if (!mGlowProgram)
       return false;
     glDeleteShader(vp);
@@ -1383,7 +1383,7 @@ bool RadioGroup::Touch(const Event &event) {
 
 
 void FrameViewer::ComputeScaleRange() {
-  if (!mFrame)
+  if (!mFrame || !mFrame->Width() || !mFrame->Height())
     return;
   
   // Compute the scale so that the entire image fits within
@@ -1452,7 +1452,7 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     *u1 = mCenterUV[0] + halfWidthUV;
     if (*u0 < 0) {                            // Adjust NDC if UV out of range
       const float inset = ConvertUToNDC(frame, -1 * *u0);
-      if (frame.InvertHorizontal())
+      if (frame.IsHorizontalInverted())
         *x1 -= inset;
       else
         *x0 += inset;
@@ -1460,7 +1460,7 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     }
     if (*u1 > 1) {                            // Adjust NDC if UV out of range
       const float inset = ConvertUToNDC(frame, *u1 - 1);
-      if (frame.InvertHorizontal())
+      if (frame.IsHorizontalInverted())
         *x0 += inset;
       else
         *x1 -= inset;
@@ -1485,7 +1485,7 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     *v1 = mCenterUV[1] + halfHeightUV;
     if (*v0 < 0) {                            // Adjust NDC if UV out of range
       const float inset = ConvertVToNDC(frame, -1 * *v0);
-      if (frame.InvertVertical())
+      if (frame.IsVerticalInverted())
         *y1 -= inset;
       else
         *y0 += inset;
@@ -1493,7 +1493,7 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     }
     if (*v1 > 1) {                            // Adjust NDC if UV out of range
       const float inset = ConvertVToNDC(frame, *v1 - 1);
-      if (frame.InvertVertical())
+      if (frame.IsVerticalInverted())
         *y0 += inset;
       else
         *y1 -= inset;
@@ -1511,9 +1511,9 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
   }
 
   // Invert the texture coordinates as specified by the frame
-  if (frame.InvertHorizontal())
+  if (frame.IsHorizontalInverted())
     std::swap(*u0, *u1);
-  if (frame.InvertVertical())
+  if (frame.IsVerticalInverted())
     std::swap(*v0, *v1);
 }
 
@@ -1526,7 +1526,7 @@ bool FrameViewer::Draw() {
   glClearColor(0.5, 0.5, 0.5, 0);
   glClear(GL_COLOR_BUFFER_BIT);
   
-  if (mFrame) {
+  if (mFrame && mFrame->Width() && mFrame->Height()) {
     // Compute the NDC & UV rectangle for the image and draw
     class Frame &frame(*mFrame);
     float x0, y0, x1, y1, u0, v0, u1, v1;
@@ -1542,7 +1542,7 @@ bool FrameViewer::Draw() {
 bool FrameViewer::Step(float seconds) {
   if (seconds == 0)
     return true;
-  if (!mFrame)
+  if (!mFrame || !mFrame->Width() || !mFrame->Height())
     return true;
 
   if (!mFrame->Step(seconds))
@@ -1640,7 +1640,7 @@ bool FrameViewer::Dormant() const {
 
 bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
                           float originX, float originY) {
-  if (!mFrame)                            // Reject if no current frame
+  if (!mFrame || !mFrame->Width() || !mFrame->Height())
     return false;
 
   if (phase == TOUCH_MOVED) {                 // Update scale on move
@@ -1676,7 +1676,7 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
 
 bool FrameViewer::OnPan(EventPhase phase, float panX, float panY,
                         float velocityX, float velocityY) {
-  if (!mFrame)                            // Reject if no current frame
+  if (!mFrame || !mFrame->Width() || !mFrame->Height())
     return false;
   
   // Convert velocity into image UV coordinates
@@ -1711,8 +1711,10 @@ bool FrameViewer::OnPan(EventPhase phase, float panX, float panY,
 // within the current frame.
 
 bool FrameViewer::SnapCurrentToFitFrame() {
-  if (!mFrame)
+  if (!mFrame || !mFrame->Width() || !mFrame->Height())
     return false;
+  
+  ComputeScaleRange();                        // Recompute if needed
   
   mCenterUV[0] = 0.5;                         // Center image
   mCenterUV[1] = 0.5;
