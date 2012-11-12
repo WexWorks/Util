@@ -92,6 +92,9 @@ namespace tui {
     virtual bool Hidden() const { return mIsHidden; }
     virtual void Hide(bool status) { mIsHidden = status; }
     
+    virtual size_t TouchStartCount() const { return mTouchStart.size(); }
+    virtual const Event::Touch &TouchStart(size_t idx) const { return mTouchStart[idx]; }
+    
   private:
     static const float kMinScale = 0.01;      // Min scaling amount before event
     static const int kMinPanPix = 10;         // Min pan motion before event
@@ -156,6 +159,11 @@ namespace tui {
     bool Inside(int x, int y) const {
       return x >= Left() && x <= Right() && y >= Bottom() && y <= Top();
     }
+
+    virtual bool OnTapTouch(const Event::Touch &touch) { return false; }
+    virtual bool OnLongTouch(const Event::Touch &touch) { return false; }
+    virtual bool ProcessGestures(const Event &event);
+
     
   protected:
     int mViewport[4];                         // [x, y, w, h]
@@ -495,8 +503,8 @@ namespace tui {
       virtual bool Step(float seconds) { return true; }
       virtual bool IsVerticalInverted() const { return false; }
       virtual bool IsHorizontalInverted() const { return false; }
-      virtual size_t Width() const = 0;       // Width of frame image in pixels
-      virtual size_t Height() const = 0;      // Height of frame image in pixels
+      virtual size_t ImageWidth() const = 0;  // Width of frame image in pixels
+      virtual size_t ImageHeight() const = 0; // Height of frame image in pixels
     };
     
     FrameViewer() : mFrame(NULL),
@@ -569,29 +577,34 @@ namespace tui {
   public:
     // A tab that can be pressed or dragged and often changes size
     class Tab {
+    public:
+      virtual bool Step(float seconds) { return true; }
+      virtual bool Dormant() const { return true; }
       virtual bool Draw(int x, int y, int w, int h) { return true; }
+      virtual size_t Height() const { return 128; }
       virtual void OnTouchTap(const Event::Touch &touch) {}
       virtual void OnDrag(const Event::Touch &touch, const int touchStart[2]) {}
+      virtual bool OnSelect() { return true; }
     };
 
-    TabBar() : mCurTab(-1) {}
+    TabBar() : mCurTab(-1), mOverlap(0) {}
     
+    virtual bool Draw();
+    virtual bool Step(float seconds);
+    virtual bool Dormant() const;
+    virtual bool OnTapTouch(const Event::Touch &touch);
+
     virtual bool Add(Tab *tab) { mTabVec.push_back(tab); return true; }
-    virtual bool Draw() { return true; }
-    virtual bool Step(float seconds) { return true; }
-    virtual bool Dormant() const { return true; }
-    virtual void Select(Tab *tab) {
-      std::vector<Tab *>::const_iterator i  = std::find(mTabVec.begin(),
-                                                        mTabVec.end(), tab);
-      mCurTab = i == mTabVec.end() ? -1 : i - mTabVec.begin();
-    }
+    virtual bool Empty() const { return mTabVec.empty(); }
+    virtual bool Select(const Tab *tab);
     virtual const Tab *Selected() const {
       if (mCurTab < 0) return NULL; return mTabVec[mCurTab];
     }
     
-  protected:
+  protected:    
     std::vector<Tab *> mTabVec;
     int mCurTab;
+    int mOverlap;
   };
   
 } // namespace tui

@@ -23,6 +23,8 @@ const char *ErrorString();
 //   Attributes: aP is used for position, aUV for texture coordinates.
 bool DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
                GLuint aUV, float u0, float v0, float u1, float v1);
+bool DrawColorBox2f(float x0, float y0, float x1, float y1,
+                    float r, float g, float b, float a, const float *MVP = 0);
 bool DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
                     float w, float h, GLuint aUV);
 bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,

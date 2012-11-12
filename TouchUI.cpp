@@ -62,6 +62,8 @@ bool Widget::ProcessGestures(const tui::Event &event) {
   // Localize the two touch events we track
   const Event::Touch &t0(event.touchVec[idx[0]]), &t1(event.touchVec[idx[1]]);
 
+  bool consumed = false;
+  
   switch (trackingPhase) {
     case TOUCH_BEGAN:
       mTouchStart.clear();                // Unnecessary?
@@ -87,7 +89,8 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         if (mIsPanning) {
           mPrevPanVel[0] = pan[0] - mPrevPan[0];
           mPrevPanVel[1] = pan[1] - mPrevPan[1];
-          OnPan(gesturePhase, pan[0], pan[1], mPrevPanVel[0], mPrevPanVel[1]);
+          if (OnPan(gesturePhase, pan[0],pan[1], mPrevPanVel[0],mPrevPanVel[1]))
+            consumed = true;
           mPrevPan[0] = pan[0];
           mPrevPan[1] = pan[1];
         }
@@ -105,7 +108,8 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         }
         if (mIsScaling) {
           mPrevScaleVel = scale - mPrevScale;
-          OnScale(gesturePhase, scale, mPrevScaleVel, mid1[0], mid1[1]);
+          if (OnScale(gesturePhase, scale, mPrevScaleVel, mid1[0], mid1[1]))
+            consumed = true;
           mPrevScale = scale;
         }
 
@@ -124,7 +128,8 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         if (mIsPanning) {
           mPrevPanVel[0] = pan[0] - mPrevPan[0];
           mPrevPanVel[1] = pan[1] - mPrevPan[1];
-          OnPan(gesturePhase, pan[0], pan[1], mPrevPanVel[0], mPrevPanVel[1]);
+          if (OnPan(gesturePhase, pan[0],pan[1], mPrevPanVel[0],mPrevPanVel[1]))
+            consumed = true;
           mPrevPan[0] = pan[0];
           mPrevPan[1] = pan[1];
         }
@@ -136,17 +141,19 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       if (mIsScaling) {
         const float mid[2] = { 0.5*(t0.x + t1.x), 0.5*(t0.y + t1.y) };
         mIsScaling = false;
-        OnScale(TOUCH_ENDED, mPrevScale, mPrevScaleVel, mid[0], mid[1]);
+        if (OnScale(TOUCH_ENDED, mPrevScale, mPrevScaleVel, mid[0], mid[1]))
+          consumed = true;
       }
       if (mIsPanning) {
         mIsPanning = false;
-        OnPan(TOUCH_ENDED, mPrevPan[0], mPrevPan[1],
-              mPrevPanVel[0], mPrevPanVel[1]);
+        if (OnPan(TOUCH_ENDED, mPrevPan[0], mPrevPan[1],
+                  mPrevPanVel[0], mPrevPanVel[1]))
+          consumed = true;
       }
       break;
   }
   
-  return true;
+  return consumed;
 }
 
 
@@ -229,6 +236,28 @@ bool Group::Hidden() const {
 void Group::Hide(bool status) {
   for (size_t i = 0; i < mWidgetVec.size(); ++i)
     mWidgetVec[i]->Hide(status);
+}
+
+
+//
+// Viewport
+//
+
+bool ViewportWidget::ProcessGestures(const Event &event) {
+  if (event.phase == TOUCH_ENDED) {
+    for (size_t i = 0; i < event.touchVec.size(); ++i) {
+      const Event::Touch &t(event.touchVec[i]);
+      for (size_t j = 0; j < TouchStartCount(); ++j) {
+        if (t.id == TouchStart(j).id && Inside(t.x, t.y) &&
+            Inside(TouchStart(j).x, TouchStart(j).y)) {
+          if (OnTapTouch(t))
+            break;
+        }
+      }
+    }
+  }
+  
+  return Widget::ProcessGestures(event);
 }
 
 
@@ -1383,20 +1412,20 @@ bool RadioGroup::Touch(const Event &event) {
 
 
 void FrameViewer::ComputeScaleRange() {
-  if (!mFrame || !mFrame->Width() || !mFrame->Height())
+  if (!mFrame || !mFrame->ImageWidth() || !mFrame->ImageHeight())
     return;
   
   // Compute the scale so that the entire image fits within
   // the screen boundary, comparing the aspect ratios of the
   // screen and the image and fitting to the proper axis.
   const float frameAspect = Width()/float(Height());
-  const float imageAspect = mFrame->Width() / float(mFrame->Height());
+  const float imageAspect = mFrame->ImageWidth() / float(mFrame->ImageHeight());
   const float frameToImageRatio = frameAspect / imageAspect;
   
   if (frameToImageRatio < 1) {                // Frame narrower than image
-    mScaleMin = Width() / float(mFrame->Width());
+    mScaleMin = Width() / float(mFrame->ImageWidth());
   } else {                                    // Image narrower than frame
-    mScaleMin = Height() / float(mFrame->Height());
+    mScaleMin = Height() / float(mFrame->ImageHeight());
   }
   
   mScaleMax = 8;
@@ -1424,12 +1453,12 @@ bool FrameViewer::SetFrame(class Frame *frame) {
 // Helper functions to convert magnitude in image UV space into NDC units.
 
 float FrameViewer::ConvertUToNDC(const class Frame &frame, float u) const {
-  return 2 * u * mScale * frame.Width() / Width();
+  return 2 * u * mScale * frame.ImageWidth() / Width();
 }
 
 
 float FrameViewer::ConvertVToNDC(const class Frame &frame, float v) const {
-  return 2 * v * mScale * frame.Height() / Height();
+  return 2 * v * mScale * frame.ImageHeight() / Height();
 }
 
 
@@ -1443,7 +1472,7 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
                                           float *x1, float *y1,
                                           float *u0, float *v0,
                                           float *u1, float *v1) {
-  const size_t sw = mScale * frame.Width();   // Image width in screen pixels
+  const size_t sw = mScale * frame.ImageWidth();
   if (sw >= Width()) {                        // Image wider than screen
     *x0 = -1;                                 // Fill entire screen width
     *x1 = 1;
@@ -1476,7 +1505,7 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     *u0 = 0;
     *u1 = 1;
   }
-  const size_t sh = mScale * frame.Height();  // Image height in screen pixels
+  const size_t sh = mScale * frame.ImageHeight();
   if (sh >= Height()) {                       // Image taller than screen
     *y0 = -1;                                 // Fill entire screen height
     *y1 = 1;
@@ -1526,12 +1555,11 @@ bool FrameViewer::Draw() {
   glClearColor(0.5, 0.5, 0.5, 0);
   glClear(GL_COLOR_BUFFER_BIT);
   
-  if (mFrame && mFrame->Width() && mFrame->Height()) {
+  if (mFrame) {
     // Compute the NDC & UV rectangle for the image and draw
-    class Frame &frame(*mFrame);
     float x0, y0, x1, y1, u0, v0, u1, v1;
-    ComputeFrameDisplayRect(frame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
-    if (!frame.Draw(x0, y0, x1, y1, u0, v0, u1, v1))
+    ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+    if (!mFrame->Draw(x0, y0, x1, y1, u0, v0, u1, v1))
       return false;
   }
   
@@ -1542,7 +1570,7 @@ bool FrameViewer::Draw() {
 bool FrameViewer::Step(float seconds) {
   if (seconds == 0)
     return true;
-  if (!mFrame || !mFrame->Width() || !mFrame->Height())
+  if (!mFrame || !mFrame->ImageWidth() || !mFrame->ImageHeight())
     return true;
 
   if (!mFrame->Step(seconds))
@@ -1577,9 +1605,9 @@ bool FrameViewer::Step(float seconds) {
   // Apply inertial panning
   mCenterVelocityUV[0] *= kDamping;
   mCenterVelocityUV[1] *= kDamping;
-  if (fabsf(mCenterVelocityUV[0]) < 1.0 / mFrame->Width())
+  if (fabsf(mCenterVelocityUV[0]) < 1.0 / mFrame->ImageWidth())
     mCenterVelocityUV[0] = 0;
-  if (fabsf(mCenterVelocityUV[1]) < 1.0 / mFrame->Height())
+  if (fabsf(mCenterVelocityUV[1]) < 1.0 / mFrame->ImageHeight())
     mCenterVelocityUV[1] = 0;
   if (!IsPanning() && mCenterVelocityUV[0] != 0)
     mCenterUV[0] += mCenterVelocityUV[0] * seconds;
@@ -1597,7 +1625,7 @@ bool FrameViewer::Step(float seconds) {
   // Apply target panning if enabled and & actively moving
   if (!IsPanning() && mIsTargetCenterActive) {
     // Since we move toward the center, adjust the speed based on aspect
-    float aspect = mFrame->Width() / float(mFrame->Height());
+    float aspect = mFrame->ImageWidth() / float(mFrame->ImageHeight());
     float uOff = 0, vOff = 0;
     
     // Move toward the center of the screen [0.5, 0.5]
@@ -1606,10 +1634,10 @@ bool FrameViewer::Step(float seconds) {
     //        required to exactly balance the image at the edges when zoomed.
     // FIXME: The speed of motion is too variable, depending on the image
     //        resolution and aspect ratio. Make it consistent!
-    if (fabsf(fabsf(x0) - fabsf(x1)) > 0.25 / mFrame->Width()) {
+    if (fabsf(fabsf(x0) - fabsf(x1)) > 0.25 / mFrame->ImageWidth()) {
       uOff = 10 / mScale / aspect * seconds * (0.5 - mCenterUV[0]);
     }
-    if (fabsf(fabsf(y0) - fabsf(y1)) > 0.25 / mFrame->Height()) {
+    if (fabsf(fabsf(y0) - fabsf(y1)) > 0.25 / mFrame->ImageHeight()) {
       vOff = 10 / mScale * aspect * seconds * (0.5 - mCenterUV[1]);
     }
     if (uOff == 0 && vOff == 0) {
@@ -1640,7 +1668,7 @@ bool FrameViewer::Dormant() const {
 
 bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
                           float originX, float originY) {
-  if (!mFrame || !mFrame->Width() || !mFrame->Height())
+  if (!mFrame)
     return false;
 
   if (phase == TOUCH_MOVED) {                 // Update scale on move
@@ -1652,9 +1680,8 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
   mScaleVelocity = phase == TOUCH_ENDED ? 30 * velocity : 0;
 
   // Compute the visible NDC & UV display rectangles of the image
-  class Frame *frame = mFrame;
   float x0, y0, x1, y1, u0, v0, u1, v1;
-  ComputeFrameDisplayRect(*frame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+  ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   
   // Figure out the UV coordinates of the input point in the display rects
   float uNDC = (2.0 * originX / Width() - 1 - x0) / (x1 - x0);
@@ -1676,13 +1703,12 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
 
 bool FrameViewer::OnPan(EventPhase phase, float panX, float panY,
                         float velocityX, float velocityY) {
-  if (!mFrame || !mFrame->Width() || !mFrame->Height())
+  if (!mFrame)
     return false;
   
   // Convert velocity into image UV coordinates
-  class Frame *frame = mFrame;
   float x0, y0, x1, y1, u0, v0, u1, v1;
-  ComputeFrameDisplayRect(*frame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+  ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   float velocityU = -2 * (u1 - u0) * velocityX / Width() / (x1 - x0);
   float velocityV = -2 * (v1 - v0) * velocityY / Height() / (y1 - y0);
   
@@ -1711,15 +1737,10 @@ bool FrameViewer::OnPan(EventPhase phase, float panX, float panY,
 // within the current frame.
 
 bool FrameViewer::SnapCurrentToFitFrame() {
-  if (!mFrame || !mFrame->Width() || !mFrame->Height())
-    return false;
-  
   ComputeScaleRange();                        // Recompute if needed
-  
   mCenterUV[0] = 0.5;                         // Center image
   mCenterUV[1] = 0.5;
   mScale = mScaleMin;                         // Fit image to screen
-
   return true;
 }
 
@@ -1756,5 +1777,83 @@ bool TextBox::Draw() {
     if (!mGlesText->Draw(buf, x, y))
       return false;
   }
+  return true;
+}
+
+
+//
+// TabBar
+//
+
+
+bool TabBar::OnTapTouch(const Event::Touch &touch) {
+  // If touch start and end are in the same tab, select it
+  assert(touch.x >= Left() && touch.x < Right());
+  int y = Bottom();
+  for (size_t i = 0; i < mTabVec.size(); ++i) {
+    int h = mTabVec[i]->Height();
+    if (touch.y >= y && touch.y < y + h) {
+      bool startInside = false;
+      for (size_t j = 0; j < TouchStartCount(); ++j) {
+        if (TouchStart(j).id == touch.id &&
+            Inside(TouchStart(j).x, TouchStart(j).y)) {
+          startInside = true;
+          break;
+        }
+      }
+      if (!startInside)
+        return false;
+      mTabVec[i]->OnTouchTap(touch);
+      return true;
+    }
+    y += h - mOverlap;
+  }
+  return false;
+}
+
+
+bool TabBar::Draw() {
+  // Compute tab viewport and pass to draw function
+  const int x = Left();
+  const int w = Width();
+  int y = Bottom();
+  for (size_t i = 0; i < mTabVec.size(); ++i) {
+    const size_t h = mTabVec[i]->Height();
+    if (!mTabVec[i]->Draw(x, y, w, h))
+      return false;
+    y += h - mOverlap;
+  }
+  return true;
+}
+
+
+bool TabBar::Step(float seconds) {
+  for (size_t i = 0; i < mTabVec.size(); ++i) {
+    if (!mTabVec[i]->Step(seconds))
+      return false;
+  }
+  return true;
+}
+
+
+bool TabBar::Dormant() const {
+  for (size_t i = 0; i < mTabVec.size(); ++i) {
+    if (!mTabVec[i]->Dormant())
+      return false;
+  }
+  return true;
+}
+
+
+bool TabBar::Select(const tui::TabBar::Tab *tab) {
+  std::vector<Tab *>::const_iterator i;
+  i = std::find(mTabVec.begin(), mTabVec.end(), tab);
+  if (i == mTabVec.end()) {
+    mCurTab = -1;
+    return false;
+  }
+  
+  mCurTab = i - mTabVec.begin();
+  mTabVec[mCurTab]->OnSelect();
   return true;
 }

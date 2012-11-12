@@ -46,15 +46,44 @@ const char *GlesUtil::ErrorString() {
 bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
                           GLuint aUV, float u0, float v0, float u1, float v1) {
   const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
-  const float UV[8] = { u0, v0,  u0, v1,  u1, v0,  u1, v1 };
-  glEnableVertexAttribArray(aUV);
+  if (aUV != -1) {
+    const float UV[8] = { u0, v0,  u0, v1,  u1, v0,  u1, v1 };
+    glEnableVertexAttribArray(aUV);
+    glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
+  }
   glEnableVertexAttribArray(aP);
-  glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
   glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-  glDisableVertexAttribArray(aUV);
+  if (aUV != -1)
+    glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
   if (Error())
+    return false;
+  return true;
+}
+
+
+bool GlesUtil::DrawColorBox2f(float x0, float y0, float x1, float y1,
+                              float r, float g, float b, float a,
+                              const float *MVP) {
+  GLuint aP, uC, uMVP;
+  GLuint program = GlesUtil::ConstantProgram(&aP, &uC, &uMVP);
+  if (!program)
+    return false;
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  glUseProgram(program);
+  glUniform4f(uC, r, g, b, a);
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!MVP)
+    MVP = &I[0];
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+  
+  if (!GlesUtil::DrawBox2f(aP, x0, y0, x1, y1, -1, 0, 0, 0, 0))
+    return false;
+  glDisable(GL_BLEND);
+  if (GlesUtil::Error())
     return false;
   return true;
 }
