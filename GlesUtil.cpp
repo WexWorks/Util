@@ -100,14 +100,43 @@ bool GlesUtil::DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
   const float UV[16] = { 0, 0, 0.25, 0, 0.75, 0, 0.5, 0,
                          0, 1, 0.25, 1, 0.75, 1, 0.5, 1 };
   const unsigned short idx[10] = { 4, 0, 5, 1, 7, 3, 6, 2, 4, 0 };
-  glEnableVertexAttribArray(aUV);
+  if (aUV != -1) {
+    glEnableVertexAttribArray(aUV);
+    glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
+  }
   glEnableVertexAttribArray(aP);
-  glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
   glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
   glDrawElements(GL_TRIANGLE_STRIP, 10, GL_UNSIGNED_SHORT, idx);
-  glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
+  if (aUV != -1)
+    glDisableVertexAttribArray(aUV);
   if (Error())
+    return false;
+  return true;
+}
+
+
+bool GlesUtil::DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
+                                   float w, float h, float r, float g, float b,
+                                   float a, const float *MVP) {
+  GLuint aP, uC, uMVP;
+  GLuint program = GlesUtil::ConstantProgram(&aP, &uC, &uMVP);
+  if (!program)
+    return false;
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  glUseProgram(program);
+  glUniform4f(uC, r, g, b, a);
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!MVP)
+    MVP = &I[0];
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+  
+  if (!GlesUtil::DrawBoxFrame2f(aP, x0, y0, x1, y1, w, h, -1))
+    return false;
+  glDisable(GL_BLEND);
+  if (GlesUtil::Error())
     return false;
   return true;
 }

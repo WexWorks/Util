@@ -405,8 +405,8 @@ namespace tui {
     virtual bool Touch(const Event &event);
     virtual bool Pressed() const;
 
-    // Override with action on either select or deselect
-    virtual bool OnTouchTap(const Event::Touch &touch) = 0;
+    // Override with action
+    virtual bool OnTouchTap(const Event::Touch &touch) { return false; };
     
   protected:
     struct Press {
@@ -447,15 +447,10 @@ namespace tui {
   // Maintains selection state with button semantics
   class CheckboxButton : public Button {
   public:
-    CheckboxButton() : mSelected(false), mBlendEnabled(false),
-                       mDeselectedTex(0), mPressedTex(0), mSelectedTex(0) {}
+    CheckboxButton() : mSelected(false) {}
     virtual ~CheckboxButton() {}
     
-    virtual bool Init(int x, int y, int w, int h, bool blend,
-                      unsigned int deselectedTex, unsigned int pressedTex,
-                      unsigned int selectedTex);
-    virtual bool Draw();
-    virtual void SetSelected(bool status) { mSelected = true; }
+    virtual void SetSelected(bool status) { mSelected = status; }
     virtual bool Selected() const { return mSelected; }
     
   protected:
@@ -465,6 +460,22 @@ namespace tui {
     }
     
     bool mSelected;
+  };
+  
+  
+  // Checkbox button drawn using three (four?) textures
+  class CheckboxImageButton : public CheckboxButton {
+  public:
+    CheckboxImageButton() : mBlendEnabled(false), mDeselectedTex(0),
+                            mPressedTex(0), mSelectedTex(0) {}
+    virtual ~CheckboxImageButton() {}
+
+    virtual bool Init(int x, int y, int w, int h, bool blend,
+                      unsigned int deselectedTex, unsigned int pressedTex,
+                      unsigned int selectedTex);
+    virtual bool Draw();
+
+  protected:
     bool mBlendEnabled;
     unsigned int mDeselectedTex, mPressedTex, mSelectedTex;
   };
@@ -510,7 +521,7 @@ namespace tui {
     FrameViewer() : mFrame(NULL),
                     mScale(1), mScaleVelocity(0),
                     mIsTargetScaleActive(false),
-                    mIsTargetCenterActive(false),
+                    mIsTargetWindowActive(false),
                     mScaleMin(0), mScaleMax(0) {
       memset(mCenterUV, 0, sizeof(mCenterUV));
       memset(mCenterVelocityUV, 0, sizeof(mCenterVelocityUV));
@@ -539,15 +550,18 @@ namespace tui {
     void ComputeFrameDisplayRect(const class Frame &frame, float *x0, float *y0,
                                  float *x1, float *y1, float *u0, float *v0,
                                  float *u1, float *v1);
-    float ConvertUToNDC(const class Frame &frame, float u) const;
-    float ConvertVToNDC(const class Frame &frame, float u) const;
+    float U2Ndc(const class Frame &frame, float u) const;
+    float V2Ndc(const class Frame &frame, float v) const;
+    float Ndc2U(const class Frame &frame, float x) const;
+    float Ndc2V(const class Frame &frame, float y) const;
     
     class Frame *mFrame;                      // Active frame
     float mScale, mScaleVelocity;             // Image scale, 1 -> 1 pixel
     float mCenterUV[2], mCenterVelocityUV[2]; // Center of screen in UV 0 -> 1
     float mTargetScale;                       // Rubberband targets
     bool mIsTargetScaleActive;                // True if we use target scale
-    bool mIsTargetCenterActive;               // True if we use target center
+    bool mIsTargetWindowActive;               // True if we use target center
+    bool mIsDirty;                            // True if we need to repaint
     float mScaleMin, mScaleMax;               // Valid scale range
   };
   

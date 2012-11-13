@@ -1341,9 +1341,10 @@ bool ImageButton::Draw() {
 }
 
 
-bool CheckboxButton::Init(int x, int y, int w, int h, bool blend,
-                          unsigned int deselectedTex, unsigned int pressedTex,
-                          unsigned int selectedTex) {
+bool CheckboxImageButton::Init(int x, int y, int w, int h, bool blend,
+                               unsigned int deselectedTex,
+                               unsigned int pressedTex,
+                               unsigned int selectedTex) {
   if (!Button::Init(x, y, w, h))
     return false;
   
@@ -1359,7 +1360,7 @@ bool CheckboxButton::Init(int x, int y, int w, int h, bool blend,
 }
 
 
-bool CheckboxButton::Draw() {
+bool CheckboxImageButton::Draw() {
   if (Hidden())
     return true;
   
@@ -1428,7 +1429,7 @@ void FrameViewer::ComputeScaleRange() {
     mScaleMin = Height() / float(mFrame->ImageHeight());
   }
   
-  mScaleMax = 8;
+  mScaleMax = 32;
   assert(mScaleMin < mScaleMax);
 }
 
@@ -1450,15 +1451,25 @@ bool FrameViewer::SetFrame(class Frame *frame) {
 }
 
 
-// Helper functions to convert magnitude in image UV space into NDC units.
+// Helper functions to convert magnitude in image UV space to/from NDC units.
 
-float FrameViewer::ConvertUToNDC(const class Frame &frame, float u) const {
+float FrameViewer::U2Ndc(const class Frame &frame, float u) const {
   return 2 * u * mScale * frame.ImageWidth() / Width();
 }
 
 
-float FrameViewer::ConvertVToNDC(const class Frame &frame, float v) const {
+float FrameViewer::V2Ndc(const class Frame &frame, float v) const {
   return 2 * v * mScale * frame.ImageHeight() / Height();
+}
+
+
+float FrameViewer::Ndc2U(const class Frame &frame, float x) const {
+  return x / (2 * mScale * frame.ImageWidth() / Width());
+}
+
+
+float FrameViewer::Ndc2V(const class Frame &frame, float y) const {
+  return y / (2 * mScale * frame.ImageHeight() / Height());
 }
 
 
@@ -1480,26 +1491,30 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     *u0 = mCenterUV[0] - halfWidthUV;         // Fill the UV rect around center
     *u1 = mCenterUV[0] + halfWidthUV;
     if (*u0 < 0) {                            // Adjust NDC if UV out of range
-      const float inset = ConvertUToNDC(frame, -1 * *u0);
+      const float inset = U2Ndc(frame, -1 * *u0);
       if (frame.IsHorizontalInverted())
         *x1 -= inset;
       else
         *x0 += inset;
       *u0 = 0;
+      if (*u1 < *u0)
+        *u1 = *u0;
     }
     if (*u1 > 1) {                            // Adjust NDC if UV out of range
-      const float inset = ConvertUToNDC(frame, *u1 - 1);
+      const float inset = U2Ndc(frame, *u1 - 1);
       if (frame.IsHorizontalInverted())
         *x0 += inset;
       else
         *x1 -= inset;
       *u1 = 1;
+      if (*u0 > *u1)
+        *u0 = *u1;
     }
   } else {                                    // Image narrower than screen
     const float pad = (Width() - sw) / float(Width());
     *x0 = -1 + pad;                           // Pad left & right edges
     *x1 = 1 - pad;
-    const float offset = ConvertUToNDC(frame, 0.5 - mCenterUV[0]);
+    const float offset = U2Ndc(frame, 0.5 - mCenterUV[0]);
     *x0 += offset;                            // Allow image to float
     *x1 += offset;
     *u0 = 0;
@@ -1513,26 +1528,30 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     *v0 = mCenterUV[1] - halfHeightUV;        // Fill the UV rect around center
     *v1 = mCenterUV[1] + halfHeightUV;
     if (*v0 < 0) {                            // Adjust NDC if UV out of range
-      const float inset = ConvertVToNDC(frame, -1 * *v0);
+      const float inset = V2Ndc(frame, -1 * *v0);
       if (frame.IsVerticalInverted())
         *y1 -= inset;
       else
         *y0 += inset;
       *v0 = 0;
+      if (*v1 < *v0)
+        *v1 = *v0;
     }
     if (*v1 > 1) {                            // Adjust NDC if UV out of range
-      const float inset = ConvertVToNDC(frame, *v1 - 1);
+      const float inset = V2Ndc(frame, *v1 - 1);
       if (frame.IsVerticalInverted())
         *y0 += inset;
       else
         *y1 -= inset;
       *v1 = 1;
+      if (*v0 > *v1)
+        *v0 = *v1;
     }
   } else {                                    // Image shorter than screen
     const float pad = (Height() - sh) / float(Height());
     *y0 = -1 + pad;                           // Pad the top & bottom edges
     *y1 = 1 - pad;
-    const float offset = ConvertVToNDC(frame, 0.5 - mCenterUV[1]);
+    const float offset = V2Ndc(frame, 0.5 - mCenterUV[1]);
     *y0 -= offset;                            // Allow image to float
     *y1 -= offset;
     *v0 = 0;
@@ -1572,23 +1591,28 @@ bool FrameViewer::Step(float seconds) {
     return true;
   if (!mFrame || !mFrame->ImageWidth() || !mFrame->ImageHeight())
     return true;
+  if (mIsDirty)
+    mIsDirty = false;
 
   if (!mFrame->Step(seconds))
     return false;
   
+  seconds = std::min(seconds, 0.1f);      // clamp to avoid debugging issues
+  
   // Apply inertial scaling
-  mScaleVelocity *= kDamping;
+  mScaleVelocity *= 0.85;
   if (fabsf(mScaleVelocity) < 0.01)
     mScaleVelocity = 0;
-  else if (!IsScaling())
+  else if (!IsScaling() && !mIsTargetScaleActive)
     mScale += mScaleVelocity * seconds;
-  if (mScale > mScaleMax) {
+
+  if (mScale > mScaleMax && mScaleVelocity > 0.01) {
     mTargetScale = mScaleMax;
     mIsTargetScaleActive = true;
-  } else if (mScale < mScaleMin) {
+  } else if (mScale < mScaleMin && mScaleVelocity < -0.01) {
     mTargetScale = mScaleMin;
     mIsTargetScaleActive = true;
-    mIsTargetCenterActive = true;
+    mIsTargetWindowActive = true;
   }
   
   // Apply target scale if enabled & not actively moving
@@ -1614,38 +1638,49 @@ bool FrameViewer::Step(float seconds) {
   if (!IsPanning() && mCenterVelocityUV[1] != 0)
     mCenterUV[1] += mCenterVelocityUV[1] * seconds;
 
-  // Have we translated out of the "valid" range?
+  // Move the image so that it fits in the "valid" NDC rectangle.
+  // When the image is fit to the display, this will target the center,
+  // but when the image is zoomed in, it merely moves us back such
+  // that the full NDC rectangle is used. The shorthand for this is that
+  // the X & Y NDC values must mirror each other, e.g. |x0| == |x1|.
+  // We can also compute the center of each NDC axis and compare that
+  // against (0.5, 0.5) to know which direction to move.
   float x0, y0, x1, y1, u0, v0, u1, v1;
   ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
-  if (fabsf(x0) != fabsf(x1))
-    mIsTargetCenterActive = true;
-  if (fabsf(y0) != fabsf(y1))
-    mIsTargetCenterActive = true;
+  const float centerNDC[2] = { 0.5 * (x0 + x1), 0.5 * (y0 + y1) };
+  const bool aligned[2] = { fabsf(centerNDC[0])==0, fabsf(centerNDC[1])==0 };
+  if (!aligned[0] || !aligned[1])
+    mIsTargetWindowActive = true;
 
-  // Apply target panning if enabled and & actively moving
-  if (!IsPanning() && mIsTargetCenterActive) {
-    // Since we move toward the center, adjust the speed based on aspect
-    float aspect = mFrame->ImageWidth() / float(mFrame->ImageHeight());
-    float uOff = 0, vOff = 0;
+  if (!IsPanning() && mIsTargetWindowActive) {
+    assert(mFrame->ImageWidth() && mFrame->ImageHeight() && mScale != 0);
+
+    // Compute a UV offset to move us 30% closer to each edge
+    float offUV[2] = { Ndc2U(*mFrame,  0.3 * centerNDC[0]),
+                       Ndc2V(*mFrame, -0.3 * centerNDC[1]) };
+
+    // Compute the size of a screen pixel in scaled UV units
+    const float screenPixUV[2] = { Ndc2U(*mFrame, 0.5 / Width()),
+                                   Ndc2V(*mFrame, 0.5 / Height()) };
     
-    // Move toward the center of the screen [0.5, 0.5]
-    // FIXME: The finished check is not exact and it should clamp to the
-    //        final value, which means we need to compute the center value
-    //        required to exactly balance the image at the edges when zoomed.
-    // FIXME: The speed of motion is too variable, depending on the image
-    //        resolution and aspect ratio. Make it consistent!
-    if (fabsf(fabsf(x0) - fabsf(x1)) > 0.25 / mFrame->ImageWidth()) {
-      uOff = 10 / mScale / aspect * seconds * (0.5 - mCenterUV[0]);
+    // If we get within a single screen pixel, snap to edge
+    bool snap[2] = { false, false };
+    if (!aligned[0] && fabsf(offUV[0]) < 10 * screenPixUV[0]) {
+      offUV[0] = Ndc2U(*mFrame, centerNDC[0]);
+      snap[0] = true;
     }
-    if (fabsf(fabsf(y0) - fabsf(y1)) > 0.25 / mFrame->ImageHeight()) {
-      vOff = 10 / mScale * aspect * seconds * (0.5 - mCenterUV[1]);
+    if (!aligned[1] && fabsf(offUV[1]) < 10 * screenPixUV[1]) {
+      offUV[1] = Ndc2V(*mFrame, -centerNDC[1]);
+      snap[1] = true;
     }
-    if (uOff == 0 && vOff == 0) {
-      mIsTargetCenterActive = false;
-    } else if (!IsPanning()) {
-      mCenterUV[0] += uOff;
-      mCenterUV[1] += vOff;
+    
+    if ((aligned[0] || snap[0]) && (aligned[1] || snap[1])) {
+      mIsTargetWindowActive = false;
+      mIsDirty = true;
     }
+    
+    mCenterUV[0] += offUV[0];
+    mCenterUV[1] += offUV[1];
   }
 
   return true;
@@ -1653,7 +1688,9 @@ bool FrameViewer::Step(float seconds) {
 
 
 bool FrameViewer::Dormant() const {
-  if (mIsTargetCenterActive || mIsTargetScaleActive)
+  if (mIsDirty)
+    return false;
+  if (mIsTargetWindowActive || mIsTargetScaleActive)
     return false;
   if (mScaleVelocity != 0)
     return false;
@@ -1668,6 +1705,7 @@ bool FrameViewer::Dormant() const {
 
 bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
                           float originX, float originY) {
+  assert(!isnan(scale) && !isnan(velocity));
   if (!mFrame)
     return false;
 
@@ -1677,7 +1715,13 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
       velocity *= 0.5;                        // Make it harder to pull
     mScale *= 1 + velocity;                   // Multiply scales
   }
-  mScaleVelocity = phase == TOUCH_ENDED ? 30 * velocity : 0;
+  if (phase == TOUCH_ENDED) {
+    mScaleVelocity = 50 * velocity;
+    mIsTargetScaleActive = false;
+    mTargetScale = 0;
+  } else {
+    mScaleVelocity = 0;
+  }
 
   // Compute the visible NDC & UV display rectangles of the image
   float x0, y0, x1, y1, u0, v0, u1, v1;
@@ -1723,8 +1767,9 @@ bool FrameViewer::OnPan(EventPhase phase, float panX, float panY,
   }
   
   if (phase == TOUCH_ENDED) {                 // Update animation on end
-    mCenterVelocityUV[0] = 30 * velocityU;
-    mCenterVelocityUV[1] = 30 * velocityV;
+    float vscale = mScale < 1 ? 1 / mScale : mScale;
+    mCenterVelocityUV[0] = 10 * vscale * velocityU;
+    mCenterVelocityUV[1] = 10 * vscale * velocityV;
   } else {                                    // Disable animation on move/begin
     mCenterVelocityUV[0] = mCenterVelocityUV[1] = 0;
   }
@@ -1737,10 +1782,16 @@ bool FrameViewer::OnPan(EventPhase phase, float panX, float panY,
 // within the current frame.
 
 bool FrameViewer::SnapCurrentToFitFrame() {
-  ComputeScaleRange();                        // Recompute if needed
   mCenterUV[0] = 0.5;                         // Center image
   mCenterUV[1] = 0.5;
+  ComputeScaleRange();                        // Recompute if needed
   mScale = mScaleMin;                         // Fit image to screen
+  mScaleVelocity = 0;
+  mCenterVelocityUV[0] = 0;
+  mCenterVelocityUV[1] = 0;
+  mTargetScale = 0;
+  mIsTargetWindowActive = false;
+  mIsTargetScaleActive = false;
   return true;
 }
 
