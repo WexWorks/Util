@@ -37,6 +37,7 @@
 		CA7EC3FF152E8A2A00882848 /* Json.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Json.h; sourceTree = "<group>"; };
 		CA8EF65A1650B5D500805499 /* Filename.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Filename.cpp; sourceTree = "<group>"; };
 		CA8EF65B1650B5D500805499 /* Filename.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Filename.h; sourceTree = "<group>"; };
+		CAA103A11653A84D00873A46 /* Sys.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Sys.h; sourceTree = "<group>"; };
 		CABCBB6714D07F8D00A735F5 /* libUtil.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libUtil.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		CABCBB7914D0A21200A735F5 /* GlesUtil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GlesUtil.h; sourceTree = "<group>"; };
 		CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TriStrip.cpp; sourceTree = "<group>"; };
@@ -60,6 +61,7 @@
 		CABCBB5C14D07F8D00A735F5 = {
 			isa = PBXGroup;
 			children = (
+				CAA103A11653A84D00873A46 /* Sys.h */,
 				CA8EF65A1650B5D500805499 /* Filename.cpp */,
 				CA8EF65B1650B5D500805499 /* Filename.h */,
 				CA7C699C155C979800456837 /* Base64.cpp */,

@@ -2,9 +2,10 @@
 
 #include "TouchUI.h"
 
+#include "GlesUtil.h"
+
 #include <math.h>
 #include <assert.h>
-#include <GlesUtil.h>
 
 
 using namespace tui;
@@ -1655,15 +1656,16 @@ bool FrameViewer::Step(float seconds) {
   if (!IsPanning() && mIsTargetWindowActive) {
     assert(mFrame->ImageWidth() && mFrame->ImageHeight() && mScale != 0);
 
-    // Compute a UV offset to move us 30% closer to each edge
-    float offUV[2] = { Ndc2U(*mFrame,  0.3 * centerNDC[0]),
-                       Ndc2V(*mFrame, -0.3 * centerNDC[1]) };
+    // Compute a UV offset to move us halfway to each edge
+    float offUV[2] = { Ndc2U(*mFrame,  0.5 * centerNDC[0]),
+                       Ndc2V(*mFrame, -0.5 * centerNDC[1]) };
 
     // Compute the size of a screen pixel in scaled UV units
     const float screenPixUV[2] = { Ndc2U(*mFrame, 0.5 / Width()),
                                    Ndc2V(*mFrame, 0.5 / Height()) };
     
     // If we get within a single screen pixel, snap to edge
+    // FIXME: Find a smoother way to snap rather than 10 pixels.
     bool snap[2] = { false, false };
     if (!aligned[0] && fabsf(offUV[0]) < 10 * screenPixUV[0]) {
       offUV[0] = Ndc2U(*mFrame, centerNDC[0]);
