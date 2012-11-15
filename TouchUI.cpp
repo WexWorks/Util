@@ -1657,8 +1657,8 @@ bool FrameViewer::Step(float seconds) {
     assert(mFrame->ImageWidth() && mFrame->ImageHeight() && mScale != 0);
 
     // Compute a UV offset to move us halfway to each edge
-    float offUV[2] = { Ndc2U(*mFrame,  0.5 * centerNDC[0]),
-                       Ndc2V(*mFrame, -0.5 * centerNDC[1]) };
+    float offUV[2] = { Ndc2U(*mFrame,  0.75 * centerNDC[0]),
+                       Ndc2V(*mFrame, -0.75 * centerNDC[1]) };
 
     // Compute the size of a screen pixel in scaled UV units
     const float screenPixUV[2] = { Ndc2U(*mFrame, 0.5 / Width()),
@@ -1714,7 +1714,7 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
   if (phase == TOUCH_MOVED) {                 // Update scale on move
     float s = mScale * (1 + velocity);
     if (s < mScaleMin || s > mScaleMax)
-      velocity *= 0.5;                        // Make it harder to pull
+      velocity *= 0.333;                      // Make it harder to pull
     mScale *= 1 + velocity;                   // Multiply scales
   }
   if (phase == TOUCH_ENDED) {
@@ -1759,9 +1759,9 @@ bool FrameViewer::OnPan(EventPhase phase, float panX, float panY,
   float velocityV = -2 * (v1 - v0) * velocityY / Height() / (y1 - y0);
   
   if (fabsf(x0) != fabsf(x1))                 // Translated off-center
-    velocityU *= 0.5;
+    velocityU *= 0.333;
   if (fabsf(y0) != fabsf(y1))
-    velocityV *= 0.5;
+    velocityV *= 0.333;
   
   if (phase == TOUCH_MOVED) {                 // Update position on move
     mCenterUV[0] += velocityU;

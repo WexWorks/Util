@@ -11,12 +11,14 @@ namespace tui { class Event; }
 namespace sys {
 
 
+// Derive a custom Callback class that implements the interface using OS-side
+// code, e.g. Obj-C or Java, to provide system resources to the C++ code.
+
 class Callbacks {
 public:
   Callbacks() {}
   virtual ~Callbacks() {}
   
-  // Implement this interface using OS-side code (Obj-C, Java, ...)
   virtual bool FindResourcePath(const char *name, char path[1024]) = 0;
   virtual bool FindAppCachePath(const char *name, char path[1024]) = 0;
   virtual bool LoadImageResource(const char *name, size_t *w, size_t *h,
@@ -26,7 +28,10 @@ public:
   virtual bool OpenImagePicker(const int viewport[4]) = 0;
 };
 
-  
+
+// Implement this class to provide a standard framework invoked from OS-side
+// code to pass system events from the OS down to C++ code.
+
 class App {
 public:
   App() {}
