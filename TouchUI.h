@@ -32,7 +32,6 @@ namespace tui {
 
   // Touch finite state machine stage
   enum EventPhase { TOUCH_BEGAN, TOUCH_MOVED, TOUCH_ENDED, TOUCH_CANCELLED };
-  enum FlingDirection { FLING_LEFT, FLING_RIGHT, FLING_UP, FLING_DOWN };
   
   // Event structure, used in Obj-C, to pass OS events
   struct Event {
@@ -54,7 +53,8 @@ namespace tui {
   class Widget {
   public:
     Widget() : mIsEnabled(true), mIsHidden(false), mIsScaling(false),
-               mIsPanning(false), mPrevScale(0), mPrevScaleVel(0) {
+               mIsDragging(false), mIsHorizontalDrag(false),
+               mPrevScale(0), mPrevScaleVel(0) {
       memset(mPrevPan, 0, sizeof(mPrevPan));
       memset(mPrevPanVel, 0, sizeof(mPrevPanVel));
     }
@@ -76,13 +76,13 @@ namespace tui {
     virtual bool ProcessGestures(const Event &event);
     
     // Gesture callbacks invoked by ProcessGestures. Return true if consumed.
-    virtual bool OnFling(FlingDirection dir);
-    virtual bool OnScale(EventPhase phase, float scale, float velocity,
-                         float originX, float originY) { return false; }
-    virtual bool OnPan(EventPhase phase, float panX, float panY,
-                       float velocityX, float velocityY) { return false; }
+    virtual bool OnScale(EventPhase phase, float scale, float dscale,
+                         float xorg, float yorg) { return false; }
+    virtual bool OnDrag(EventPhase phase, float x, float y, float dx, float dy,
+                        float xorg, float yorg) { return false; }
     virtual bool IsScaling() const { return mIsScaling; }
-    virtual bool IsPanning() const { return mIsPanning; }
+    virtual bool IsDragging() const { return mIsDragging; }
+    virtual bool IsHorizontalDrag() const { return mIsHorizontalDrag; }
     
     // Enable state indicates whether Touch events are processed
     virtual bool Enabled() const { return mIsEnabled; }
@@ -105,7 +105,8 @@ namespace tui {
     bool mIsEnabled;                          // Stop processing events
     bool mIsHidden;                           // Stop drawing
     bool mIsScaling;                          // True if processing scale event
-    bool mIsPanning;                          // True if processing pan event
+    bool mIsDragging;                         // True if processing pan event
+    bool mIsHorizontalDrag;                   // True if drag started horiz
     std::vector<Event::Touch> mTouchStart;    // Tracking touches
     float mPrevScale, mPrevPan[2];            // Last reported values
     float mPrevScaleVel, mPrevPanVel[2];      // Last reported velocity
@@ -535,9 +536,9 @@ namespace tui {
     virtual bool Step(float seconds);         // Animate views
     virtual bool Dormant() const;             // True if all views dormant
     virtual bool OnScale(EventPhase phase, float scale, float velocity,
-                         float originX, float originY);
-    virtual bool OnPan(EventPhase phase, float panX, float panY,
-                       float velocityX, float velocityY);
+                         float xorg, float yorg);
+    virtual bool OnDrag(EventPhase phase, float x, float y, float dx, float dy,
+                        float xorg, float yorg);
     virtual bool SnapCurrentToFitFrame();     // Whole image in frame
 
   protected:
@@ -569,9 +570,9 @@ namespace tui {
   // Renders text into a box with a specified alignment.
   class TextBox : public ViewportWidget {
   public:
-    enum Align { Left, Right, Center };
+    enum Align { LeftJustify, RightJustify, CenterJustify };
 
-    TextBox() : mAlign(Left) {}
+    TextBox() : mAlign(LeftJustify) {}
     virtual ~TextBox() {}
     
     virtual bool Init(int x, int y, int w, int h, GlesUtil::Text *gltext);
@@ -592,12 +593,8 @@ namespace tui {
     // A tab that can be pressed or dragged and often changes size
     class Tab {
     public:
-      virtual bool Step(float seconds) { return true; }
-      virtual bool Dormant() const { return true; }
-      virtual bool Draw(int x, int y, int w, int h) { return true; }
       virtual size_t Height() const { return 128; }
-      virtual void OnTouchTap(const Event::Touch &touch) {}
-      virtual void OnDrag(const Event::Touch &touch, const int touchStart[2]) {}
+      virtual bool Draw(int x, int y, int w, int h) { return true; }
       virtual bool OnSelect() { return true; }
     };
 
@@ -607,6 +604,8 @@ namespace tui {
     virtual bool Step(float seconds);
     virtual bool Dormant() const;
     virtual bool OnTapTouch(const Event::Touch &touch);
+    virtual bool OnDrag(EventPhase phase, float x, float y, float dx, float dy,
+                        float xorg, float yorg);
 
     virtual bool Add(Tab *tab) { mTabVec.push_back(tab); return true; }
     virtual bool Empty() const { return mTabVec.empty(); }
@@ -615,7 +614,9 @@ namespace tui {
       if (mCurTab < 0) return NULL; return mTabVec[mCurTab];
     }
     
-  protected:    
+  protected:
+    virtual int FindTabIdx(int touchY) const;
+    
     std::vector<Tab *> mTabVec;
     int mCurTab;
     int mOverlap;

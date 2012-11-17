@@ -69,7 +69,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
     case TOUCH_BEGAN:
       mTouchStart.clear();                // Unnecessary?
       mTouchStart = event.touchVec;       // Save initial touch down info
-      mIsPanning = false;                 // Avoid jump due to mPrevPan tracking
+      mIsDragging = false;                // Avoid jump due to mPrevPan tracking
       mIsScaling = false;
       break;
     case TOUCH_MOVED:
@@ -80,17 +80,25 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         const float mid1[2] = { 0.5 * (t0.x + t1.x), 0.5 * (t0.y + t1.y) };
         const float pan[2] = { mid1[0] - mid0[0], mid1[1] - mid0[1] };
         EventPhase gesturePhase = TOUCH_MOVED;
-        if (!mIsPanning &&
-            (fabsf(pan[0]) > kMinPanPix || fabsf(pan[1]) > kMinPanPix)) {
-          mIsPanning = true;
-          gesturePhase = TOUCH_BEGAN;
-          mPrevPan[0] = pan[0];
-          mPrevPan[1] = pan[1];
+        if (!mIsDragging) {
+          if (fabsf(pan[0]) > kMinPanPix) {
+            mIsDragging = true;
+            mIsHorizontalDrag = true;
+          } else if (fabsf(pan[1]) > kMinPanPix) {
+            mIsDragging = true;
+            mIsHorizontalDrag = false;
+          }
+          if (mIsDragging) {
+            gesturePhase = TOUCH_BEGAN;
+            mPrevPan[0] = pan[0];
+            mPrevPan[1] = pan[1];
+          }
         }
-        if (mIsPanning) {
+        if (mIsDragging) {
           mPrevPanVel[0] = pan[0] - mPrevPan[0];
           mPrevPanVel[1] = pan[1] - mPrevPan[1];
-          if (OnPan(gesturePhase, pan[0],pan[1], mPrevPanVel[0],mPrevPanVel[1]))
+          if (OnDrag(gesturePhase, pan[0],pan[1], mPrevPanVel[0], mPrevPanVel[1],
+                     mTouchStart[0].x, mTouchStart[0].y))
             consumed = true;
           mPrevPan[0] = pan[0];
           mPrevPan[1] = pan[1];
@@ -119,17 +127,23 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         // the current touch locations, accounting for scale.
         const float pan[2] = {t0.x - mTouchStart[0].x, t0.y - mTouchStart[0].y};
         EventPhase gesturePhase = TOUCH_MOVED;
-        if (!mIsPanning &&
-            (fabsf(pan[0]) > kMinPanPix || fabsf(pan[1]) > kMinPanPix)) {
-          mIsPanning = true;
+        if (!mIsDragging) {
+          if (fabsf(pan[0]) > kMinPanPix) {
+            mIsDragging = true;
+            mIsHorizontalDrag = true;
+          } else if (fabsf(pan[1]) > kMinPanPix) {
+            mIsDragging = true;
+            mIsHorizontalDrag = false;
+          }
           gesturePhase = TOUCH_BEGAN;
           mPrevPan[0] = pan[0];
           mPrevPan[1] = pan[1];
         }
-        if (mIsPanning) {
+        if (mIsDragging) {
           mPrevPanVel[0] = pan[0] - mPrevPan[0];
           mPrevPanVel[1] = pan[1] - mPrevPan[1];
-          if (OnPan(gesturePhase, pan[0],pan[1], mPrevPanVel[0],mPrevPanVel[1]))
+          if (OnDrag(gesturePhase, pan[0],pan[1], mPrevPanVel[0],mPrevPanVel[1],
+                     mTouchStart[0].x, mTouchStart[0].y))
             consumed = true;
           mPrevPan[0] = pan[0];
           mPrevPan[1] = pan[1];
@@ -145,21 +159,16 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         if (OnScale(TOUCH_ENDED, mPrevScale, mPrevScaleVel, mid[0], mid[1]))
           consumed = true;
       }
-      if (mIsPanning) {
-        mIsPanning = false;
-        if (OnPan(TOUCH_ENDED, mPrevPan[0], mPrevPan[1],
-                  mPrevPanVel[0], mPrevPanVel[1]))
+      if (mIsDragging) {
+        mIsDragging = false;
+        if (OnDrag(TOUCH_ENDED, mPrevPan[0], mPrevPan[1], mPrevPanVel[0],
+                   mPrevPanVel[1], mTouchStart[0].x, mTouchStart[0].y))
           consumed = true;
       }
       break;
   }
   
   return consumed;
-}
-
-
-bool Widget::OnFling(FlingDirection dir) {
-  return false;
 }
 
 
@@ -1634,9 +1643,9 @@ bool FrameViewer::Step(float seconds) {
     mCenterVelocityUV[0] = 0;
   if (fabsf(mCenterVelocityUV[1]) < 1.0 / mFrame->ImageHeight())
     mCenterVelocityUV[1] = 0;
-  if (!IsPanning() && mCenterVelocityUV[0] != 0)
+  if (!IsDragging() && mCenterVelocityUV[0] != 0)
     mCenterUV[0] += mCenterVelocityUV[0] * seconds;
-  if (!IsPanning() && mCenterVelocityUV[1] != 0)
+  if (!IsDragging() && mCenterVelocityUV[1] != 0)
     mCenterUV[1] += mCenterVelocityUV[1] * seconds;
 
   // Move the image so that it fits in the "valid" NDC rectangle.
@@ -1653,7 +1662,7 @@ bool FrameViewer::Step(float seconds) {
   if (!aligned[0] || !aligned[1])
     mIsTargetWindowActive = true;
 
-  if (!IsPanning() && mIsTargetWindowActive) {
+  if (!IsDragging() && mIsTargetWindowActive) {
     assert(mFrame->ImageWidth() && mFrame->ImageHeight() && mScale != 0);
 
     // Compute a UV offset to move us halfway to each edge
@@ -1706,7 +1715,7 @@ bool FrameViewer::Dormant() const {
 // invariant under scaling.
 
 bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
-                          float originX, float originY) {
+                          float xorg, float yorg) {
   assert(!isnan(scale) && !isnan(velocity));
   if (!mFrame)
     return false;
@@ -1730,8 +1739,8 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
   ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   
   // Figure out the UV coordinates of the input point in the display rects
-  float uNDC = (2.0 * originX / Width() - 1 - x0) / (x1 - x0);
-  float vNDC = (2.0 * originY / Height() - 1 - y0) / (y1 - y0);
+  float uNDC = (2.0 * xorg / Width() - 1 - x0) / (x1 - x0);
+  float vNDC = (2.0 * yorg / Height() - 1 - y0) / (y1 - y0);
   float screenU = u0 + uNDC * (u1 - u0);
   float screenV = v0 + vNDC * (v1 - v0);
 
@@ -1747,31 +1756,31 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
 // Translate the mCenterUV value based on the input pan distances
 // in screen pixels.
 
-bool FrameViewer::OnPan(EventPhase phase, float panX, float panY,
-                        float velocityX, float velocityY) {
+bool FrameViewer::OnDrag(EventPhase phase, float x, float y, float dx, float dy,
+                         float xorg, float yorg) {
   if (!mFrame)
     return false;
   
   // Convert velocity into image UV coordinates
   float x0, y0, x1, y1, u0, v0, u1, v1;
   ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
-  float velocityU = -2 * (u1 - u0) * velocityX / Width() / (x1 - x0);
-  float velocityV = -2 * (v1 - v0) * velocityY / Height() / (y1 - y0);
+  float du = -2 * (u1 - u0) * dx / Width()  / (x1 - x0);
+  float dv = -2 * (v1 - v0) * dy / Height() / (y1 - y0);
   
   if (fabsf(x0) != fabsf(x1))                 // Translated off-center
-    velocityU *= 0.333;
+    du *= 0.333;
   if (fabsf(y0) != fabsf(y1))
-    velocityV *= 0.333;
+    dv *= 0.333;
   
   if (phase == TOUCH_MOVED) {                 // Update position on move
-    mCenterUV[0] += velocityU;
-    mCenterUV[1] += velocityV;
+    mCenterUV[0] += du;
+    mCenterUV[1] += dv;
   }
   
   if (phase == TOUCH_ENDED) {                 // Update animation on end
     float vscale = mScale < 1 ? 1 / mScale : mScale;
-    mCenterVelocityUV[0] = 10 * vscale * velocityU;
-    mCenterVelocityUV[1] = 10 * vscale * velocityV;
+    mCenterVelocityUV[0] = 10 * vscale * du;
+    mCenterVelocityUV[1] = 10 * vscale * dv;
   } else {                                    // Disable animation on move/begin
     mCenterVelocityUV[0] = mCenterVelocityUV[1] = 0;
   }
@@ -1811,23 +1820,26 @@ bool TextBox::Init(int x, int y, int w, int h, GlesUtil::Text *gltext) {
 
 
 bool TextBox::Draw() {
+  glViewport(Left(), Bottom(), Width(), Height());
   size_t pos = 0;
   float y = Height() - mGlesText->Height();
   for (size_t nextPos = mText.find('\n', pos); pos != std::string::npos;
-       pos = nextPos, nextPos = mText.find('\n', pos), y -=mGlesText->Height()){
+       pos = nextPos == std::string::npos ? nextPos : nextPos+1, nextPos = mText.find('\n',pos), y -=mGlesText->Height()){
     assert(nextPos == std::string::npos || nextPos - pos < 4096);
     char buf[4096];
     size_t bytes = nextPos == std::string::npos ? mText.length() - pos :
                               nextPos - pos;
+    if (!bytes)
+      continue;
     memcpy(buf, &mText.c_str()[pos], bytes);
     buf[bytes] = '\0';
     float x;
     switch (mAlign) {
-      case Left:   x = 0;                                              break;
-      case Right:  x = Width() - mGlesText->ComputeWidth(buf);         break;
-      case Center: x = Width() / 2 - mGlesText->ComputeWidth(buf) / 2; break;
+      case LeftJustify:   x = 0;                                              break;
+      case RightJustify:  x = Width() - int(mGlesText->ComputeWidth(buf));         break;
+      case CenterJustify: x = Width() / 2 - int(mGlesText->ComputeWidth(buf) / 2); break;
     }
-    if (!mGlesText->Draw(buf, x, y))
+    if (!mGlesText->Draw(buf, x+Left(), y+Bottom()))
       return false;
   }
   return true;
@@ -1839,28 +1851,33 @@ bool TextBox::Draw() {
 //
 
 
-bool TabBar::OnTapTouch(const Event::Touch &touch) {
-  // If touch start and end are in the same tab, select it
-  assert(touch.x >= Left() && touch.x < Right());
+int TabBar::FindTabIdx(int touchY) const {
   int y = Bottom();
   for (size_t i = 0; i < mTabVec.size(); ++i) {
     int h = mTabVec[i]->Height();
-    if (touch.y >= y && touch.y < y + h) {
-      bool startInside = false;
-      for (size_t j = 0; j < TouchStartCount(); ++j) {
-        if (TouchStart(j).id == touch.id &&
-            Inside(TouchStart(j).x, TouchStart(j).y)) {
-          startInside = true;
-          break;
-        }
-      }
-      if (!startInside)
-        return false;
-      mTabVec[i]->OnTouchTap(touch);
-      return true;
-    }
+    if (touchY >= y && touchY < y + h)
+      return i;
     y += h - mOverlap;
   }
+  return -1;
+}
+
+
+bool TabBar::OnTapTouch(const Event::Touch &touch) {
+  // If touch start and end are in the same tab, select it
+  assert(touch.x >= Left() && touch.x < Right());
+  int i = FindTabIdx(touch.y);
+  if (i < 0)
+    return false;
+  Select(mTabVec[i]);  
+  return true;
+}
+
+
+// Manage tab re-ordering
+
+bool TabBar::OnDrag(EventPhase phase, float x, float y, float dx, float dy,
+                    float xorg, float yorg) {
   return false;
 }
 
@@ -1881,24 +1898,16 @@ bool TabBar::Draw() {
 
 
 bool TabBar::Step(float seconds) {
-  for (size_t i = 0; i < mTabVec.size(); ++i) {
-    if (!mTabVec[i]->Step(seconds))
-      return false;
-  }
   return true;
 }
 
 
 bool TabBar::Dormant() const {
-  for (size_t i = 0; i < mTabVec.size(); ++i) {
-    if (!mTabVec[i]->Dormant())
-      return false;
-  }
   return true;
 }
 
 
-bool TabBar::Select(const tui::TabBar::Tab *tab) {
+bool TabBar::Select(const Tab *tab) {
   std::vector<Tab *>::const_iterator i;
   i = std::find(mTabVec.begin(), mTabVec.end(), tab);
   if (i == mTabVec.end()) {
@@ -1906,7 +1915,10 @@ bool TabBar::Select(const tui::TabBar::Tab *tab) {
     return false;
   }
   
-  mCurTab = i - mTabVec.begin();
-  mTabVec[mCurTab]->OnSelect();
+  int j = i - mTabVec.begin();
+  if (j != mCurTab) {
+    mCurTab = j;
+    mTabVec[mCurTab]->OnSelect();
+  }
   return true;
 }

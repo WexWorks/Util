@@ -70,9 +70,6 @@ bool GlesUtil::DrawColorBox2f(float x0, float y0, float x1, float y1,
   GLuint program = GlesUtil::ConstantProgram(&aP, &uC, &uMVP);
   if (!program)
     return false;
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glBlendEquation(GL_FUNC_ADD);
   glUseProgram(program);
   glUniform4f(uC, r, g, b, a);
   static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
@@ -82,7 +79,6 @@ bool GlesUtil::DrawColorBox2f(float x0, float y0, float x1, float y1,
   
   if (!GlesUtil::DrawBox2f(aP, x0, y0, x1, y1, -1, 0, 0, 0, 0))
     return false;
-  glDisable(GL_BLEND);
   if (GlesUtil::Error())
     return false;
   return true;
@@ -123,9 +119,6 @@ bool GlesUtil::DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
   GLuint program = GlesUtil::ConstantProgram(&aP, &uC, &uMVP);
   if (!program)
     return false;
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glBlendEquation(GL_FUNC_ADD);
   glUseProgram(program);
   glUniform4f(uC, r, g, b, a);
   static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
@@ -135,7 +128,6 @@ bool GlesUtil::DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
   
   if (!GlesUtil::DrawBoxFrame2f(aP, x0, y0, x1, y1, w, h, -1))
     return false;
-  glDisable(GL_BLEND);
   if (GlesUtil::Error())
     return false;
   return true;
@@ -563,11 +555,6 @@ bool GlesUtil::Text::Draw(const char *text, float x, float y) {
       idx[q+6] = j+4;
     }
   }
-  
-  // Set the current viewport to the text string
-  // Turn on blending to handle overlapping glyphs
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
   
   // Allocate a viewport big enough to fit the entire string
   const int fx = floorf(x);
