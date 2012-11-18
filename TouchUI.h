@@ -483,17 +483,25 @@ namespace tui {
   
   
   // Manages a set of CheckboxButtons, ensuring that only a single
-  // checkbox of the group is selected at any given time.
+  // checkbox of the group, or none, is selected at any given time
   class RadioGroup : public Group {
   public:
-    virtual bool Add(CheckboxButton *button) { return Add(button); }
-    virtual bool Remove(CheckboxButton *button) { return Remove(button); }
-    virtual void SetSelected(CheckboxButton *button);
+    RadioGroup() : mIsNoneAllowed(false) {}
+    virtual bool Add(CheckboxButton *button) { return Group::Add(button); }
+    virtual bool Remove(CheckboxButton *button) { return Group::Remove(button); }
     virtual bool Touch(const Event &event);
+    virtual CheckboxButton *Selected() const;
+    virtual void SetSelected(CheckboxButton *button);
+    virtual void SetIsNoneAllowed(bool status) { mIsNoneAllowed = status; }
+    virtual bool IsNoneAllowed() const { return mIsNoneAllowed; }
+    virtual bool OnNoneSelected() { return false; }
     
   private:
-    virtual bool Add(Widget *widget) { return Group::Add(widget); }
-    virtual bool Remove(Widget *widget) { return Group::Add(widget); }
+    bool Add(Widget *widget) { abort(); return false; }
+    bool Remove(Widget *widget) { abort(); return false; }
+    bool IsNoneSelected();
+      
+    bool mIsNoneAllowed;
   };
   
   

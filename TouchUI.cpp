@@ -1392,26 +1392,49 @@ bool CheckboxImageButton::Draw() {
 }
 
 
-void RadioGroup::SetSelected(CheckboxButton *button) {
-  // Deselect all the other buttons
+//
+// RadioGroup
+//
+
+CheckboxButton *RadioGroup::Selected() const {
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
     CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mWidgetVec[i]);
-    if (cb && cb != button)
+    if (cb && cb->Selected())
+      return cb;
+  }
+  return NULL;
+}
+
+
+void RadioGroup::SetSelected(CheckboxButton *button) {
+  // Deselect any currently selected buttons
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mWidgetVec[i]);
+    if (cb && cb != button && cb->Selected())
       cb->SetSelected(false);
   }
   
-  button->SetSelected(true);
+  if (!button->Selected())
+    button->SetSelected(true);
+
+  if (Selected() == NULL)
+    OnNoneSelected();
 }
 
 
 bool RadioGroup::Touch(const Event &event) {
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
     CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mWidgetVec[i]);
-    if (cb->Touch(event)) {
+    if (!mIsNoneAllowed && cb->Selected())
+      continue;                               // Don't deselect if selected
+    if (cb->Touch(event) && cb->Selected()) {
       SetSelected(cb);
-      return true;
+      break;
     }
   }
+  
+  if (Selected() == NULL)
+    OnNoneSelected();
   
   return false;
 }
