@@ -439,107 +439,55 @@ bool GlesUtil::IsExtensionEnabled(const char *extension) {
 
 struct V2f { float x, y; };                           // 2D Position & UV
 
-
-GlesUtil::Text::Text() : mFirstASCII(0), mColumnCount(0), mFontTex(0), mProgram(0),
-               mAUV(-1), mAP(-1), mUMVP(-1), mUCTex(-1) {
-  memset(mFontTexDim, 0, sizeof(mFontTexDim));
-  memset(mCharDim, 0, sizeof(mCharDim));
-  memset(mCellUVDim, 0, sizeof(mCellUVDim));
-  memset(mCharWidth, 0, sizeof(mCharWidth));
-}
-
-
-GlesUtil::Text::~Text() {
-  glDeleteTextures(1, &mFontTex);
-  glDeleteProgram(mProgram);
-}
-
-
-bool GlesUtil::Text::Init(GLuint cellW, GLuint cellH,
-                          const unsigned char *charWidth,
-                          GLuint firstASCII, GLuint texW, GLuint texH,
-                          GLuint channelCount, const unsigned char *alpha) {
-  assert(mFontTex == 0);
-  assert(mFontTexDim[0] == 0 && mFontTexDim[1] == 0);
-  assert(mCharDim[0] == 0 && mCharDim[1] == 0);
-  
-  if (cellW == 0 || cellH == 0)
-    return false;
-  if (texW == 0 || texH == 0 || alpha == NULL)
-    return false;
-  
-  mCharDim[0] = cellW;
-  mCharDim[1] = cellH;
-  memcpy(mCharWidth, charWidth, sizeof(mCharWidth));
-  mFirstASCII = firstASCII;
-  mFontTexDim[0] = texW;
-  mFontTexDim[1] = texH;
-  mCellUVDim[0] = cellW / float(texW);
-  mCellUVDim[1] = cellH / float(texH);
-  assert(mFontTexDim[0] % mCharDim[0] == 0);          // Not strictly required
-  mColumnCount = mFontTexDim[0] / mCharDim[0];
-  mProgram = GlesUtil::TextureProgram(&mAP, &mAUV, &mUMVP, &mUCTex);
-  
-  // Create a texture from the input image
-  glGenTextures(1, &mFontTex);
-  if (mFontTex == 0)
-    return false;
-  GLenum glformat = 0;
-  switch (channelCount) {
-    case 1: glformat = GL_ALPHA;           break;
-    case 2: glformat = GL_LUMINANCE_ALPHA; break;
-    case 3: glformat = GL_RGB;             break;
-    case 4: glformat = GL_RGBA;            break;
-  }
-  if (!GlesUtil::StoreTexture(mFontTex, GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR,
-                              GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-                              mFontTexDim[0], mFontTexDim[1],
-                              glformat, GL_UNSIGNED_BYTE, alpha, "Font"))
-    return false;
-  
-  return true;
-}
-
-
-bool GlesUtil::Text::Draw(const char *text, float x, float y) {
+bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
+                        float ptW, float ptH, const float *MVP,float charPadPt){
   if (text == NULL)
+    return false;
+  if (font == NULL)
+    return false;
+  if (ptW == 0 || ptH == 0)
     return false;
   
   size_t len = strlen(text);
   if (len == 0)
-    return false;
+    return true;                                      // Nothing to draw, ok
   
   // Create attribute arrays for the text indexed tristrip
   std::vector<V2f> P(4*len);
   std::vector<V2f> UV(4*len);
   const size_t idxCount = (4 + 3) * len - 3;          // 4/quad + 3 degen - last
   std::vector<unsigned short> idx(idxCount);
+  const int colCount = floor(1 / font->charDimUV[0]);
   
-  // Build a tristrip of characters with pixel coordinates and UVs.
+  // Build a tristrip of characters with point coordinates and UVs.
   // Characters are drawn as quads with UV coordinates that map into
-  // the font texture. Character quads are fixed sized (mCharDim), and
-  // can overlap due to kerning via mCharWidth. Quads are rendered as
+  // the font texture. Character quads are fixed sized (charDimPt), and
+  // can overlap due to kerning via charWidthPt. Quads are rendered as
   // a tristrip with degenerate tris connecting each quad.
   float curX = 0;
   for (size_t i = 0; i < len; ++i) {
     const int x0 = curX;                              // Integer pixel coords
     const int y0 = 0;
-    const int x1 = curX + mCharDim[0];
-    const int y1 = mCharDim[1];
-    const int k = text[i] - mFirstASCII;              // Glyph index
-    curX += mCharWidth[k];                            // Kerning offset in X
+    const int x1 = curX + font->charDimPt[0];
+    const int y1 = font->charDimPt[1];
+    const int k = (unsigned char)text[i];             // Glyph index
+    curX += font->charWidthPt[k] + charPadPt;         // Kerning offset in X
     const size_t j = i * 4;                           // Vertex index
-    P[j+0].x = x0; P[j+0].y = y0;                     // Vertex positions
-    P[j+1].x = x0; P[j+1].y = y1;
-    P[j+2].x = x1; P[j+2].y = y0;
-    P[j+3].x = x1; P[j+3].y = y1;
-    const int row = k / mColumnCount;                 // Glyph location
-    const int col = k % mColumnCount;
+    P[j+0].x = x + x0 * ptW;                          // Vertex positions
+    P[j+0].y = y + y0 * ptH;
+    P[j+1].x = x + x0 * ptW;
+    P[j+1].y = y + y1 * ptH;
+    P[j+2].x = x + x1 * ptW;
+    P[j+2].y = y + y0 * ptH;
+    P[j+3].x = x + x1 * ptW;
+    P[j+3].y = y + y1 * ptH;
+    const int row = k / colCount;                     // Glyph location
+    const int col = k % colCount;
     assert(row < 16 && col < 16 && row >= 0 && col >= 0);
-    const float u0 = col * mCellUVDim[0];             // Cell texture coords
-    const float v0 = row * mCellUVDim[1];
-    const float u1 = (col + 1) * mCellUVDim[0];
-    const float v1 = (row + 1) * mCellUVDim[1];
+    const float u0 = col * font->charDimUV[0];        // Cell texture coords
+    const float v0 = row * font->charDimUV[1];
+    const float u1 = (col + 1) * font->charDimUV[0];
+    const float v1 = (row + 1) * font->charDimUV[1];
     UV[j+0].x = u0; UV[j+0].y = v1;                   // Vertex texture coords
     UV[j+1].x = u0; UV[j+1].y = v0;                   // Ick! Flipped texture.
     UV[j+2].x = u1; UV[j+2].y = v1;
@@ -556,48 +504,94 @@ bool GlesUtil::Text::Draw(const char *text, float x, float y) {
     }
   }
   
-  // Allocate a viewport big enough to fit the entire string
-  const int fx = floorf(x);
-  const int fy = floorf(y);
-  const int w = curX + (x - fx > 0 ? 1 : 0);
-  const int h = mCharDim[1] + (y - fy > 0 ? 1 : 0);
-  glViewport(fx, fy, w, h);
-  
-  // Set up the shaders
-  glUseProgram(mProgram);                             // Setup program
-  glEnableVertexAttribArray(mAUV);                    // Vertex arrays
-  glEnableVertexAttribArray(mAP);
-  glVertexAttribPointer(mAUV, 2, GL_FLOAT, GL_FALSE, 0, &UV[0].x);
-  glVertexAttribPointer(mAP, 2, GL_FLOAT, GL_FALSE, 0, &P[0].x);
+  // Set up the texture shader
+  GLuint program, aP, aUV, uMVP, uTex;
+  program = GlesUtil::TextureProgram(&aP, &aUV, &uMVP, &uTex);
+  glUseProgram(program);                              // Setup program
+  glEnableVertexAttribArray(aUV);                     // Vertex arrays
+  glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, &UV[0].x);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, &P[0].x);
   glActiveTexture(GL_TEXTURE0);                       // Setup texture
-  glBindTexture(GL_TEXTURE_2D, mFontTex);
-  const float MVP[16] = { 2.0/w,0,0,0, 0,2.0/h,0,0, 0,0,1,0, -1,-1,0,1 };
-  glUniformMatrix4fv(mUMVP, 1, GL_FALSE, MVP);
-  
+  glBindTexture(GL_TEXTURE_2D, font->tex);
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!MVP)
+    MVP = &I[0];  
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+
   // Draw the tristrip with all the character rectangles
   glDrawElements(GL_TRIANGLE_STRIP, idxCount, GL_UNSIGNED_SHORT, &idx[0]);
   
-  glDisableVertexAttribArray(mAUV);
-  glDisableVertexAttribArray(mAP);
+  glDisableVertexAttribArray(aUV);
+  glDisableVertexAttribArray(aP);
   glBindTexture(GL_TEXTURE_2D, 0);
   
   return true;
 }
 
 
-GLuint GlesUtil::Text::ComputeWidth(const char *text) const {
-  if (text == NULL)
-    return 0;
-  
-  size_t len = strlen(text);
-  if (len == 0)
-    return 0;
-  
-  GLuint x = 0;
-  for (size_t i = 0; i < len; ++i) {
-    const int k = text[i] - mFirstASCII;              // Glyph index
-    x += mCharWidth[k];                            // Kerning offset in X
+static bool DrawJustified(const char *text, float x0, float x1,
+                          float y, float textW, GlesUtil::Align align,
+                          const GlesUtil::Font *font, float ptW, float ptH,
+                          const float *MVP) {
+  const float w = x1 - x0;
+  float x, pad = 0;
+  switch (align) {
+    case GlesUtil::LeftJustify:   x = 0;              break;
+    case GlesUtil::RightJustify:  x = w - textW;      break;
+    case GlesUtil::CenterJustify: x = w / 2 - textW;  break;
+    case GlesUtil::FullJustify:
+      x = 0;
+      pad = std::max(textW - w, 0.0f);
+      if (pad > 0) {
+        int len = strlen(text);
+        pad /= len;
+      }
+      break;
   }
-  
-  return x;
+  if (!GlesUtil::DrawText(text, x + x0, y, font, ptW, ptH, MVP, pad))
+    return false;
+  return true;
+}
+
+
+bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
+                             float x1, float y1, Align align, const Font *font,
+                             float ptW, float ptH, const float *MVP) {
+  const float wrapW = x1 - x0;
+  if (wrapW <= 0)
+    return false;
+  float w = 0;
+  float y = y1 - ptH * font->charDimPt[1];
+  std::vector<char> str;
+  int len = strlen(text);
+  size_t lastSep = 0;
+  float lastSepW = 0;
+  for (size_t i = 0; y + ptH * font->charDimPt[1] > y0 && i <= len; ++i) {
+    const char &c(text[i]);
+    if (isspace(c)) {
+      lastSep = str.size();
+      lastSepW = w;
+    }
+    if (c == '\0' || c == '\n') {
+      str.push_back('\0');
+    } else {
+      str.push_back(c);
+      w += ptW * font->charWidthPt[(unsigned char)c];
+      if (w < wrapW)
+        continue;
+      str[lastSep] = '\0';
+      w = lastSepW;
+    }
+    
+    // Draw the current line. We either hit a return, the end of the string,
+    // or went past the width of the rectangle and moved back to last separator
+    if (!DrawJustified(&str[0], x0, x1, y, w, align, font, ptW, ptH, MVP))
+      return false;
+    
+    w = 0;
+    y -= ptH * font->charDimPt[1];
+    str.resize(0);
+  }
+  return true;
 }

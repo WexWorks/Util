@@ -7,8 +7,6 @@
 #include <vector>
 #include <string>
 
-namespace GlesUtil { class Text; };
-
 
 /*
  The touch user interface library provides a lightweight,
@@ -572,26 +570,6 @@ namespace tui {
     bool mIsTargetWindowActive;               // True if we use target center
     bool mIsDirty;                            // True if we need to repaint
     float mScaleMin, mScaleMax;               // Valid scale range
-  };
-  
-  
-  // Renders text into a box with a specified alignment.
-  class TextBox : public ViewportWidget {
-  public:
-    enum Align { LeftJustify, RightJustify, CenterJustify };
-
-    TextBox() : mAlign(LeftJustify) {}
-    virtual ~TextBox() {}
-    
-    virtual bool Init(int x, int y, int w, int h, GlesUtil::Text *gltext);
-    virtual void SetText(const char *text) { mText = text; }
-    virtual void SetAlign(Align align) { mAlign = align; }
-    virtual bool Draw();
-    
-  protected:
-    Align mAlign;
-    std::string mText;
-    GlesUtil::Text *mGlesText;
   };
   
   

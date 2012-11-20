@@ -411,7 +411,7 @@ bool FlinglistImpl::Init(int x, int y, int w, int h, int frameDim,
     return false;
 
   mFrameDim = frameDim;
-  mScrollableDim = frameDim;
+  mScrollableDim = std::min(frameDim, h);
   mVertical = vertical;
   mPixelsPerCm = pixelsPerCm;
 
@@ -1831,45 +1831,6 @@ bool FrameViewer::SnapCurrentToFitFrame() {
 
 
 //
-// TextBox
-//
-
-bool TextBox::Init(int x, int y, int w, int h, GlesUtil::Text *gltext) {
-  if (!ViewportWidget::Init(x, y, w, h))
-    return false;
-  mGlesText = gltext;
-  return true;
-}
-
-
-bool TextBox::Draw() {
-  glViewport(Left(), Bottom(), Width(), Height());
-  size_t pos = 0;
-  float y = Height() - mGlesText->Height();
-  for (size_t nextPos = mText.find('\n', pos); pos != std::string::npos;
-       pos = nextPos == std::string::npos ? nextPos : nextPos+1, nextPos = mText.find('\n',pos), y -=mGlesText->Height()){
-    assert(nextPos == std::string::npos || nextPos - pos < 4096);
-    char buf[4096];
-    size_t bytes = nextPos == std::string::npos ? mText.length() - pos :
-                              nextPos - pos;
-    if (!bytes)
-      continue;
-    memcpy(buf, &mText.c_str()[pos], bytes);
-    buf[bytes] = '\0';
-    float x;
-    switch (mAlign) {
-      case LeftJustify:   x = 0;                                              break;
-      case RightJustify:  x = Width() - int(mGlesText->ComputeWidth(buf));         break;
-      case CenterJustify: x = Width() / 2 - int(mGlesText->ComputeWidth(buf) / 2); break;
-    }
-    if (!mGlesText->Draw(buf, x+Left(), y+Bottom()))
-      return false;
-  }
-  return true;
-}
-
-
-//
 // TabBar
 //
 
@@ -1939,9 +1900,7 @@ bool TabBar::Select(const Tab *tab) {
   }
   
   int j = i - mTabVec.begin();
-  if (j != mCurTab) {
-    mCurTab = j;
-    mTabVec[mCurTab]->OnSelect();
-  }
+  mCurTab = j;
+  mTabVec[mCurTab]->OnSelect();
   return true;
 }
