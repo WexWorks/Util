@@ -198,12 +198,12 @@ void Group::Clear() {
 
 
 bool Group::Draw() {
-  bool err = false;
+  bool status = true;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
     if (!mWidgetVec[i]->Draw())
-      err = true;
+      status = false;
   }
-  return err;
+  return status;
 }
 
 

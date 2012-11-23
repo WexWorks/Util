@@ -519,6 +519,7 @@ namespace tui {
       virtual bool Draw(float x0, float y0, float x1, float y1,
                         float u0, float v0, float u1, float v1) { return true; }
       virtual bool Step(float seconds) { return true; }
+      virtual bool Dormant() const { return true; }
       virtual bool IsVerticalInverted() const { return false; }
       virtual bool IsHorizontalInverted() const { return false; }
       virtual size_t ImageWidth() const = 0;  // Width of frame image in pixels
