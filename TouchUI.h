@@ -528,8 +528,11 @@ namespace tui {
     
     FrameViewer() : mFrame(NULL),
                     mScale(1), mScaleVelocity(0),
+                    mTargetScale(0),
                     mIsTargetScaleActive(false),
                     mIsTargetWindowActive(false),
+                    mIsDirty(false),
+                    mIsSnappingToPixelCenter(false),
                     mScaleMin(0), mScaleMax(0) {
       memset(mCenterUV, 0, sizeof(mCenterUV));
       memset(mCenterVelocityUV, 0, sizeof(mCenterVelocityUV));
@@ -546,7 +549,9 @@ namespace tui {
                          float xorg, float yorg);
     virtual bool OnDrag(EventPhase phase, float x, float y, float dx, float dy,
                         float xorg, float yorg);
+    virtual bool SnapToPixelCenter(bool status) { mIsSnappingToPixelCenter = status; }
     virtual bool SnapCurrentToFitFrame();     // Whole image in frame
+    virtual float Scale() const { return mScale; }
 
   protected:
     static const float kDamping = 0.7;        // Viscous damping
@@ -570,6 +575,7 @@ namespace tui {
     bool mIsTargetScaleActive;                // True if we use target scale
     bool mIsTargetWindowActive;               // True if we use target center
     bool mIsDirty;                            // True if we need to repaint
+    bool mIsSnappingToPixelCenter;            // True if we align center pixel
     float mScaleMin, mScaleMax;               // Valid scale range
   };
   

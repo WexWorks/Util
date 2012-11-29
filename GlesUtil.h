@@ -56,6 +56,8 @@ struct Font {
 
 // Draw a one-line string of text. Starting location is the lower
 // left corner of the first character in MVP space. Linefeeds are ignored.
+// (ptW, ptH) scale points into MVP (e.g. NDC) space, and are typically set
+// to (0.5 / vpW, 0.5 / vpH) to scale to [-1, -1] x [1, 1]
 
 bool DrawText(const char *text, float x, float y, const Font *font,
               float ptW, float ptH, const float *MVP = 0, float charPadPt = 0);
