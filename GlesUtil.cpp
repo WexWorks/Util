@@ -79,8 +79,7 @@ bool GlesUtil::DrawColorBox2f(float x0, float y0, float x1, float y1,
   
   if (!GlesUtil::DrawBox2f(aP, x0, y0, x1, y1, -1, 0, 0, 0, 0))
     return false;
-  if (GlesUtil::Error())
-    return false;
+
   return true;
 }
 
@@ -580,8 +579,12 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
       w += ptW * font->charWidthPt[(unsigned char)c];
       if (w < wrapW)
         continue;
+      if (w - lastSepW > wrapW) {
+        // FIXME: What happens if a single word is longer than the line?
+      }
       str[lastSep] = '\0';
       w = lastSepW;
+      i -= str.size() - lastSep;      // Move back and re-do skipped characters
     }
     
     // Draw the current line. We either hit a return, the end of the string,
