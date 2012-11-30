@@ -549,7 +549,7 @@ namespace tui {
                          float xorg, float yorg);
     virtual bool OnDrag(EventPhase phase, float x, float y, float dx, float dy,
                         float xorg, float yorg);
-    virtual bool SnapToPixelCenter(bool status) { mIsSnappingToPixelCenter = status; }
+    virtual void SnapToPixelCenter(bool status) { mIsSnappingToPixelCenter = status; }
     virtual bool SnapCurrentToFitFrame();     // Whole image in frame
     virtual float Scale() const { return mScale; }
 
