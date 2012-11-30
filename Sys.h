@@ -34,8 +34,9 @@ public:
 
 class App {
 public:
-  App() {}
   virtual ~App() {}
+  
+  static App *Create();                               // Factory
   
   virtual bool Init(Callbacks &callbacks) = 0;        // Initialization
   virtual bool Touch(const tui::Event &event) = 0;    // Process events
@@ -50,6 +51,13 @@ public:
   virtual bool LoadImage(const char *name, size_t w, size_t h,
                          size_t channelCount, size_t bytePerChannelCount,
                          const unsigned char *pixel) = 0;
+  
+protected:
+  App() {}                                            // Derived class factory
+
+private:
+  App(const App &);                                   // Disallow copy
+  void operator=(const App &);                        // Disallow assignment
 };
 
   
