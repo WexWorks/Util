@@ -162,7 +162,6 @@ namespace tui {
     virtual bool OnTapTouch(const Event::Touch &touch) { return false; }
     virtual bool OnLongTouch(const Event::Touch &touch) { return false; }
     virtual bool ProcessGestures(const Event &event);
-
     
   protected:
     int mViewport[4];                         // [x, y, w, h]

@@ -1630,7 +1630,7 @@ bool FrameViewer::Step(float seconds) {
   if (!mFrame->Step(seconds))
     return false;
   
-  seconds = std::min(seconds, 0.1f);      // clamp to avoid debugging issues
+  seconds = std::min(seconds, 0.1f);          // clamp to avoid debugging issues
   
   // Apply inertial scaling
   mScaleVelocity *= 0.85;
@@ -1658,13 +1658,16 @@ bool FrameViewer::Step(float seconds) {
       mScale += 10 * seconds * (mTargetScale - mScale);
     }
   }
+  
+  const int iw = mFrame->ImageWidth();
+  const int ih = mFrame->ImageHeight();
 
   // Apply inertial panning
   mCenterVelocityUV[0] *= kDamping;
   mCenterVelocityUV[1] *= kDamping;
-  if (fabsf(mCenterVelocityUV[0]) < 1.0 / mFrame->ImageWidth())
+  if (fabsf(mCenterVelocityUV[0]) < 1.0 / iw)
     mCenterVelocityUV[0] = 0;
-  if (fabsf(mCenterVelocityUV[1]) < 1.0 / mFrame->ImageHeight())
+  if (fabsf(mCenterVelocityUV[1]) < 1.0 / ih)
     mCenterVelocityUV[1] = 0;
   if (!IsDragging() && mCenterVelocityUV[0] != 0)
     mCenterUV[0] += mCenterVelocityUV[0] * seconds;
@@ -1682,39 +1685,71 @@ bool FrameViewer::Step(float seconds) {
   ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   const float centerNDC[2] = { 0.5 * (x0 + x1), 0.5 * (y0 + y1) };
   const bool aligned[2] = { fabsf(centerNDC[0])==0, fabsf(centerNDC[1])==0 };
-  if (!aligned[0] || !aligned[1])
+  if (!mIsSnappingToPixelCenter && (!aligned[0] || !aligned[1]))
     mIsTargetWindowActive = true;
 
-  if (!IsDragging() && mIsTargetWindowActive) {
-    assert(mFrame->ImageWidth() && mFrame->ImageHeight() && mScale != 0);
-
-    // Compute a UV offset to move us halfway to each edge
-    float offUV[2] = { Ndc2U(*mFrame,  0.75 * centerNDC[0]),
-                       Ndc2V(*mFrame, -0.75 * centerNDC[1]) };
-
-    // Compute the size of a screen pixel in scaled UV units
-    const float screenPixUV[2] = { Ndc2U(*mFrame, 0.5 / Width()),
-                                   Ndc2V(*mFrame, 0.5 / Height()) };
+  if (!IsDragging()) {
+    const float dUVPixels = 10;
+    const float pctCloser = 0.75;
+    const float screenPixUV[2] = { Ndc2U(*mFrame, 2.0f / Width()),
+                                   Ndc2V(*mFrame, 2.0f / Height()) };
     
-    // If we get within a single screen pixel, snap to edge
-    // FIXME: Find a smoother way to snap rather than 10 pixels.
-    bool snap[2] = { false, false };
-    if (!aligned[0] && fabsf(offUV[0]) < 10 * screenPixUV[0]) {
-      offUV[0] = Ndc2U(*mFrame, centerNDC[0]);
-      snap[0] = true;
+    if (mIsSnappingToPixelCenter) {
+      // Find the pixel to center on, and clamp it to the image boundary
+      const float pix[2] = { mCenterUV[0] * iw, mCenterUV[1] * ih };
+      float cpix[2] = { floor(pix[0]), floor(pix[1]) };
+      cpix[0] = cpix[0] < 0 ? 0 : cpix[0] >= iw ? iw - 1 : cpix[0];
+      cpix[1] = cpix[1] < 0 ? 0 : cpix[1] >= ih ? ih - 1 : cpix[1];
+ 
+      // If we're at the boundary, or the velocity is below the threshold,
+      // center on the pixel, otherwise, let it slide.
+      if (cpix[0] == 0 || cpix[0] == iw-1 || cpix[1] == 0 || cpix[1] == ih-1 ||
+          (fabsf(mCenterVelocityUV[0]) < dUVPixels / iw &&
+           fabsf(mCenterVelocityUV[1]) < dUVPixels / ih)) {
+        const float fUV[2] = { (0.5 - (pix[0] - cpix[0])) / iw,
+                               (0.5 - (pix[1] - cpix[1])) / ih };
+        float s[2] = { 1, 1 };
+        mIsDirty = true;                      // One more repaint
+        mIsTargetWindowActive = false;        // Stop animating?
+        if (fabsf(fUV[0]) > dUVPixels * 0.5 * screenPixUV[0]) {
+          s[0] = pctCloser;
+          mIsTargetWindowActive = true;       // Continue animating
+        }
+        if (fabsf(fUV[1]) > dUVPixels * 0.5 * screenPixUV[1]) {
+          s[1] = pctCloser;
+          mIsTargetWindowActive = true;       // Continue animating
+        }
+            
+        mCenterUV[0] += s[0] * fUV[0];
+        mCenterUV[1] += s[1] * fUV[1];
+      }
+    } else if (mIsTargetWindowActive) {
+      assert(iw && ih && mScale != 0);
+      
+      // Compute a UV offset to move us closer to each edge
+      float offUV[2] = { Ndc2U(*mFrame,  pctCloser * centerNDC[0]),
+                         Ndc2V(*mFrame, -pctCloser * centerNDC[1]) };
+      
+      // If we get within a single screen pixel, snap to edge
+      // FIXME: Find a smoother way to snap rather than 10 pixels.
+      bool snap[2] = { false, false };
+      if (!aligned[0] && fabsf(offUV[0]) < dUVPixels * screenPixUV[0]) {
+        offUV[0] = Ndc2U(*mFrame, centerNDC[0]);
+        snap[0] = true;
+      }
+      if (!aligned[1] && fabsf(offUV[1]) < dUVPixels * screenPixUV[1]) {
+        offUV[1] = Ndc2V(*mFrame, -centerNDC[1]);
+        snap[1] = true;
+      }
+      
+      if ((aligned[0] || snap[0]) && (aligned[1] || snap[1])) {
+        mIsTargetWindowActive = false;
+        mIsDirty = true;
+      }
+      
+      mCenterUV[0] += offUV[0];
+      mCenterUV[1] += offUV[1];
     }
-    if (!aligned[1] && fabsf(offUV[1]) < 10 * screenPixUV[1]) {
-      offUV[1] = Ndc2V(*mFrame, -centerNDC[1]);
-      snap[1] = true;
-    }
-    
-    if ((aligned[0] || snap[0]) && (aligned[1] || snap[1])) {
-      mIsTargetWindowActive = false;
-      mIsDirty = true;
-    }
-    
-    mCenterUV[0] += offUV[0];
-    mCenterUV[1] += offUV[1];
   }
 
   return true;
@@ -1790,10 +1825,12 @@ bool FrameViewer::OnDrag(EventPhase phase, float x, float y, float dx, float dy,
   float du = -2 * (u1 - u0) * dx / Width()  / (x1 - x0);
   float dv = -2 * (v1 - v0) * dy / Height() / (y1 - y0);
   
-  if (fabsf(x0) != fabsf(x1))                 // Translated off-center
-    du *= 0.333;
-  if (fabsf(y0) != fabsf(y1))
-    dv *= 0.333;
+  if (!mIsSnappingToPixelCenter) {
+    if (fabsf(x0) != fabsf(x1))               // Translated off-center
+      du *= 0.333;
+    if (fabsf(y0) != fabsf(y1))
+      dv *= 0.333;
+  }
   
   if (phase == TOUCH_MOVED) {                 // Update position on move
     mCenterUV[0] += du;
