@@ -4,6 +4,7 @@
 #define TOUCH_UI_H_
 
 #include <map>
+#include <math.h>
 #include <vector>
 #include <string>
 
@@ -51,15 +52,10 @@ namespace tui {
   class Widget {
   public:
     Widget() : mIsEnabled(true), mIsHidden(false), mIsScaling(false),
-               mIsDragging(false), mIsHorizontalDrag(false),
-               mPrevScale(0), mPrevScaleVel(0) {
+               mIsDragging(false), mIsHorizontalDrag(false) {
       memset(mPrevPan, 0, sizeof(mPrevPan));
-      memset(mPrevPanVel, 0, sizeof(mPrevPanVel));
     }
     virtual ~Widget() {}
-    
-    // Can be called multiple times, usually to change position
-    virtual bool Init() { return true; }
     
     // Called to draw contents. Viewport set prior to call.
     virtual bool Draw() { return true; }
@@ -107,30 +103,6 @@ namespace tui {
     bool mIsHorizontalDrag;                   // True if drag started horiz
     std::vector<Event::Touch> mTouchStart;    // Tracking touches
     float mPrevScale, mPrevPan[2];            // Last reported values
-    float mPrevScaleVel, mPrevPanVel[2];      // Last reported velocity
-  };
-  
-  
-  // Group operations
-  class Group : public Widget {
-  public:
-    Group() {}
-    virtual ~Group() {}
-    
-    virtual bool Add(Widget *widget);
-    virtual bool Remove(Widget *widget);
-    virtual void Clear();
-    
-    // Perform the following actions on all the widgets in the group
-    virtual bool Draw();
-    virtual bool Touch(const Event &event);
-    virtual bool Enabled() const;
-    virtual void Enable(bool status);
-    virtual bool Hidden() const;
-    virtual void Hide(bool status);
-    
-  protected:
-    std::vector<Widget *> mWidgetVec;         // Grouped widgets
   };
   
   
@@ -141,7 +113,7 @@ namespace tui {
       mViewport[0] = mViewport[1] = mViewport[2] = mViewport[3] = 0;
     }
     virtual ~ViewportWidget() {}
-    virtual bool Init(int x, int y, int w, int h) {
+    virtual bool SetViewport(int x, int y, int w, int h) {
       if (w == 0 || h == 0)
         return false;
       mViewport[0] = x; mViewport[1] = y;
@@ -168,6 +140,26 @@ namespace tui {
   };
   
   
+  // Text label, display only
+  class Label : public ViewportWidget {
+  public:
+    Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0) {}
+    virtual ~Label();
+    virtual bool Init(const char *text, float pts);
+    virtual bool FitViewport();
+    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual bool Draw();
+    
+    // Initialize the font used to draw all labels
+    static void SetFont(void *font) { sFont = font; }
+    
+  private:
+    static void *sFont;
+    const char *mText;
+    float mPts, mPtW, mPtH;
+  };
+  
+  
   // Base class for any animated widgets
   class AnimatedViewport : public ViewportWidget {
   public:
@@ -190,16 +182,14 @@ namespace tui {
       mTargetViewport[2] = mTargetViewport[3] = 0;
       mSpriteUV[0] = mSpriteUV[1] = mSpriteUV[2] = mSpriteUV[3] = 0;
     }
-    virtual bool Init(int x, int y, int w, int h, float opacity,
-                      float u0, float v0, float u1, float v1, 
+    virtual bool Init(float opacity, float u0, float v0, float u1, float v1, 
                       unsigned int texture);
     virtual bool Step(float seconds);
     virtual bool Draw();
     virtual bool Touch(const Event &event) { return false; }
     virtual bool SetTarget(int x, int y, int w, int h, float opacity,float sec);
     virtual bool Dormant() const { return mSecondsRemaining <= 0; }
-    virtual unsigned int Texture() const { return mSpriteTexture; }
-    
+
   protected:
     int mOriginalViewport[4];                 // Initial viewport
     int mTargetViewport[4];                   // Destination viewport
@@ -216,7 +206,191 @@ namespace tui {
   };
   
   
-  // A horizontal (or vertical?) scrollable list of clickable frames
+  //
+  // Buttons
+  //
+  
+  // Button touch behavior, invokes OnTouchTap when activated
+  class Button : public ViewportWidget {
+  public:
+    Button() {}
+    virtual ~Button() {}
+    
+    // Viewport contains entire texture, toggled
+    virtual bool Touch(const Event &event);
+    virtual bool Pressed() const;
+    
+    // Override with action
+    virtual bool OnTouchTap(const Event::Touch &touch) { return false; };
+    
+  protected:
+    struct Press {
+      Press(size_t id, bool pressed, int x, int y) :
+      id(id), pressed(pressed), x(x), y(y) {}
+      size_t id;                              // Touch id
+      bool pressed;                           // True if currently pressed
+      int x, y;                               // Press location
+    };
+    
+    virtual bool InvokeTouchTap(const Event::Touch &touch) {
+      return OnTouchTap(touch);
+    }
+    int FindPress(size_t id) const;
+    
+    std::vector<Press> mPressVec;             // Support multiple touch events
+  };
+  
+  
+  // Button that draws one of two images depending on pressed state
+  class ImageButton : public Button {
+  public:
+    ImageButton() : mDefaultTex(0), mPressedTex(0),
+                    mIsBlendEnabled(false), mIsTexOwned(false) {}
+    virtual ~ImageButton();
+    
+    virtual bool Init(bool blend, unsigned int defaultTex,
+                      unsigned int pressedTex, bool ownTex=false);
+    virtual bool Draw();
+    
+  protected:
+    unsigned int mDefaultTex;                 // Default texture id
+    unsigned int mPressedTex;                 // Transient pressed texture id
+    bool mIsBlendEnabled;                     // True if GL_BLEND enabled
+    bool mIsTexOwned;                         // True if we delete textures
+  };
+  
+  
+  // Maintains selection state with button semantics
+  class CheckboxButton : public Button {
+  public:
+    CheckboxButton() : mSelected(false) {}
+    virtual ~CheckboxButton() {}
+    
+    virtual void SetSelected(bool status) { mSelected = status; }
+    virtual bool Selected() const { return mSelected; }
+    
+  protected:
+    virtual bool InvokeTouchTap(const Event::Touch &touch) {
+      SetSelected(!Selected());
+      return Button::InvokeTouchTap(touch);
+    }
+    
+    bool mSelected;
+  };
+  
+  
+  // Checkbox button drawn using three (four?) textures
+  class CheckboxImageButton : public CheckboxButton {
+  public:
+    CheckboxImageButton() : mBlendEnabled(false), mDeselectedTex(0),
+    mPressedTex(0), mSelectedTex(0) {}
+    virtual ~CheckboxImageButton() {}
+    
+    virtual bool Init(bool blend, unsigned int deselectedTex,
+                      unsigned int pressedTex, unsigned int selectedTex);
+    virtual bool Draw();
+    
+  protected:
+    bool mBlendEnabled;
+    unsigned int mDeselectedTex, mPressedTex, mSelectedTex;
+  };
+  
+  
+  // Button drawn by extending (scaling middle, but not edges) of the
+  // background textures with a string centered on top
+  class TextButton : public Button {
+  public:
+    TextButton() : mLabel(NULL), mDefaultTex(0), mPressedTex(0) {
+      memset(mDim, 0, sizeof(mDim));
+    }
+    virtual bool Init(const char *text, float pts, size_t w, size_t h,
+                      unsigned int defaultTex, unsigned int pressedTex);
+    virtual bool FitViewport();
+    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual bool Draw();
+    
+  protected:
+    virtual int EdgeDim() const { return mDim[0] / 2; }
+    
+    Label *mLabel;
+    size_t mDim[2];
+    unsigned int mDefaultTex, mPressedTex;
+  };
+  
+  
+  // Manages a set of CheckboxButtons, ensuring that only a single
+  // checkbox of the group, or none, is selected at any given time
+  class RadioButton : public ViewportWidget {
+  public:
+    RadioButton() : mIsNoneAllowed(false) {}
+    virtual void Add(CheckboxButton *button) { mButtonVec.push_back(button); }
+    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual bool Touch(const Event &event);
+    virtual CheckboxButton *Selected() const;
+    virtual void SetSelected(CheckboxButton *button);
+    virtual void SetIsNoneAllowed(bool status) { mIsNoneAllowed = status; }
+    virtual bool IsNoneAllowed() const { return mIsNoneAllowed; }
+    virtual bool OnNoneSelected() { return false; }
+    
+  protected:
+    bool mIsNoneAllowed;
+    std::vector<CheckboxButton *> mButtonVec;
+  };
+  
+  
+  //
+  // Groups
+  //
+  
+  // Group operations
+  class Group : public Widget {
+  public:
+    Group() {}
+    virtual ~Group() {}
+    
+    virtual bool Add(Widget *widget);
+    virtual bool Remove(Widget *widget);
+    virtual void Clear();
+    
+    // Perform the following actions on all the widgets in the group
+    virtual bool Draw();
+    virtual bool Touch(const Event &event);
+    virtual bool Enabled() const;
+    virtual void Enable(bool status);
+    virtual bool Hidden() const;
+    virtual void Hide(bool status);
+    
+  protected:
+    std::vector<Widget *> mWidgetVec;         // Grouped widgets
+  };
+  
+  
+  // A set of horizontally arrangend widgets over a stretched background tex.
+  // Add widgets from left to right, with spacers interspersed, and the
+  // widgets will be automatically adjusted on rotation. Use ViewportWidget
+  // for fixed spacing (flexible spacer is a ViewportWidget with negative size).
+  // Set the size of each widget for spacing, but the (x,y) is ignored.
+  class Toolbar : public ViewportWidget {
+  public:
+    Toolbar() : mEdgeTex(0), mCenterTex(0), mEdgeDim(0) {}
+    virtual bool Init(unsigned int centerTex);
+    virtual bool SetEdge(unsigned int edgeTex, unsigned int edgeDim);
+    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void Add(ViewportWidget *widget) { mWidgetVec.push_back(widget); }
+    virtual bool AddFixedSpacer(int w);
+    virtual bool AddFlexibleSpacer();
+    virtual void Clear() { mWidgetVec.clear(); }
+    virtual bool Touch(const Event &event);
+    virtual bool Draw();
+    
+  private:
+    unsigned int mEdgeTex, mCenterTex;
+    unsigned int mEdgeDim;
+    std::vector<ViewportWidget *> mWidgetVec;
+  };
+  
+  
+  // A horizontal or vertical scrollable list of clickable frames
   class FlinglistImpl : public AnimatedViewport {
   public:
     class Frame {
@@ -243,8 +417,9 @@ namespace tui {
       mDragHandleDim[0] = mDragHandleDim[1] = 0;
     }
     virtual ~FlinglistImpl() {}
-    virtual bool Init(int x, int y, int w, int h, int frameDim,
-                      bool vertical, float pixelsPerCm);
+    virtual bool Init(int frameDim, bool vertical, float pixelsPerCm);
+    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetFrameDim(int dim);
     virtual void SetSnapToCenter(bool status) { mSnapToCenter = status; }
     virtual void SetSingleFrameFling(bool status) { mSingleFrameFling = status;}
     virtual bool SetDragHandle(unsigned int texture, size_t w, size_t h);
@@ -393,115 +568,6 @@ namespace tui {
   };
   
   
-  // Button touch behavior, invokes OnTouchTap when activated
-  class Button : public ViewportWidget {
-  public:
-    Button() {}
-    virtual ~Button() {}
-    
-    // Viewport contains entire texture, toggled
-    virtual bool Touch(const Event &event);
-    virtual bool Pressed() const;
-
-    // Override with action
-    virtual bool OnTouchTap(const Event::Touch &touch) { return false; };
-    
-  protected:
-    struct Press {
-      Press(size_t id, bool pressed, int x, int y) :
-        id(id), pressed(pressed), x(x), y(y) {}
-      size_t id;                              // Touch id
-      bool pressed;                           // True if currently pressed
-      int x, y;                               // Press location
-    };
-
-    virtual bool InvokeTouchTap(const Event::Touch &touch) {
-      return OnTouchTap(touch);
-    }
-    int FindPress(size_t id) const;
-    
-    std::vector<Press> mPressVec;             // Support multiple touch events
-  };
-  
-  
-  // Button that draws one of two images depending on pressed state
-  class ImageButton : public Button {
-  public:
-    ImageButton() : mDefaultTexture(0), mPressedTexture(0),
-                    mBlendEnabled(false) {}
-    virtual ~ImageButton() {}
-    
-    virtual bool Init(int x, int y, int w, int h, bool blend,
-                      unsigned int defaultTexture, unsigned int pressedTexture);
-    virtual bool Draw();
-    
-  protected:
-    unsigned int mDefaultTexture;             // Default texture id
-    unsigned int mPressedTexture;             // Transient pressed texture id
-    bool mBlendEnabled;                       // True if GL_BLEND enabled
-  };
-  
-  
-  // Maintains selection state with button semantics
-  class CheckboxButton : public Button {
-  public:
-    CheckboxButton() : mSelected(false) {}
-    virtual ~CheckboxButton() {}
-    
-    virtual void SetSelected(bool status) { mSelected = status; }
-    virtual bool Selected() const { return mSelected; }
-    
-  protected:
-    virtual bool InvokeTouchTap(const Event::Touch &touch) {
-      SetSelected(!Selected());
-      return Button::InvokeTouchTap(touch);
-    }
-    
-    bool mSelected;
-  };
-  
-  
-  // Checkbox button drawn using three (four?) textures
-  class CheckboxImageButton : public CheckboxButton {
-  public:
-    CheckboxImageButton() : mBlendEnabled(false), mDeselectedTex(0),
-                            mPressedTex(0), mSelectedTex(0) {}
-    virtual ~CheckboxImageButton() {}
-
-    virtual bool Init(int x, int y, int w, int h, bool blend,
-                      unsigned int deselectedTex, unsigned int pressedTex,
-                      unsigned int selectedTex);
-    virtual bool Draw();
-
-  protected:
-    bool mBlendEnabled;
-    unsigned int mDeselectedTex, mPressedTex, mSelectedTex;
-  };
-  
-  
-  // Manages a set of CheckboxButtons, ensuring that only a single
-  // checkbox of the group, or none, is selected at any given time
-  class RadioGroup : public Group {
-  public:
-    RadioGroup() : mIsNoneAllowed(false) {}
-    virtual bool Add(CheckboxButton *button) { return Group::Add(button); }
-    virtual bool Remove(CheckboxButton *button) { return Group::Remove(button); }
-    virtual bool Touch(const Event &event);
-    virtual CheckboxButton *Selected() const;
-    virtual void SetSelected(CheckboxButton *button);
-    virtual void SetIsNoneAllowed(bool status) { mIsNoneAllowed = status; }
-    virtual bool IsNoneAllowed() const { return mIsNoneAllowed; }
-    virtual bool OnNoneSelected() { return false; }
-    
-  private:
-    bool Add(Widget *widget) { abort(); return false; }
-    bool Remove(Widget *widget) { abort(); return false; }
-    bool IsNoneSelected();
-      
-    bool mIsNoneAllowed;
-  };
-  
-  
   // Manages a rectangular frame with pan and zoom.
   // Animated "soft limits" keep the image within a set of bounds,
   // but allow some movement past the edge.
@@ -517,6 +583,8 @@ namespace tui {
       // into the current viewport.
       virtual bool Draw(float x0, float y0, float x1, float y1,
                         float u0, float v0, float u1, float v1) { return true; }
+      virtual bool SetViewport(int x, int y, int w, int h) { return true; }
+      virtual bool Touch(const tui::Event &event) { return false; }
       virtual bool Step(float seconds) { return true; }
       virtual bool Dormant() const { return true; }
       virtual bool IsVerticalInverted() const { return false; }
@@ -532,42 +600,60 @@ namespace tui {
                     mIsTargetWindowActive(false),
                     mIsDirty(false),
                     mIsSnappingToPixelCenter(false),
-                    mScaleMin(0), mScaleMax(0) {
+                    mIsXLocked(false), mIsYLocked(false),
+                    mIsScaleLocked(false),
+                    mScaleMin(0), mScaleMax(0),
+                    mDragVelK(30), mDragDamping(0.75),
+                    mScaleVelK(50), mScaleDamping(0.75) {
       memset(mCenterUV, 0, sizeof(mCenterUV));
       memset(mCenterVelocityUV, 0, sizeof(mCenterVelocityUV));
     }
     virtual ~FrameViewer() {}
     
-    virtual bool Init(int x, int y, int w, int h);
+    virtual bool SetViewport(int x, int y, int w, int h);
     virtual bool SetFrame(Frame *frame);      // Set current frame
-    virtual Frame *Frame() const { return mFrame; }
+    virtual Frame *ActiveFrame() const { return mFrame; }
     virtual bool Draw();                      // Render all visible views
+    virtual bool Touch(const tui::Event &event); // Pass to active frame
     virtual bool Step(float seconds);         // Animate views
     virtual bool Dormant() const;             // True if all views dormant
     virtual bool OnScale(EventPhase phase, float scale, float velocity,
                          float xorg, float yorg);
     virtual bool OnDrag(EventPhase phase, float x, float y, float dx, float dy,
                         float xorg, float yorg);
+    virtual void SetDragSensitivity(float velocity, float damping);
+    virtual void SetScaleSensitivity(float velocity, float damping);
     virtual void SnapToPixelCenter(bool status) { mIsSnappingToPixelCenter = status; }
-    virtual bool SnapCurrentToFitFrame();     // Whole image in frame
+    virtual bool SnapToFitFrame();            // Whole image in frame
+    virtual bool SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
+    virtual void LockMotion(bool lockX, bool lockY, bool lockScale);
+    virtual bool IsXLocked() const { return mIsXLocked; }
+    virtual bool IsYLocked() const { return mIsYLocked; }
+    virtual bool IsScaleLocked() const { return mIsScaleLocked; }
     virtual float Scale() const { return mScale; }
-
-  protected:
-    static const float kDamping = 0.7;        // Viscous damping
-
+    
+    // Convert the region in NDC and UV space provided to Frame::Draw into
+    // a 4x4 matrix (really 2D, so it could be 3x3), that transforms points
+    // in pixel coordinates in the Frame image into NDC for use as a MVP.
+    static void RegionToM44f(float dst[16], int imageWidth, int imageHeight,
+                             float x0, float y0, float x1, float y1,
+                             float u0, float v0, float u1, float v1);
+    
+  private:
     FrameViewer(const FrameViewer &);         // Disallow copy ctor
     void operator=(const FrameViewer &);      // Disallow assignment
     
+    bool Reset();
     void ComputeScaleRange();
-    void ComputeFrameDisplayRect(const class Frame &frame, float *x0, float *y0,
+    void ComputeFrameDisplayRect(const Frame &frame, float *x0, float *y0,
                                  float *x1, float *y1, float *u0, float *v0,
                                  float *u1, float *v1);
-    float U2Ndc(const class Frame &frame, float u) const;
-    float V2Ndc(const class Frame &frame, float v) const;
-    float Ndc2U(const class Frame &frame, float x) const;
-    float Ndc2V(const class Frame &frame, float y) const;
+    float U2Ndc(const Frame &frame, float u) const;
+    float V2Ndc(const Frame &frame, float v) const;
+    float Ndc2U(const Frame &frame, float x) const;
+    float Ndc2V(const Frame &frame, float y) const;
     
-    class Frame *mFrame;                      // Active frame
+    Frame *mFrame;                            // Active frame
     float mScale, mScaleVelocity;             // Image scale, 1 -> 1 pixel
     float mCenterUV[2], mCenterVelocityUV[2]; // Center of screen in UV 0 -> 1
     float mTargetScale;                       // Rubberband targets
@@ -575,7 +661,38 @@ namespace tui {
     bool mIsTargetWindowActive;               // True if we use target center
     bool mIsDirty;                            // True if we need to repaint
     bool mIsSnappingToPixelCenter;            // True if we align center pixel
+    bool mIsXLocked, mIsYLocked;              // True if motion not allowed
+    bool mIsScaleLocked;                      // True if scaling not allowed
     float mScaleMin, mScaleMax;               // Valid scale range
+    float mDragVelK, mDragDamping;            // Drag sensitivity
+    float mScaleVelK, mScaleDamping;          // Scale sensitivity
+  };
+  
+  
+  // A frame using grid of custom buttons. Buttons are drawn in pixel
+  // coordinates of the frame (not screen) using the MVP transform.
+  // Buttons are clipped prior to drawing to 
+  class ButtonGridFrame : public FrameViewer::Frame {
+  public:
+    ButtonGridFrame();
+    virtual bool Init(FrameViewer *viewer, int wideCount, int narrowCount);
+    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual size_t ImageWidth() const;
+    virtual size_t ImageHeight() const;
+    virtual bool Touch(const tui::Event &event);
+    virtual bool Draw(float x0, float y0, float x1, float y1,
+                      float u0, float v0, float u1, float v1);
+    virtual const float *MVP() const { return mMVP; }
+
+  protected:
+    tui::FrameViewer *mFrameViewer;           // Backpointer
+    std::vector<Button *> mButtonVec;         // Button grid
+    int mButtonHorizCount[2];                 // Wide & narrow counts
+    int mButtonHorizCountIdx;                 // Wide or narrow cur count
+    int mButtonDim;                           // Size in pixels
+    int mButtonPad;                           // Pixels between buttons
+    float mMVP[16];                           // Image pix -> NDC (draw)
+    float mInvMVP[16];                        // NDC -> Image pix (touch)
   };
   
   

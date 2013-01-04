@@ -4,6 +4,8 @@
 
 #include "GlesUtil.h"
 
+#include <ImathMatrix.h>
+
 #include <math.h>
 #include <assert.h>
 
@@ -73,13 +75,14 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       mIsScaling = false;
       break;
     case TOUCH_MOVED:
+    case TOUCH_ENDED:     /*FALLTHRU*/
       if (mTouchStart.size() > 1) {       // Multitouch processing
         // Compute the pan based on the distance between the segment midpoints
         const float mid0[2] = { 0.5 * (mTouchStart[0].x + mTouchStart[1].x),
                                 0.5 * (mTouchStart[0].y + mTouchStart[1].y) };
-        const float mid1[2] = { 0.5 * (t0.x + t1.x), 0.5 * (t0.y + t1.y) };
-        const float pan[2] = { mid1[0] - mid0[0], mid1[1] - mid0[1] };
-        EventPhase gesturePhase = TOUCH_MOVED;
+        float mid[2] = { 0.5 * (t0.x + t1.x), 0.5 * (t0.y + t1.y) };
+        float pan[2] = { mid[0] - mid0[0], mid[1] - mid0[1] };
+        EventPhase gesturePhase = trackingPhase;
         if (!mIsDragging) {
           if (fabsf(pan[0]) > kMinPanPix) {
             mIsDragging = true;
@@ -95,9 +98,8 @@ bool Widget::ProcessGestures(const tui::Event &event) {
           }
         }
         if (mIsDragging) {
-          mPrevPanVel[0] = pan[0] - mPrevPan[0];
-          mPrevPanVel[1] = pan[1] - mPrevPan[1];
-          if (OnDrag(gesturePhase, pan[0],pan[1], mPrevPanVel[0], mPrevPanVel[1],
+          float panVel[2] = { pan[0] - mPrevPan[0], pan[1] - mPrevPan[1] };
+          if (OnDrag(gesturePhase, pan[0], pan[1], panVel[0], panVel[1],
                      mTouchStart[0].x, mTouchStart[0].y))
             consumed = true;
           mPrevPan[0] = pan[0];
@@ -109,15 +111,15 @@ bool Widget::ProcessGestures(const tui::Event &event) {
                             mTouchStart[1].x, mTouchStart[1].y);
         float len1 = length(t0.x, t0.y, t1.x, t1.y);
         float scale = len1 / len0;        // Relative scale change
-        gesturePhase = TOUCH_MOVED;       // Default to move
+        gesturePhase = trackingPhase;     // Default to current
         if (!mIsScaling && (scale > 1+kMinScale || scale < 1-kMinScale)) {
           mIsScaling = true;
           gesturePhase = TOUCH_BEGAN;     // First scale event,
           mPrevScale = scale;
         }
         if (mIsScaling) {
-          mPrevScaleVel = scale - mPrevScale;
-          if (OnScale(gesturePhase, scale, mPrevScaleVel, mid1[0], mid1[1]))
+          float scaleVel = scale - mPrevScale;
+          if (OnScale(gesturePhase, scale, scaleVel, mid[0], mid[1]))
             consumed = true;
           mPrevScale = scale;
         }
@@ -126,7 +128,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         // Translate by the difference between the previous and
         // the current touch locations, accounting for scale.
         const float pan[2] = {t0.x - mTouchStart[0].x, t0.y - mTouchStart[0].y};
-        EventPhase gesturePhase = TOUCH_MOVED;
+        EventPhase gesturePhase = trackingPhase;
         if (!mIsDragging) {
           if (fabsf(pan[0]) > kMinPanPix) {
             mIsDragging = true;
@@ -140,112 +142,37 @@ bool Widget::ProcessGestures(const tui::Event &event) {
           mPrevPan[1] = pan[1];
         }
         if (mIsDragging) {
-          mPrevPanVel[0] = pan[0] - mPrevPan[0];
-          mPrevPanVel[1] = pan[1] - mPrevPan[1];
-          if (OnDrag(gesturePhase, pan[0],pan[1], mPrevPanVel[0],mPrevPanVel[1],
+          float panVel[2] = { pan[0] - mPrevPan[0], pan[1] - mPrevPan[1] };
+          if (OnDrag(gesturePhase, pan[0], pan[1], panVel[0], panVel[1],
                      mTouchStart[0].x, mTouchStart[0].y))
             consumed = true;
           mPrevPan[0] = pan[0];
           mPrevPan[1] = pan[1];
         }
       }
-      break;
-    case TOUCH_CANCELLED: /*FALLTHRU*/
-    case TOUCH_ENDED:
-      mTouchStart.clear();
-      if (mIsScaling) {
-        const float mid[2] = { 0.5*(t0.x + t1.x), 0.5*(t0.y + t1.y) };
-        mIsScaling = false;
-        if (OnScale(TOUCH_ENDED, mPrevScale, mPrevScaleVel, mid[0], mid[1]))
-          consumed = true;
-      }
-      if (mIsDragging) {
+      
+      if (trackingPhase != TOUCH_MOVED) {
+        mTouchStart.clear();
         mIsDragging = false;
-        if (OnDrag(TOUCH_ENDED, mPrevPan[0], mPrevPan[1], mPrevPanVel[0],
-                   mPrevPanVel[1], mTouchStart[0].x, mTouchStart[0].y))
-          consumed = true;
+        mIsScaling = false;
       }
+      
+      break;
+      
+    case TOUCH_CANCELLED:
+      if (mIsDragging)
+        if (OnDrag(TOUCH_CANCELLED, 0, 0, 0, 0, 0, 0))
+          consumed = true;
+      if (mIsScaling)
+        if (OnDrag(TOUCH_CANCELLED, 0, 0, 0, 0, 0, 0))
+          consumed = true;
+      mTouchStart.clear();
+      mIsDragging = false;
+      mIsScaling = false;
       break;
   }
   
   return consumed;
-}
-
-
-//
-// Group
-//
-
-bool Group::Add(Widget *widget) {
-  mWidgetVec.push_back(widget);
-  return true;
-}
-
-
-bool Group::Remove(Widget *widget) {
-  std::vector<Widget *>::iterator i = std::find(mWidgetVec.begin(),
-                                                mWidgetVec.end(), widget);
-  if (i == mWidgetVec.end())
-    return false;
-  mWidgetVec.erase(i);
-  return true;
-}
-
-
-void Group::Clear() {
-  mWidgetVec.clear();
-}
-
-
-bool Group::Draw() {
-  bool status = true;
-  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
-    if (!mWidgetVec[i]->Draw())
-      status = false;
-  }
-  return status;
-}
-
-
-bool Group::Touch(const Event &event) {
-  bool consumed = false;
-  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
-    if (mWidgetVec[i]->Touch(event))
-      consumed = true;
-  }
-  return consumed;
-}
-
-
-bool Group::Enabled() const {
-  bool enabled = false;
-  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
-    if (mWidgetVec[i]->Enabled())
-      enabled = true;
-  }
-  return enabled;
-}
-
-
-void Group::Enable(bool status) {
-  for (size_t i = 0; i < mWidgetVec.size(); ++i)
-    mWidgetVec[i]->Enable(status);
-}
-
-
-bool Group::Hidden() const {
-  bool hidden = false;
-  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
-    if (mWidgetVec[i]->Hidden())
-      hidden = true;
-  }
-  return hidden;
-}
-
-
-void Group::Hide(bool status) {
-  for (size_t i = 0; i < mWidgetVec.size(); ++i)
-    mWidgetVec[i]->Hide(status);
 }
 
 
@@ -272,14 +199,66 @@ bool ViewportWidget::ProcessGestures(const Event &event) {
 
 
 //
+// Label
+//
+
+void *Label::sFont = NULL;
+
+Label::~Label() {
+  free((void *)mText);
+}
+
+
+bool Label::Init(const char *text, float pts) {
+  mText = strdup(text);
+  const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
+  mPts = pts / font->charDimPt[1];
+  return true;
+}
+
+
+bool Label::FitViewport() {
+  const int pad = 2;
+  const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
+  const int w = mPts * GlesUtil::TextWidth(mText, font) + 2 * pad;
+  const int h = mPts * font->charDimPt[1] + 2 * pad;
+  if (!SetViewport(Left(), Bottom(), w, h))
+    return false;
+  return true;
+}
+
+
+bool Label::SetViewport(int x, int y, int w, int h) {
+  if (!ViewportWidget::SetViewport(x, y, w, h))
+    return false;
+  mPtW = 2 * mPts / Width();
+  mPtH = 2 * mPts / Height();
+  return true;
+}
+
+
+bool Label::Draw() {
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  glViewport(Left(), Bottom(), Width(), Height());
+  const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
+  float y = 1 - (Height() - mPts * font->charDimPt[1]) / float(Height());
+  if (!GlesUtil::DrawParagraph(mText, -1, -y, 1, y, GlesUtil::CenterJustify,
+                               font, mPtW, mPtH))
+    return false;
+  glDisable(GL_BLEND);
+  return true;
+}
+
+
+//
 // Sprite
 //
 
-bool Sprite::Init(int x, int y, int w, int h, float opacity,
-                  float u0, float v0, float u1, float v1, unsigned int texture){
+bool Sprite::Init(float opacity, float u0, float v0, float u1, float v1,
+                  unsigned int texture) {
   if (!texture)
-    return false;
-  if (!AnimatedViewport::Init(x, y, w, h))
     return false;
   mOpacity = opacity;
   mSpriteTexture = texture;
@@ -402,16 +381,478 @@ bool Sprite::SetTarget(int x, int y, int w, int h, float opacity, float sec) {
 
 
 //
+// Button
+//
+
+int Button::FindPress(size_t id) const {
+  for (size_t i = 0; i < mPressVec.size(); ++i)
+    if (mPressVec[i].id == id)
+      return i;
+  return -1;
+}
+
+
+bool Button::Touch(const Event &event) {
+  // Don't process events when disabled
+  if (!Enabled() || Hidden())
+    return false;
+  
+  // Check each touch, add to PressedIdVector if inside on begin,
+  // marking as down, mark as up if id already in PressedIdVector
+  // is down and outside, trigger OnTouchTap if ended inside.
+  for (size_t t = 0; t < event.touchVec.size(); ++t) {
+    const struct Event::Touch &touch = event.touchVec[t];
+    int idx = 0;
+    switch (event.phase) {
+      case TOUCH_BEGAN:
+        if (Inside(touch.x, touch.y)) {
+          mPressVec.push_back(Press(touch.id, true, touch.x, touch.y));
+          return false;
+        }
+        break;
+      case TOUCH_MOVED:
+        idx = FindPress(touch.id);
+        if (idx >= 0) {
+          mPressVec[idx].pressed = Inside(touch.x, touch.y);
+          return false;
+        }
+        break;
+      case TOUCH_ENDED:
+        idx = FindPress(touch.id);
+        if (idx >= 0) {
+          std::vector<Press>::iterator i = mPressVec.begin() + idx;
+          mPressVec.erase(i);
+          if (Inside(touch.x, touch.y)) {
+            if (InvokeTouchTap(touch))
+              return true;
+            return false;
+          }
+        }
+        break;
+      case TOUCH_CANCELLED:
+        idx = FindPress(touch.id);
+        if (idx >= 0) {
+          std::vector<Press>::iterator i = mPressVec.begin() + idx;
+          mPressVec.erase(i);
+          return false;
+        }
+        break;
+    }
+  }
+  
+  return false;
+}
+
+
+bool Button::Pressed() const {
+  for (size_t i = 0; i < mPressVec.size(); ++i)
+    if (mPressVec[i].pressed)
+      return true;
+  return false;
+}
+
+
+//
+// ImageButton
+//
+
+
+ImageButton::~ImageButton() {
+  if (mIsTexOwned) {
+    glDeleteTextures(1, &mDefaultTex);
+    glDeleteTextures(1, &mPressedTex);
+  }
+}
+
+
+bool ImageButton::Init(bool blend, unsigned int defaultTex,
+                       unsigned int pressedTex, bool ownTex) {
+  if (defaultTex == 0 || pressedTex == 0)
+    return false;
+  
+  mIsBlendEnabled = blend;
+  mIsTexOwned = ownTex;
+  mDefaultTex = defaultTex;
+  mPressedTex = pressedTex;
+  
+  return true;
+}
+
+
+bool ImageButton::Draw() {
+  if (Hidden())
+    return true;
+  
+  if (mIsBlendEnabled) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
+  } else {
+    glDisable(GL_BLEND);
+  }
+  glViewport(Left(), Bottom(), Width(), Height());
+  
+  unsigned int texture = Pressed() ? mPressedTex : mDefaultTex;
+  if (!GlesUtil::DrawTexture2f(texture, -1, -1, 1, 1, 0, 1, 1, 0))
+    return false;
+  
+  return true;
+}
+
+
+//
+// CheckboxImageButton
+//
+
+bool CheckboxImageButton::Init(bool blend, unsigned int deselectedTex,
+                               unsigned int pressedTex,
+                               unsigned int selectedTex) {
+  if (deselectedTex == 0 || pressedTex == 0 || selectedTex == 0)
+    return false;
+  
+  mBlendEnabled = blend;
+  mDeselectedTex = deselectedTex;
+  mPressedTex = pressedTex;
+  mSelectedTex = selectedTex;
+  
+  return true;
+}
+
+
+bool CheckboxImageButton::Draw() {
+  if (Hidden())
+    return true;
+  
+  if (mBlendEnabled) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
+  } else {
+    glDisable(GL_BLEND);
+  }
+  glViewport(Left(), Bottom(), Width(), Height());
+  
+  unsigned int texture = Pressed() ? mPressedTex : Selected() ?
+  mSelectedTex : mDeselectedTex;
+  if (!GlesUtil::DrawTexture2f(texture, -1, -1, 1, 1, 0, 1, 1, 0))
+    return false;
+  
+  return true;
+}
+
+
+//
+// TextButton
+//
+
+bool TextButton::Init(const char *text, float pts, size_t w, size_t h,
+                      unsigned int defaultTex, unsigned int pressedTex) {
+  mLabel = new Label;
+  if (!mLabel->Init(text, pts))
+    return true;
+  mDim[0] = w;
+  mDim[1] = h;
+  mDefaultTex = defaultTex;
+  mPressedTex = pressedTex;
+  return true;
+}
+
+
+bool TextButton::FitViewport() {
+  if (!mLabel->FitViewport())
+    return false;
+  const int pad = 8;
+  const int edgeDim = EdgeDim();
+  const int w = mLabel->Width() + 2 * edgeDim;
+  const int h = mLabel->Height() + 2 * pad;
+  if (!mLabel->SetViewport(Left() + edgeDim + pad, Bottom() + pad,
+                           mLabel->Width(), mLabel->Height()))
+    return false;
+  if (!Button::SetViewport(Left(), Bottom(), w, h))
+    return false;
+  return true;
+}
+
+
+bool TextButton::SetViewport(int x, int y, int w, int h) {
+  if (!Button::SetViewport(x, y, w, h))
+    return false;
+  const int pad = 8;
+  const int edgeDim = EdgeDim();
+  if (!mLabel->SetViewport(x + edgeDim, y + pad, w - 2 * edgeDim, h - 2*pad))
+    return false;
+  return true;
+}
+
+
+bool TextButton::Draw() {
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  glViewport(Left(), Bottom(), Width(), Height());
+  
+  const GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
+  const int edgeDim = EdgeDim();
+  float x0 = -1;
+  float x1 = x0 + 2 * edgeDim / float(Width());
+  if (!GlesUtil::DrawTexture2f(tex, x0, -1, x1, 1, 0, 1, 0.5, 0))
+    return false;
+  x0 = x1;
+  x1 = -x1;
+  if (!GlesUtil::DrawTexture2f(tex, x0, -1, x1, 1, 0.5, 1, 0.5, 0))
+    return false;
+  x0 = x1;
+  x1 = 1;
+  if (!GlesUtil::DrawTexture2f(tex, x0, -1, x1, 1, 0.5, 1, 1, 0))
+    return false;
+  
+  if (!mLabel->Draw())
+    return false;
+  glDisable(GL_BLEND);
+  
+  return true;
+}
+
+
+//
+// RadioButton
+//
+
+CheckboxButton *RadioButton::Selected() const {
+  for (size_t i = 0; i < mButtonVec.size(); ++i) {
+    CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
+    if (cb && cb->Selected())
+      return cb;
+  }
+  return NULL;
+}
+
+
+void RadioButton::SetSelected(CheckboxButton *button) {
+  // Deselect any currently selected buttons
+  for (size_t i = 0; i < mButtonVec.size(); ++i) {
+    CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
+    if (cb && cb != button && cb->Selected())
+      cb->SetSelected(false);
+  }
+  
+  if (!button->Selected())
+    button->SetSelected(true);
+  
+  if (Selected() == NULL)
+    OnNoneSelected();
+}
+
+
+bool RadioButton::SetViewport(int x, int y, int w, int h) {
+  for (size_t i = 0; i < mButtonVec.size(); ++i) {
+    CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
+    if (!cb->SetViewport(x, y, w, h))
+      return false;
+  }
+  return true;
+}
+
+
+bool RadioButton::Touch(const Event &event) {
+  for (size_t i = 0; i < mButtonVec.size(); ++i) {
+    CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
+    if (!mIsNoneAllowed && cb->Selected())
+      continue;                               // Don't deselect if selected
+    if (cb->Touch(event) && cb->Selected()) {
+      SetSelected(cb);
+      break;
+    }
+  }
+  
+  if (Selected() == NULL)
+    OnNoneSelected();
+  
+  return false;
+}
+
+
+//
+// Group
+//
+
+bool Group::Add(Widget *widget) {
+  mWidgetVec.push_back(widget);
+  return true;
+}
+
+
+bool Group::Remove(Widget *widget) {
+  std::vector<Widget *>::iterator i = std::find(mWidgetVec.begin(),
+                                                mWidgetVec.end(), widget);
+  if (i == mWidgetVec.end())
+    return false;
+  mWidgetVec.erase(i);
+  return true;
+}
+
+
+void Group::Clear() {
+  mWidgetVec.clear();
+}
+
+
+bool Group::Draw() {
+  bool status = true;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    if (!mWidgetVec[i]->Draw())
+      status = false;
+  }
+  return status;
+}
+
+
+bool Group::Touch(const Event &event) {
+  bool consumed = false;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    if (mWidgetVec[i]->Touch(event))
+      consumed = true;
+  }
+  return consumed;
+}
+
+
+bool Group::Enabled() const {
+  bool enabled = false;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    if (mWidgetVec[i]->Enabled())
+      enabled = true;
+  }
+  return enabled;
+}
+
+
+void Group::Enable(bool status) {
+  for (size_t i = 0; i < mWidgetVec.size(); ++i)
+    mWidgetVec[i]->Enable(status);
+}
+
+
+bool Group::Hidden() const {
+  bool hidden = false;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    if (mWidgetVec[i]->Hidden())
+      hidden = true;
+  }
+  return hidden;
+}
+
+
+void Group::Hide(bool status) {
+  for (size_t i = 0; i < mWidgetVec.size(); ++i)
+    mWidgetVec[i]->Hide(status);
+}
+
+
+//
+// Toolbar
+//
+
+bool Toolbar::Init(unsigned int centerTex) {
+  mCenterTex = centerTex;
+  return true;
+}
+
+
+bool Toolbar::SetEdge(unsigned int edgeTex, unsigned int edgeDim) {
+  abort();
+  mEdgeTex = edgeTex;
+  mEdgeDim = edgeDim;
+  return true;
+}
+
+
+bool Toolbar::SetViewport(int x, int y, int w, int h) {
+  if (!ViewportWidget::SetViewport(x, y, w, h))
+    return false;
+  
+  // Find the total width of all fixed items, and then split that up
+  // equally between the flexible spacers (those with width<0)
+  int flexibleCount = 0;
+  int totalWidth = 0;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    const int w = mWidgetVec[i]->Width();
+    if (w < 0)
+      flexibleCount++;
+    else
+      totalWidth += w;
+  }
+  
+  int flexibleSpacing = (Width() - totalWidth) / flexibleCount;
+  
+  // Now set the viewport for all widgets (except flexible spacers)
+  int wx = 0;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    ViewportWidget *widget = mWidgetVec[i];
+    if (widget->Width() > 0) {
+      int wy = Bottom() + 0.5 * (Height() - widget->Height());
+      widget->SetViewport(wx, wy, widget->Width(), widget->Height());
+      wx += widget->Width();
+    } else {
+      wx += flexibleSpacing;
+    }
+  }
+  
+  return true;
+}
+
+
+bool Toolbar::AddFixedSpacer(int w) {
+  ViewportWidget *widget = new ViewportWidget;   // LEAK!!
+  widget->SetViewport(0, 0, w, 1);
+  Add(widget);
+  return true;
+}
+
+
+bool Toolbar::AddFlexibleSpacer() {
+  ViewportWidget *widget = new ViewportWidget;   // LEAK!!
+  widget->SetViewport(0, 0, -1, -1);
+  Add(widget);
+  return true;
+}
+
+
+bool Toolbar::Touch(const tui::Event &event) {
+  bool consumed = false;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    if (mWidgetVec[i]->Touch(event))
+      consumed = true;
+  }
+  return consumed;
+}
+
+
+bool Toolbar::Draw() {
+  assert(!mEdgeDim && !mEdgeTex);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  glViewport(Left(), Bottom(), Width(), Height());
+  if (!GlesUtil::DrawTexture2f(mCenterTex, -1, -1, 1, 1, 0, 1, 1, 0))
+    return false;
+  glDisable(GL_BLEND);
+  
+  bool status = true;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    if (!mWidgetVec[i]->Draw())
+      status = false;
+  }
+  return status;
+}
+
+
+//
 // Flinglist
 //
 
-bool FlinglistImpl::Init(int x, int y, int w, int h, int frameDim,
-                         bool vertical, float pixelsPerCm) {
-  if (!AnimatedViewport::Init(x, y, w, h))
-    return false;
-
+bool FlinglistImpl::Init(int frameDim, bool vertical, float pixelsPerCm) {
   mFrameDim = frameDim;
-  mScrollableDim = std::min(frameDim, h);
   mVertical = vertical;
   mPixelsPerCm = pixelsPerCm;
 
@@ -479,6 +920,20 @@ bool FlinglistImpl::Init(int x, int y, int w, int h, int frameDim,
   }
   
   return true;
+}
+
+
+bool FlinglistImpl::SetViewport(int x, int y, int w, int h) {
+  if (!AnimatedViewport::SetViewport(x, y, w, h))
+    return false;
+  mScrollableDim = std::min(mFrameDim, h);
+  return true;
+}
+
+
+void FlinglistImpl::SetFrameDim(int dim) {
+  mFrameDim = dim;
+  mScrollableDim = std::min(mFrameDim, Height());
 }
 
 
@@ -1243,206 +1698,15 @@ void FilmstripImpl::SnapIdx(size_t idx, float seconds) {
 
 
 //
-// Buttons
-//
-
-int Button::FindPress(size_t id) const {
-  for (size_t i = 0; i < mPressVec.size(); ++i)
-    if (mPressVec[i].id == id)
-      return i;
-  return -1;
-}
-
-
-bool Button::Touch(const Event &event) {
-  // Don't process events when disabled
-  if (!Enabled() || Hidden())
-    return false;
-  
-  // Check each touch, add to PressedIdVector if inside on begin, 
-  // marking as down, mark as up if id already in PressedIdVector
-  // is down and outside, trigger OnTouchTap if ended inside. 
-  for (size_t t = 0; t < event.touchVec.size(); ++t) {
-    const struct Event::Touch &touch = event.touchVec[t];
-    int idx = 0;
-    switch (event.phase) {
-      case TOUCH_BEGAN:
-        if (Inside(touch.x, touch.y)) {
-          mPressVec.push_back(Press(touch.id, true, touch.x, touch.y));
-          return true;
-        }
-        break;
-      case TOUCH_MOVED:
-        idx = FindPress(touch.id);
-        if (idx >= 0) {
-          mPressVec[idx].pressed = Inside(touch.x, touch.y);
-          return true;
-        }
-        break;
-      case TOUCH_ENDED:
-        idx = FindPress(touch.id);
-        if (idx >= 0) {
-          std::vector<Press>::iterator i = mPressVec.begin() + idx;
-          mPressVec.erase(i);
-          if (Inside(touch.x, touch.y)) {
-            if (InvokeTouchTap(touch))
-              return true;
-            return true;
-          }
-        }
-        break;
-      case TOUCH_CANCELLED:
-        idx = FindPress(touch.id);
-        if (idx >= 0) {
-          std::vector<Press>::iterator i = mPressVec.begin() + idx;
-          mPressVec.erase(i);
-          return true;
-        }
-        break;        
-    }
-  }
-  
-  return false;
-}
-
-
-bool Button::Pressed() const {
-  for (size_t i = 0; i < mPressVec.size(); ++i)
-    if (mPressVec[i].pressed)
-      return true;
-  return false;
-}
-
-
-bool ImageButton::Init(int x, int y, int w, int h, bool blend,
-                       unsigned int defaultTexture,unsigned int pressedTexture){
-  if (!Button::Init(x, y, w, h))
-    return false;
-  
-  if (defaultTexture == 0 || pressedTexture == 0)
-    return false;
-  
-  mBlendEnabled = blend;
-  mDefaultTexture = defaultTexture;
-  mPressedTexture = pressedTexture;
-  
-  return true;
-}
-
-
-bool ImageButton::Draw() {
-  if (Hidden())
-    return true;
-  
-  if (mBlendEnabled) {
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glBlendEquation(GL_FUNC_ADD);
-  } else {
-    glDisable(GL_BLEND);
-  }
-  glViewport(Left(), Bottom(), Width(), Height());
-  
-  unsigned int texture = Pressed() ? mPressedTexture : mDefaultTexture;
-  if (!GlesUtil::DrawTexture2f(texture, -1, -1, 1, 1, 0, 1, 1, 0))
-    return false;
-  
-  return true;
-}
-
-
-bool CheckboxImageButton::Init(int x, int y, int w, int h, bool blend,
-                               unsigned int deselectedTex,
-                               unsigned int pressedTex,
-                               unsigned int selectedTex) {
-  if (!Button::Init(x, y, w, h))
-    return false;
-  
-  if (deselectedTex == 0 || pressedTex == 0 || selectedTex == 0)
-    return false;
-  
-  mBlendEnabled = blend;
-  mDeselectedTex = deselectedTex;
-  mPressedTex = pressedTex;
-  mSelectedTex = selectedTex;
-  
-  return true;
-}
-
-
-bool CheckboxImageButton::Draw() {
-  if (Hidden())
-    return true;
-  
-  if (mBlendEnabled) {
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glBlendEquation(GL_FUNC_ADD);
-  } else {
-    glDisable(GL_BLEND);
-  }
-  glViewport(Left(), Bottom(), Width(), Height());
-  
-  unsigned int texture = Pressed() ? mPressedTex : Selected() ?
-                                    mSelectedTex : mDeselectedTex;
-  if (!GlesUtil::DrawTexture2f(texture, -1, -1, 1, 1, 0, 1, 1, 0))
-    return false;
-  
-  return true;
-}
-
-
-//
-// RadioGroup
-//
-
-CheckboxButton *RadioGroup::Selected() const {
-  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
-    CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mWidgetVec[i]);
-    if (cb && cb->Selected())
-      return cb;
-  }
-  return NULL;
-}
-
-
-void RadioGroup::SetSelected(CheckboxButton *button) {
-  // Deselect any currently selected buttons
-  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
-    CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mWidgetVec[i]);
-    if (cb && cb != button && cb->Selected())
-      cb->SetSelected(false);
-  }
-  
-  if (!button->Selected())
-    button->SetSelected(true);
-
-  if (Selected() == NULL)
-    OnNoneSelected();
-}
-
-
-bool RadioGroup::Touch(const Event &event) {
-  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
-    CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mWidgetVec[i]);
-    if (!mIsNoneAllowed && cb->Selected())
-      continue;                               // Don't deselect if selected
-    if (cb->Touch(event) && cb->Selected()) {
-      SetSelected(cb);
-      break;
-    }
-  }
-  
-  if (Selected() == NULL)
-    OnNoneSelected();
-  
-  return false;
-}
-
-
-//
 // FrameViewer
 //
+
+bool FrameViewer::Reset() {
+  ComputeScaleRange();
+  if (!Step(0.001))                           // Clamp scale and animate
+    return false;
+  return true;
+}
 
 
 void FrameViewer::ComputeScaleRange() {
@@ -1467,19 +1731,23 @@ void FrameViewer::ComputeScaleRange() {
 }
 
 
-bool FrameViewer::Init(int x, int y, int w, int h) {
-  if (!AnimatedViewport::Init(x, y, w, h))
+bool FrameViewer::SetViewport(int x, int y, int w, int h) {
+  if (!AnimatedViewport::SetViewport(x, y, w, h))
     return false;
-  ComputeScaleRange();
-  Step(0.001);                                // Clamp scale and animate
+  if (mFrame && !mFrame->SetViewport(x, y, w, h))
+    return false;
+  if (!Reset())
+    return false;
   return true;
 }
 
 
 bool FrameViewer::SetFrame(class Frame *frame) {
   mFrame = frame;
-  ComputeScaleRange();
-  Step(0.001);                                // Clamp scale and animate
+  if (!Reset())
+    return false;
+  if (mFrame && !mFrame->SetViewport(Left(), Bottom(), Width(), Height()))
+    return false;
   return true;
 }
 
@@ -1619,6 +1887,21 @@ bool FrameViewer::Draw() {
 }
 
 
+bool FrameViewer::Touch(const tui::Event &event) {
+  class Frame *frame = ActiveFrame();
+  if (frame && frame->Touch(event)) {
+    AnimatedViewport::Touch(Event(TOUCH_CANCELLED));
+    return true;
+  }
+  if (AnimatedViewport::Touch(event)) {
+    if (frame)
+      frame->Touch(Event(TOUCH_CANCELLED));
+    return true;
+  }
+  return false;
+}
+
+
 bool FrameViewer::Step(float seconds) {
   if (seconds == 0)
     return true;
@@ -1633,13 +1916,16 @@ bool FrameViewer::Step(float seconds) {
   seconds = std::min(seconds, 0.1f);          // clamp to avoid debugging issues
   
   // Apply inertial scaling
-  mScaleVelocity *= 0.85;
-  if (fabsf(mScaleVelocity) < 0.01)
+  mScaleVelocity *= mScaleDamping;
+  if (IsScaleLocked() || fabsf(mScaleVelocity) < 0.01)
     mScaleVelocity = 0;
   else if (!IsScaling() && !mIsTargetScaleActive)
     mScale += mScaleVelocity * seconds;
 
-  if (mScale > mScaleMax && mScaleVelocity > 0.01) {
+  if (IsScaleLocked()) {
+    mIsTargetScaleActive = false;
+    mTargetScale = 0;
+  } else if (mScale > mScaleMax && mScaleVelocity > 0.01) {
     mTargetScale = mScaleMax;
     mIsTargetScaleActive = true;
   } else if (mScale < mScaleMin && mScaleVelocity < -0.01) {
@@ -1663,16 +1949,20 @@ bool FrameViewer::Step(float seconds) {
   const int ih = mFrame->ImageHeight();
 
   // Apply inertial panning
-  mCenterVelocityUV[0] *= kDamping;
-  mCenterVelocityUV[1] *= kDamping;
+  mCenterVelocityUV[0] *= mDragDamping;
+  mCenterVelocityUV[1] *= mDragDamping;
   if (fabsf(mCenterVelocityUV[0]) < 1.0 / iw)
     mCenterVelocityUV[0] = 0;
   if (fabsf(mCenterVelocityUV[1]) < 1.0 / ih)
     mCenterVelocityUV[1] = 0;
-  if (!IsDragging() && mCenterVelocityUV[0] != 0)
+  if (!IsDragging() && !IsXLocked() && mCenterVelocityUV[0] != 0) {
+    printf("Update x: %f += %f * %f\n", mCenterUV[0], mCenterVelocityUV[0], seconds);
     mCenterUV[0] += mCenterVelocityUV[0] * seconds;
-  if (!IsDragging() && mCenterVelocityUV[1] != 0)
+  }
+  if (!IsDragging() && !IsYLocked() && mCenterVelocityUV[1] != 0) {
+    printf("Update y: %f += %f * %f\n", mCenterUV[1], mCenterVelocityUV[1], seconds);
     mCenterUV[1] += mCenterVelocityUV[1] * seconds;
+  }
 
   // Move the image so that it fits in the "valid" NDC rectangle.
   // When the image is fit to the display, this will target the center,
@@ -1706,10 +1996,14 @@ bool FrameViewer::Step(float seconds) {
       if (cpix[0] == 0 || cpix[0] == iw-1 || cpix[1] == 0 || cpix[1] == ih-1 ||
           (fabsf(mCenterVelocityUV[0]) < dUVPixels / iw &&
            fabsf(mCenterVelocityUV[1]) < dUVPixels / ih)) {
+        mCenterVelocityUV[0] = mCenterVelocityUV[1] = 0;    // force to zero
         const float fUV[2] = { (0.5 - (pix[0] - cpix[0])) / iw,
                                (0.5 - (pix[1] - cpix[1])) / ih };
+        printf("pix=(%f, %f)  cpix=(%f, %f)  fUV=(%f, %f)\n",
+               pix[0], pix[1], cpix[0], cpix[1], fUV[0], fUV[1]);
         float s[2] = { 1, 1 };
-        mIsDirty = true;                      // One more repaint
+        mIsDirty = fabsf(fUV[0]) > 0.5 * screenPixUV[0] ||
+                   fabsf(fUV[1]) > 0.5 * screenPixUV[1];
         mIsTargetWindowActive = false;        // Stop animating?
         if (fabsf(fUV[0]) > dUVPixels * 0.5 * screenPixUV[0]) {
           s[0] = pctCloser;
@@ -1719,9 +2013,14 @@ bool FrameViewer::Step(float seconds) {
           s[1] = pctCloser;
           mIsTargetWindowActive = true;       // Continue animating
         }
-            
-        mCenterUV[0] += s[0] * fUV[0];
-        mCenterUV[1] += s[1] * fUV[1];
+        printf("Update snap xy: (%f, %f) += (%f, %f) * (%f, %f)\n",
+               mCenterUV[0], mCenterUV[1], s[0], s[1], fUV[0], fUV[1]);
+
+       
+        if (!IsXLocked())
+          mCenterUV[0] += s[0] * fUV[0];
+        if (!IsYLocked())
+          mCenterUV[1] += s[1] * fUV[1];
       }
     } else if (mIsTargetWindowActive) {
       assert(iw && ih && mScale != 0);
@@ -1747,8 +2046,12 @@ bool FrameViewer::Step(float seconds) {
         mIsDirty = true;
       }
       
-      mCenterUV[0] += offUV[0];
-      mCenterUV[1] += offUV[1];
+      printf("Update target xy: (%f, %f) += (%f, %f)\n",
+             mCenterUV[0], mCenterUV[1], offUV[0], offUV[1]);
+      if (!IsXLocked())
+        mCenterUV[0] += offUV[0];
+      if (!IsYLocked())
+        mCenterUV[1] += offUV[1];
     }
   }
 
@@ -1765,6 +2068,8 @@ bool FrameViewer::Dormant() const {
     return false;
   if (mCenterVelocityUV[0] != 0 || mCenterVelocityUV[1] != 0)
     return false;
+  if (mFrame && !mFrame->Dormant())
+    return false;
   return true;
 }
 
@@ -1777,15 +2082,22 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
   assert(!isnan(scale) && !isnan(velocity));
   if (!mFrame)
     return false;
+  
+  if (IsScaleLocked()) {
+    mScaleVelocity = 0;
+    mIsTargetScaleActive = false;
+    mTargetScale = 0;
+    return false;
+  }
 
   if (phase == TOUCH_MOVED) {                 // Update scale on move
     float s = mScale * (1 + velocity);
     if (s < mScaleMin || s > mScaleMax)
-      velocity *= 0.333;                      // Make it harder to pull
+      velocity *= 0.5;                        // Make it harder to pull
     mScale *= 1 + velocity;                   // Multiply scales
   }
   if (phase == TOUCH_ENDED) {
-    mScaleVelocity = 50 * velocity;
+    mScaleVelocity = mScaleVelK * velocity;
     mIsTargetScaleActive = false;
     mTargetScale = 0;
   } else {
@@ -1802,10 +2114,14 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
   float screenU = u0 + uNDC * (u1 - u0);
   float screenV = v0 + vNDC * (v1 - v0);
 
+  printf("Update scale xy: (%f, %f) += (%f, %f) * %f\n",
+         mCenterUV[0], mCenterUV[1], screenU, screenU, velocity);
   // Move the center of the image toward the origin to keep
   // that point invariant, scaling by velocity (change in scale)
-  mCenterUV[0] -= (mCenterUV[0] - screenU) * velocity;
-  mCenterUV[1] -= (mCenterUV[1] - screenV) * velocity;
+  if (!IsXLocked())
+    mCenterUV[0] -= (mCenterUV[0] - screenU) * velocity;
+  if (!IsYLocked())
+    mCenterUV[1] -= (mCenterUV[1] - screenV) * velocity;
   
   return true;
 }
@@ -1822,25 +2138,38 @@ bool FrameViewer::OnDrag(EventPhase phase, float x, float y, float dx, float dy,
   // Convert velocity into image UV coordinates
   float x0, y0, x1, y1, u0, v0, u1, v1;
   ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
-  float du = -2 * (u1 - u0) * dx / Width()  / (x1 - x0);
-  float dv = -2 * (v1 - v0) * dy / Height() / (y1 - y0);
+  float du = -2 * (u1 - u0) * dx / mFrame->ImageWidth()  / (x1 - x0);
+  float dv = -2 * (v1 - v0) * dy / mFrame->ImageHeight() / (y1 - y0);
   
   if (!mIsSnappingToPixelCenter) {
     if (fabsf(x0) != fabsf(x1))               // Translated off-center
-      du *= 0.333;
+      du *= 0.5;
     if (fabsf(y0) != fabsf(y1))
-      dv *= 0.333;
+      dv *= 0.5;
   }
   
   if (phase == TOUCH_MOVED) {                 // Update position on move
-    mCenterUV[0] += du;
-    mCenterUV[1] += dv;
+    printf("Drag (%f, %f) += (%f, %f)\n", mCenterUV[0], mCenterUV[1], du, dv);
+    if (!IsXLocked())
+      mCenterUV[0] += du;
+    if (!IsYLocked())
+      mCenterUV[1] += dv;
   }
   
   if (phase == TOUCH_ENDED) {                 // Update animation on end
     float vscale = mScale < 1 ? 1 / mScale : mScale;
-    mCenterVelocityUV[0] = 10 * vscale * du;
-    mCenterVelocityUV[1] = 10 * vscale * dv;
+    const float moveThreshold = 5;
+    float maxDxy = std::max(fabsf(dx), fabsf(dy));
+    float falloff = 1;
+    if (mIsSnappingToPixelCenter && maxDxy < moveThreshold / 2)
+      falloff = 0;
+    else if (mIsSnappingToPixelCenter && maxDxy < moveThreshold)
+      falloff = (maxDxy - moveThreshold / 2) / (moveThreshold / 2);
+    du *= falloff;
+    dv *= falloff;
+    printf("Drag ended: dx,dy=(%f, %f) du,dv=(%f, %f)  vscale=%f  cvel=(%f, %f) falloff=%f\n", dx, dy, du, dv, vscale, mCenterVelocityUV[0], mCenterVelocityUV[1], falloff);
+    mCenterVelocityUV[0] = mDragVelK * vscale * du;
+    mCenterVelocityUV[1] = mDragVelK * vscale * dv;
   } else {                                    // Disable animation on move/begin
     mCenterVelocityUV[0] = mCenterVelocityUV[1] = 0;
   }
@@ -1849,10 +2178,22 @@ bool FrameViewer::OnDrag(EventPhase phase, float x, float y, float dx, float dy,
 }
 
 
+void FrameViewer::SetDragSensitivity(float velocity, float damping) {
+  mDragVelK = velocity;
+  mDragDamping = damping;
+}
+
+
+void FrameViewer::SetScaleSensitivity(float velocity, float damping) {
+  mScaleVelK = velocity;
+  mScaleDamping = damping;
+}
+
+
 // Center the image and compute the scaling required to fit the image
 // within the current frame.
 
-bool FrameViewer::SnapCurrentToFitFrame() {
+bool FrameViewer::SnapToFitFrame() {
   mCenterUV[0] = 0.5;                         // Center image
   mCenterUV[1] = 0.5;
   ComputeScaleRange();                        // Recompute if needed
@@ -1863,6 +2204,168 @@ bool FrameViewer::SnapCurrentToFitFrame() {
   mTargetScale = 0;
   mIsTargetWindowActive = false;
   mIsTargetScaleActive = false;
+  return true;
+}
+
+
+// Center the image and compute the scaling required to fit the image
+// across the current frame, offsetting the y location using v=[0,1]
+
+bool FrameViewer::SnapToFitWidth(float v) {
+  SnapToFitFrame();
+  mScale = Width() / float(mFrame->ImageWidth());
+  float v2 = Height() / (mScale * mFrame->ImageHeight());
+  mCenterUV[1] = v * (1 - v2) + v2 / 2;
+  return true;
+}
+
+
+void FrameViewer::LockMotion(bool lockX, bool lockY, bool lockScale) {
+  mIsXLocked = lockX;
+  mIsYLocked = lockY;
+  mIsScaleLocked = lockScale;
+}
+
+
+// Convert the region in NDC and UV space provided to Frame::Draw into
+// a 4x4 matrix (really 2D, so it could be 3x3), that transforms points
+// in pixel coordinates in the Frame image into NDC for use as a MVP.
+void RegionToM44f(float dst[16], int imageWidth, int imageHeight,
+                  float x0, float y0, float x1, float y1,
+                  float u0, float v0, float u1, float v1) {
+  Imath::M44f m;
+  m.translate(Imath::V3f(-1, -1, 0));                   // -> [-1, 1]
+  m.scale(Imath::V3f(2, 2, 1));                         // -> [0, 2]
+  m.translate(Imath::V3f((x0 + 1)/2, (y0 + 1)/2, 0));   // -> [x0, y0] in [0,1]
+  m.scale(Imath::V3f((x1 - x0)/2, (y1 - y0)/2, 1));     // -> [x0, y0]x[x1, y1]
+  m.scale(Imath::V3f(1.0/(u1 - u0), 1.0/(v1 - v0), 1)); // -> [u0, v0]x[u1, v1]
+  m.translate(Imath::V3f(-u0, -v0, 0));                 // -> [u0, v0]
+  m.translate(Imath::V3f(0, 1, 0));                     // -> [0, 1] offset y
+  m.scale(Imath::V3f(1, -1, 1));                        // -> [-1, 0] invert y
+  m.scale(Imath::V3f(1.0/imageWidth, 1.0/imageHeight, 1));// texel -> [0, 1]
+  memcpy(dst, m.getValue(), 16 * sizeof(float));
+}
+
+
+//
+// ButtonGridFrame
+//
+
+
+ButtonGridFrame::ButtonGridFrame() : mFrameViewer(NULL), mButtonHorizCountIdx(0),
+                                     mButtonDim(0), mButtonPad(0) {
+  memset(mButtonHorizCount, 0, sizeof(mButtonHorizCount));
+  memset(mMVP, 0, sizeof(mMVP));
+  memset(mInvMVP, 0, sizeof(mInvMVP));
+}
+
+
+bool ButtonGridFrame::Init(FrameViewer *viewer, int wideCount, int narrowCount){
+  mFrameViewer = viewer;
+  mButtonHorizCount[0] = wideCount;
+  mButtonHorizCount[1] = narrowCount;
+  return true;
+}
+
+
+bool ButtonGridFrame::SetViewport(int x, int y, int w, int h) {
+  mButtonPad = 64;
+  mButtonHorizCountIdx = w > h ? 0 : 1;
+  const int hc = mButtonHorizCount[mButtonHorizCountIdx];
+  mButtonDim = (w - mButtonPad * (hc + 1)) / hc;
+  int px = mButtonPad;
+  int py = ImageHeight() - mButtonPad - mButtonDim;
+  for (size_t i = 0; i < mButtonVec.size(); ++i) {
+    if (!mButtonVec[i]->SetViewport(px, py, mButtonDim, mButtonDim))
+      return false;
+    if ((i + 1) % hc == 0) {
+      px = mButtonPad;
+      py -= mButtonDim + mButtonPad;
+    } else {
+      px += mButtonDim + mButtonPad;
+    }
+  }
+  return true;
+}
+
+
+size_t ButtonGridFrame::ImageWidth() const {
+  if (!mFrameViewer)
+    return 0;
+  return mFrameViewer->Width();
+}
+
+
+size_t ButtonGridFrame::ImageHeight() const {
+  if (!mFrameViewer)
+    return 0;
+  const float hc = mButtonHorizCount[mButtonHorizCountIdx];
+  const int vertCount = roundf(mButtonVec.size() / hc + 0.5);
+  return vertCount * (mButtonPad + mButtonDim) + mButtonPad;
+}
+
+
+bool ButtonGridFrame::Touch(const tui::Event &event) {
+  if (mFrameViewer->IsDragging() || mFrameViewer->IsScaling())
+    return false;
+  tui::Event e(event);
+  Imath::M44f t = *(Imath::M44f *)&mInvMVP[0];
+  for (size_t i = 0; i < e.touchVec.size(); ++i) {
+    // Touch location in NDC coordinates
+    Imath::V3f p(2.0 * e.touchVec[i].x / mFrameViewer->Width() - 1,
+                 2.0 * e.touchVec[i].y / mFrameViewer->Height() - 1, 0);
+    Imath::V3f q = p * t;
+    e.touchVec[i].x = q.x;
+    e.touchVec[i].y = q.y;
+    printf("Touch = (%d, %d)\n", e.touchVec[i].x, e.touchVec[i].y);
+  }
+
+  for (size_t i = 0; i < mButtonVec.size(); ++i) {
+    if (mButtonVec[i]->Touch(e))
+      return true;
+  }
+  return false;
+}
+
+
+bool ButtonGridFrame::Draw(float x0, float y0, float x1, float y1,
+                  float u0, float v0, float u1, float v1) {
+  RegionToM44f(mMVP, ImageWidth(), ImageHeight(), x0, y0, x1, y1, u0, v0,u1,v1);
+  
+  Imath::M44f m(mMVP[0], mMVP[1], mMVP[2], mMVP[3],
+                mMVP[4], mMVP[5], mMVP[6], mMVP[7],
+                mMVP[8], mMVP[9], mMVP[10], mMVP[11],
+                mMVP[12], mMVP[13], mMVP[14], mMVP[15]);  
+  m.invert();
+  memcpy(mInvMVP, m.getValue(), 16 * sizeof(float));
+  
+  for (size_t i = 0; i < mButtonVec.size(); ++i) {
+    float bu0 = mButtonVec[i]->Left() / float(ImageWidth());
+    float bv0 = mButtonVec[i]->Bottom() / float(ImageHeight());
+    float bu1 = mButtonVec[i]->Right() / float(ImageWidth());
+    float bv1 = mButtonVec[i]->Top() / float(ImageHeight());
+    if (IsHorizontalInverted()) {
+      bu0 = 1 - bu0;
+      bu1 = 1 - bu1;
+      if (bu1 > u0 || bu0 < u1)
+        continue;
+    } else {
+      if (bu0 > u1 || bu1 < u0)
+        continue;
+    }
+    if (IsVerticalInverted()) {
+      bv0 = 1 - bv0;
+      bv1 = 1 - bv1;
+      if (bv1 > v0 || bv0 < v1)
+        continue;
+    } else {
+      if (bv0 > v1 || bv1 < v0)
+        continue;
+    }
+    if (!mButtonVec[i]->Draw())
+      return false;
+  }
+  
   return true;
 }
 
@@ -1941,3 +2444,4 @@ bool TabBar::Select(const Tab *tab) {
   mTabVec[mCurTab]->OnSelect();
   return true;
 }
+

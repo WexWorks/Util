@@ -435,6 +435,24 @@ bool GlesUtil::IsExtensionEnabled(const char *extension) {
   return strstr((const char *)extensionString, extension) != NULL;
 }
 
+unsigned int GlesUtil::TextWidth(const char *text, const Font *font,
+                                 float charPadPt) {
+  if (!text)
+    return 0;
+  
+  const size_t len = strlen(text);
+  if (len == 0)
+    return 0;
+  
+  size_t w = 0;
+  for (size_t i = 0; i < len; ++i) {
+    const int k = (unsigned char)text[i];             // Glyph index
+    w += font->charWidthPt[k] + charPadPt;            // Kerning offset in X
+  }
+  
+  return w;
+}
+
 
 struct V2f { float x, y; };                           // 2D Position & UV
 
@@ -536,9 +554,9 @@ static bool DrawJustified(const char *text, float x0, float x1,
   const float w = x1 - x0;
   float x, pad = 0;
   switch (align) {
-    case GlesUtil::LeftJustify:   x = 0;              break;
-    case GlesUtil::RightJustify:  x = w - textW;      break;
-    case GlesUtil::CenterJustify: x = w / 2 - textW;  break;
+    case GlesUtil::LeftJustify:   x = 0;                break;
+    case GlesUtil::RightJustify:  x = w - textW;        break;
+    case GlesUtil::CenterJustify: x = (w - textW) / 2;  break;
     case GlesUtil::FullJustify:
       x = 0;
       pad = std::max(textW - w, 0.0f);
@@ -581,6 +599,7 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
         continue;
       if (w - lastSepW > wrapW) {
         // FIXME: What happens if a single word is longer than the line?
+        continue;
       }
       str[lastSep] = '\0';
       w = lastSepW;

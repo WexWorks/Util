@@ -54,10 +54,14 @@ struct Font {
   GLuint tex;                                         // 16x16 ASCII char grid
 };
 
+// Return the length, in pts, of a given string
+unsigned int TextWidth(const char *text, const Font *font, float charPadPt = 0);
+
 // Draw a one-line string of text. Starting location is the lower
 // left corner of the first character in MVP space. Linefeeds are ignored.
 // (ptW, ptH) scale points into MVP (e.g. NDC) space, and are typically set
 // to (0.5 / vpW, 0.5 / vpH) to scale to [-1, -1] x [1, 1]
+// Note: we should remove ptW,ptH and put xform into MVP, simpler.
 
 bool DrawText(const char *text, float x, float y, const Font *font,
               float ptW, float ptH, const float *MVP = 0, float charPadPt = 0);
@@ -67,6 +71,7 @@ bool DrawText(const char *text, float x, float y, const Font *font,
 // starting one line down from the top (y1). No explicit clipping is performed,
 // however lines that fall below the bottom of the rect (y0) will be skipped.
 // Consider adding tab stops to paragraph layout?
+// Note: we should remove ptW,ptH and put xform into MVP, simpler.
   
 enum Align { LeftJustify, CenterJustify, RightJustify, FullJustify };
 

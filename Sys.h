@@ -25,7 +25,11 @@ public:
                                  size_t *channelCount,
                                  const unsigned char **texel) = 0;
   virtual bool LoadText(const char *name, const char **text) = 0;
+  virtual bool LoadImageDirectory(const char *name) = 0;
+  virtual bool LoadImage(const char *name, void *data) = 0;
   virtual bool OpenImagePicker(const int viewport[4]) = 0;
+
+  virtual float PixelScale() const = 0;
 };
 
 
@@ -38,17 +42,23 @@ public:
   
   static App *Create();                               // Factory
   
-  virtual bool Init(Callbacks &callbacks) = 0;        // Initialization
+  virtual bool Init(Callbacks &callbacks) = 0;        // Setup app
   virtual bool Touch(const tui::Event &event) = 0;    // Process events
   virtual bool Step(float seconds) = 0;               // Animate widgets
   virtual bool Dormant() = 0;                         // True = no refresh
   virtual bool Draw() = 0;                            // Draw UI & images
 
   // Called at startup and whenever the device orientation changes
-  virtual bool SetDeviceResolution(int w, int h, float pixelsPerCm) = 0;
+  virtual bool SetDeviceResolution(int w, int h) = 0;
   
-  // Called by OpenImagePicker
-  virtual bool LoadImage(const char *name, size_t w, size_t h,
+  // Called by LoadImageDirectory
+  virtual bool AddImage(const char *album, const char *name, const char *url,
+                        size_t w, size_t h, const unsigned char *thumb) = 0;
+  virtual bool AddAlbum(const char *name, const char *url, size_t w, size_t h,
+                        const unsigned char *thumb) = 0;
+
+  // Called by LoadImage and OpenImagePicker
+  virtual bool LoadImage(const char *name, void *data, size_t w, size_t h,
                          size_t channelCount, size_t bytePerChannelCount,
                          const unsigned char *pixel) = 0;
   
