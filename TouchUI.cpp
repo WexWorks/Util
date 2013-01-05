@@ -618,6 +618,24 @@ bool TextButton::Draw() {
 // RadioButton
 //
 
+RadioButton::~RadioButton() {
+  for (size_t i = 0; i < mButtonVec.size(); ++i)
+    delete mButtonVec[i];
+  mButtonVec.clear();
+}
+
+
+void RadioButton::Add(CheckboxButton *button) {
+  mButtonVec.push_back(button);
+  int w = 0, h = 0;
+  for (size_t i = 0; i < mButtonVec.size(); ++i) {
+    w += mButtonVec[i]->Width();
+    h = std::max(h, mButtonVec[i]->Height());
+  }
+  SetViewport(Left(), Bottom(), w, h);
+}
+
+
 CheckboxButton *RadioButton::Selected() const {
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
     CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
@@ -645,10 +663,15 @@ void RadioButton::SetSelected(CheckboxButton *button) {
 
 
 bool RadioButton::SetViewport(int x, int y, int w, int h) {
+  if (!ViewportWidget::SetViewport(x, y, w, h))
+    return false;
+  int tx = 0;
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
-    CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
-    if (!cb->SetViewport(x, y, w, h))
+    ViewportWidget *w = mButtonVec[i];
+    int wy = y + 0.5 * (h - w->Height());
+    if (!w->SetViewport(x + tx, wy, w->Width(), w->Height()))
       return false;
+    tx += w->Width();
   }
   return true;
 }
@@ -668,6 +691,15 @@ bool RadioButton::Touch(const Event &event) {
   if (Selected() == NULL)
     OnNoneSelected();
   
+  return false;
+}
+
+
+bool RadioButton::Draw() {
+  for (size_t i = 0; i < mButtonVec.size(); ++i) {
+    if (!mButtonVec[i]->Draw())
+      return false;
+  }
   return false;
 }
 

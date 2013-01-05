@@ -323,9 +323,11 @@ namespace tui {
   class RadioButton : public ViewportWidget {
   public:
     RadioButton() : mIsNoneAllowed(false) {}
-    virtual void Add(CheckboxButton *button) { mButtonVec.push_back(button); }
+    virtual ~RadioButton();
+    virtual void Add(CheckboxButton *button);
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual bool Touch(const Event &event);
+    virtual bool Draw();
     virtual CheckboxButton *Selected() const;
     virtual void SetSelected(CheckboxButton *button);
     virtual void SetIsNoneAllowed(bool status) { mIsNoneAllowed = status; }
