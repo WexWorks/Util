@@ -91,20 +91,11 @@ bool Widget::ProcessGestures(const tui::Event &event) {
             mIsDragging = true;
             mIsHorizontalDrag = false;
           }
-          if (mIsDragging) {
+          if (mIsDragging)
             gesturePhase = TOUCH_BEGAN;
-            mPrevPan[0] = pan[0];
-            mPrevPan[1] = pan[1];
-          }
         }
-        if (mIsDragging) {
-          float panVel[2] = { pan[0] - mPrevPan[0], pan[1] - mPrevPan[1] };
-          if (OnDrag(gesturePhase, pan[0], pan[1], panVel[0], panVel[1],
-                     mTouchStart[0].x, mTouchStart[0].y))
+        if (mIsDragging && OnDrag(gesturePhase, pan[0], pan[1], t0.timestamp))
             consumed = true;
-          mPrevPan[0] = pan[0];
-          mPrevPan[1] = pan[1];
-        }
 
         // Compute the scale based on the ratio of the segment lengths
         float len0 = length(mTouchStart[0].x, mTouchStart[0].y,
@@ -115,16 +106,12 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         if (!mIsScaling && (scale > 1+kMinScale || scale < 1-kMinScale)) {
           mIsScaling = true;
           gesturePhase = TOUCH_BEGAN;     // First scale event,
-          mPrevScale = scale;
         }
-        if (mIsScaling) {
-          float scaleVel = scale - mPrevScale;
-          if (OnScale(gesturePhase, scale, scaleVel, mid[0], mid[1]))
+        if (mIsScaling &&
+            OnScale(gesturePhase, scale, mid[0], mid[1], t0.timestamp))
             consumed = true;
-          mPrevScale = scale;
-        }
-
       } else {                              // Single-touch processing
+        
         // Translate by the difference between the previous and
         // the current touch locations, accounting for scale.
         const float pan[2] = {t0.x - mTouchStart[0].x, t0.y - mTouchStart[0].y};
@@ -138,17 +125,9 @@ bool Widget::ProcessGestures(const tui::Event &event) {
             mIsHorizontalDrag = false;
           }
           gesturePhase = TOUCH_BEGAN;
-          mPrevPan[0] = pan[0];
-          mPrevPan[1] = pan[1];
         }
-        if (mIsDragging) {
-          float panVel[2] = { pan[0] - mPrevPan[0], pan[1] - mPrevPan[1] };
-          if (OnDrag(gesturePhase, pan[0], pan[1], panVel[0], panVel[1],
-                     mTouchStart[0].x, mTouchStart[0].y))
+        if (mIsDragging && OnDrag(gesturePhase, pan[0], pan[1], t0.timestamp))
             consumed = true;
-          mPrevPan[0] = pan[0];
-          mPrevPan[1] = pan[1];
-        }
       }
       
       if (trackingPhase != TOUCH_MOVED) {
@@ -161,10 +140,10 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       
     case TOUCH_CANCELLED:
       if (mIsDragging)
-        if (OnDrag(TOUCH_CANCELLED, 0, 0, 0, 0, 0, 0))
+        if (OnDrag(TOUCH_CANCELLED, 0, 0, 0))
           consumed = true;
       if (mIsScaling)
-        if (OnDrag(TOUCH_CANCELLED, 0, 0, 0, 0, 0, 0))
+        if (OnDrag(TOUCH_CANCELLED, 0, 0, 0))
           consumed = true;
       mTouchStart.clear();
       mIsDragging = false;
@@ -218,10 +197,9 @@ bool Label::Init(const char *text, float pts) {
 
 
 bool Label::FitViewport() {
-  const int pad = 2;
   const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
-  const int w = mPts * GlesUtil::TextWidth(mText, font) + 2 * pad;
-  const int h = mPts * font->charDimPt[1] + 2 * pad;
+  const int w = mPts * GlesUtil::TextWidth(mText, font);
+  const int h = mPts * font->charDimPt[1];
   if (!SetViewport(Left(), Bottom(), w, h))
     return false;
   return true;
@@ -561,11 +539,11 @@ bool TextButton::Init(const char *text, float pts, size_t w, size_t h,
 bool TextButton::FitViewport() {
   if (!mLabel->FitViewport())
     return false;
-  const int pad = 8;
-  const int edgeDim = EdgeDim();
-  const int w = mLabel->Width() + 2 * edgeDim;
-  const int h = mLabel->Height() + 2 * pad;
-  if (!mLabel->SetViewport(Left() + edgeDim + pad, Bottom() + pad,
+  const int padH = 0.5 * mLabel->Height();
+  const int h = mLabel->Height() + 2 * padH;
+  const int padW = h * mDim[0] / (2 * mDim[1]);
+  const int w = mLabel->Width() + 2 * padW;
+  if (!mLabel->SetViewport(Left() + padW, Bottom() + padH,
                            mLabel->Width(), mLabel->Height()))
     return false;
   if (!Button::SetViewport(Left(), Bottom(), w, h))
@@ -577,9 +555,9 @@ bool TextButton::FitViewport() {
 bool TextButton::SetViewport(int x, int y, int w, int h) {
   if (!Button::SetViewport(x, y, w, h))
     return false;
-  const int pad = 8;
-  const int edgeDim = EdgeDim();
-  if (!mLabel->SetViewport(x + edgeDim, y + pad, w - 2 * edgeDim, h - 2*pad))
+  const int padH = 0.5 * mLabel->Height();
+  const int padW = h * mDim[0] / (2 * mDim[1]);
+  if (!mLabel->SetViewport(x + padW, y + padH, w - 2 * padW, h - 2 * padH))
     return false;
   return true;
 }
@@ -592,7 +570,7 @@ bool TextButton::Draw() {
   glViewport(Left(), Bottom(), Width(), Height());
   
   const GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
-  const int edgeDim = EdgeDim();
+  const int edgeDim = Height() * mDim[0] / (2 * mDim[1]);
   float x0 = -1;
   float x1 = x0 + 2 * edgeDim / float(Width());
   if (!GlesUtil::DrawTexture2f(tex, x0, -1, x1, 1, 0, 1, 0.5, 0))
@@ -1775,11 +1753,19 @@ bool FrameViewer::SetViewport(int x, int y, int w, int h) {
 
 
 bool FrameViewer::SetFrame(class Frame *frame) {
+  if (mFrame == frame)
+    return true;
+  if (mFrame && !mFrame->OnDeactivate())
+    return false;
   mFrame = frame;
   if (!Reset())
     return false;
-  if (mFrame && !mFrame->SetViewport(Left(), Bottom(), Width(), Height()))
-    return false;
+  if (mFrame) {
+    if (!mFrame->SetViewport(Left(), Bottom(), Width(), Height()))
+      return false;
+    if (!mFrame->OnActivate())
+      return false;
+  }
   return true;
 }
 
@@ -1987,14 +1973,10 @@ bool FrameViewer::Step(float seconds) {
     mCenterVelocityUV[0] = 0;
   if (fabsf(mCenterVelocityUV[1]) < 1.0 / ih)
     mCenterVelocityUV[1] = 0;
-  if (!IsDragging() && !IsXLocked() && mCenterVelocityUV[0] != 0) {
-    printf("Update x: %f += %f * %f\n", mCenterUV[0], mCenterVelocityUV[0], seconds);
+  if (!IsDragging() && !IsXLocked() && mCenterVelocityUV[0] != 0)
     mCenterUV[0] += mCenterVelocityUV[0] * seconds;
-  }
-  if (!IsDragging() && !IsYLocked() && mCenterVelocityUV[1] != 0) {
-    printf("Update y: %f += %f * %f\n", mCenterUV[1], mCenterVelocityUV[1], seconds);
+  if (!IsDragging() && !IsYLocked() && mCenterVelocityUV[1] != 0)
     mCenterUV[1] += mCenterVelocityUV[1] * seconds;
-  }
 
   // Move the image so that it fits in the "valid" NDC rectangle.
   // When the image is fit to the display, this will target the center,
@@ -2031,8 +2013,6 @@ bool FrameViewer::Step(float seconds) {
         mCenterVelocityUV[0] = mCenterVelocityUV[1] = 0;    // force to zero
         const float fUV[2] = { (0.5 - (pix[0] - cpix[0])) / iw,
                                (0.5 - (pix[1] - cpix[1])) / ih };
-        printf("pix=(%f, %f)  cpix=(%f, %f)  fUV=(%f, %f)\n",
-               pix[0], pix[1], cpix[0], cpix[1], fUV[0], fUV[1]);
         float s[2] = { 1, 1 };
         mIsDirty = fabsf(fUV[0]) > 0.5 * screenPixUV[0] ||
                    fabsf(fUV[1]) > 0.5 * screenPixUV[1];
@@ -2045,9 +2025,6 @@ bool FrameViewer::Step(float seconds) {
           s[1] = pctCloser;
           mIsTargetWindowActive = true;       // Continue animating
         }
-        printf("Update snap xy: (%f, %f) += (%f, %f) * (%f, %f)\n",
-               mCenterUV[0], mCenterUV[1], s[0], s[1], fUV[0], fUV[1]);
-
        
         if (!IsXLocked())
           mCenterUV[0] += s[0] * fUV[0];
@@ -2078,8 +2055,6 @@ bool FrameViewer::Step(float seconds) {
         mIsDirty = true;
       }
       
-      printf("Update target xy: (%f, %f) += (%f, %f)\n",
-             mCenterUV[0], mCenterUV[1], offUV[0], offUV[1]);
       if (!IsXLocked())
         mCenterUV[0] += offUV[0];
       if (!IsYLocked())
@@ -2109,9 +2084,9 @@ bool FrameViewer::Dormant() const {
 // Adjust mScale and offset mCenterUV so that the origin remains
 // invariant under scaling.
 
-bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
-                          float xorg, float yorg) {
-  assert(!isnan(scale) && !isnan(velocity));
+bool FrameViewer::OnScale(EventPhase phase, float scale, float x, float y,
+                          double timestamp) {
+  assert(!isnan(scale));
   if (!mFrame)
     return false;
   
@@ -2122,18 +2097,39 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
     return false;
   }
 
-  if (phase == TOUCH_MOVED) {                 // Update scale on move
-    float s = mScale * (1 + velocity);
-    if (s < mScaleMin || s > mScaleMax)
-      velocity *= 0.5;                        // Make it harder to pull
-    mScale *= 1 + velocity;                   // Multiply scales
-  }
-  if (phase == TOUCH_ENDED) {
-    mScaleVelocity = mScaleVelK * velocity;
-    mIsTargetScaleActive = false;
-    mTargetScale = 0;
-  } else {
-    mScaleVelocity = 0;
+  float dscale = 0;
+  
+  switch (phase) {
+    case TOUCH_BEGAN:
+      mStartScale = mScale;
+      mPrevScale = scale;
+      mPrevScaleTimestamp = timestamp;
+      mScaleVelocity = 0;
+      return true;
+      
+    case TOUCH_MOVED: {
+      dscale = scale - mPrevScale;            // Change from prev touch
+      float s = mScale * (1 + dscale);        // Presumed new scale
+      if (s < mScaleMin || s > mScaleMax)     // Check range
+        dscale *= 0.5;                        // Make it harder to pull
+      mScale *= 1 + dscale;                   // Multiply scales
+      float dt = timestamp - mPrevScaleTimestamp;
+      if (dt > 0.00001)
+        dt = 1/dt;
+      else
+        dt = 0;                               // Avoid divide by zero
+      if (dt != 0)
+        mScaleVelocity = mScaleVelK * dt * dscale;
+      mPrevScale = scale;
+      mPrevScaleTimestamp = timestamp;
+      break;
+    }
+      
+    case TOUCH_ENDED:
+    case TOUCH_CANCELLED:
+      mIsTargetScaleActive = false;
+      mTargetScale = 0;
+      return true;
   }
 
   // Compute the visible NDC & UV display rectangles of the image
@@ -2141,19 +2137,19 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
   ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   
   // Figure out the UV coordinates of the input point in the display rects
-  float uNDC = (2.0 * xorg / Width() - 1 - x0) / (x1 - x0);
-  float vNDC = (2.0 * yorg / Height() - 1 - y0) / (y1 - y0);
+  float uNDC = (2.0 * x / Width() - 1 - x0) / (x1 - x0);
+  float vNDC = (2.0 * y / Height() - 1 - y0) / (y1 - y0);
   float screenU = u0 + uNDC * (u1 - u0);
   float screenV = v0 + vNDC * (v1 - v0);
 
-  printf("Update scale xy: (%f, %f) += (%f, %f) * %f\n",
-         mCenterUV[0], mCenterUV[1], screenU, screenU, velocity);
   // Move the center of the image toward the origin to keep
-  // that point invariant, scaling by velocity (change in scale)
+  // that point invariant, scaling by velocity (change in scale).
+  // TRICKY! Must use relative changes to mCenterUV both here and in
+  //         OnDrag because absolute changes would override each other.
   if (!IsXLocked())
-    mCenterUV[0] -= (mCenterUV[0] - screenU) * velocity;
+    mCenterUV[0] -= (mCenterUV[0] - screenU) * dscale;
   if (!IsYLocked())
-    mCenterUV[1] -= (mCenterUV[1] - screenV) * velocity;
+    mCenterUV[1] -= (mCenterUV[1] - screenV) * dscale;
   
   return true;
 }
@@ -2162,16 +2158,26 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float velocity,
 // Translate the mCenterUV value based on the input pan distances
 // in screen pixels.
 
-bool FrameViewer::OnDrag(EventPhase phase, float x, float y, float dx, float dy,
-                         float xorg, float yorg) {
+bool FrameViewer::OnDrag(EventPhase phase, float x, float y, double timestamp) {
   if (!mFrame)
     return false;
+  
+  if (phase == TOUCH_BEGAN) {
+    mStartCenterUV[0] = mCenterUV[0];
+    mStartCenterUV[1] = mCenterUV[1];
+    mPrevDragXY[0] = x;
+    mPrevDragXY[1] = y;
+    mPrevDragTimestamp = timestamp;
+    return true;
+  }
   
   // Convert velocity into image UV coordinates
   float x0, y0, x1, y1, u0, v0, u1, v1;
   ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
-  float du = -2 * (u1 - u0) * dx / mFrame->ImageWidth()  / (x1 - x0);
-  float dv = -2 * (v1 - v0) * dy / mFrame->ImageHeight() / (y1 - y0);
+  float dx = x - mPrevDragXY[0];              // Change in pixels from prev
+  float dy = y - mPrevDragXY[1];
+  float du = -2 * (u1 - u0) * dx / Width()  / (x1 - x0);
+  float dv = -2 * (v1 - v0) * dy / Height() / (y1 - y0);
   
   if (!mIsSnappingToPixelCenter) {
     if (fabsf(x0) != fabsf(x1))               // Translated off-center
@@ -2181,31 +2187,24 @@ bool FrameViewer::OnDrag(EventPhase phase, float x, float y, float dx, float dy,
   }
   
   if (phase == TOUCH_MOVED) {                 // Update position on move
-    printf("Drag (%f, %f) += (%f, %f)\n", mCenterUV[0], mCenterUV[1], du, dv);
     if (!IsXLocked())
       mCenterUV[0] += du;
     if (!IsYLocked())
       mCenterUV[1] += dv;
+    float dt = timestamp - mPrevDragTimestamp;
+    if (dt > 0.00001)
+      dt = 1/dt;
+    else
+      dt = 0;                                 // Avoid divide by zero
+    if (dt != 0) {
+      mCenterVelocityUV[0] = mDragVelK * dt * du;
+      mCenterVelocityUV[1] = mDragVelK * dt * dv;
+    }
+    mPrevDragXY[0] = x;
+    mPrevDragXY[1] = y;
+    mPrevDragTimestamp = timestamp;
   }
-  
-  if (phase == TOUCH_ENDED) {                 // Update animation on end
-    float vscale = mScale < 1 ? 1 / mScale : mScale;
-    const float moveThreshold = 5;
-    float maxDxy = std::max(fabsf(dx), fabsf(dy));
-    float falloff = 1;
-    if (mIsSnappingToPixelCenter && maxDxy < moveThreshold / 2)
-      falloff = 0;
-    else if (mIsSnappingToPixelCenter && maxDxy < moveThreshold)
-      falloff = (maxDxy - moveThreshold / 2) / (moveThreshold / 2);
-    du *= falloff;
-    dv *= falloff;
-    printf("Drag ended: dx,dy=(%f, %f) du,dv=(%f, %f)  vscale=%f  cvel=(%f, %f) falloff=%f\n", dx, dy, du, dv, vscale, mCenterVelocityUV[0], mCenterVelocityUV[1], falloff);
-    mCenterVelocityUV[0] = mDragVelK * vscale * du;
-    mCenterVelocityUV[1] = mDragVelK * vscale * dv;
-  } else {                                    // Disable animation on move/begin
-    mCenterVelocityUV[0] = mCenterVelocityUV[1] = 0;
-  }
-  
+    
   return true;
 }
 
@@ -2262,9 +2261,9 @@ void FrameViewer::LockMotion(bool lockX, bool lockY, bool lockScale) {
 // Convert the region in NDC and UV space provided to Frame::Draw into
 // a 4x4 matrix (really 2D, so it could be 3x3), that transforms points
 // in pixel coordinates in the Frame image into NDC for use as a MVP.
-void RegionToM44f(float dst[16], int imageWidth, int imageHeight,
-                  float x0, float y0, float x1, float y1,
-                  float u0, float v0, float u1, float v1) {
+void FrameViewer::RegionToM44f(float dst[16], int imageWidth, int imageHeight,
+                               float x0, float y0, float x1, float y1,
+                               float u0, float v0, float u1, float v1) {
   Imath::M44f m;
   m.translate(Imath::V3f(-1, -1, 0));                   // -> [-1, 1]
   m.scale(Imath::V3f(2, 2, 1));                         // -> [0, 2]
@@ -2285,28 +2284,44 @@ void RegionToM44f(float dst[16], int imageWidth, int imageHeight,
 
 
 ButtonGridFrame::ButtonGridFrame() : mFrameViewer(NULL), mButtonHorizCountIdx(0),
-                                     mButtonDim(0), mButtonPad(0) {
+                                     mButtonDim(0), mButtonPad(0), mTopPad(0),
+                                     mBottomPad(0) {
   memset(mButtonHorizCount, 0, sizeof(mButtonHorizCount));
   memset(mMVP, 0, sizeof(mMVP));
   memset(mInvMVP, 0, sizeof(mInvMVP));
 }
 
 
-bool ButtonGridFrame::Init(FrameViewer *viewer, int wideCount, int narrowCount){
+bool ButtonGridFrame::Init(FrameViewer *viewer, int wideCount, int narrowCount,
+                           int buttonPad, int topPad, int bottomPad) {
   mFrameViewer = viewer;
   mButtonHorizCount[0] = wideCount;
   mButtonHorizCount[1] = narrowCount;
+  mButtonPad = buttonPad;
+  mTopPad = topPad;
+  mBottomPad = bottomPad;
   return true;
 }
 
 
+void ButtonGridFrame::Add(tui::Button *button) {
+  mButtonVec.push_back(button);
+}
+
+
+void ButtonGridFrame::Clear() {
+  for (size_t i = 0; i < mButtonVec.size(); ++i)
+    delete mButtonVec[i];
+  mButtonVec.clear();
+}
+
+
 bool ButtonGridFrame::SetViewport(int x, int y, int w, int h) {
-  mButtonPad = 64;
   mButtonHorizCountIdx = w > h ? 0 : 1;
   const int hc = mButtonHorizCount[mButtonHorizCountIdx];
   mButtonDim = (w - mButtonPad * (hc + 1)) / hc;
   int px = mButtonPad;
-  int py = ImageHeight() - mButtonPad - mButtonDim;
+  int py = ImageHeight() - mTopPad - mButtonDim;
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
     if (!mButtonVec[i]->SetViewport(px, py, mButtonDim, mButtonDim))
       return false;
@@ -2332,8 +2347,8 @@ size_t ButtonGridFrame::ImageHeight() const {
   if (!mFrameViewer)
     return 0;
   const float hc = mButtonHorizCount[mButtonHorizCountIdx];
-  const int vertCount = roundf(mButtonVec.size() / hc + 0.5);
-  return vertCount * (mButtonPad + mButtonDim) + mButtonPad;
+  const int vertCount = ceilf(mButtonVec.size() / hc);
+  return vertCount * (mButtonPad + mButtonDim) + mTopPad + mBottomPad;
 }
 
 
@@ -2349,7 +2364,6 @@ bool ButtonGridFrame::Touch(const tui::Event &event) {
     Imath::V3f q = p * t;
     e.touchVec[i].x = q.x;
     e.touchVec[i].y = q.y;
-    printf("Touch = (%d, %d)\n", e.touchVec[i].x, e.touchVec[i].y);
   }
 
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
@@ -2362,7 +2376,8 @@ bool ButtonGridFrame::Touch(const tui::Event &event) {
 
 bool ButtonGridFrame::Draw(float x0, float y0, float x1, float y1,
                   float u0, float v0, float u1, float v1) {
-  RegionToM44f(mMVP, ImageWidth(), ImageHeight(), x0, y0, x1, y1, u0, v0,u1,v1);
+  FrameViewer::RegionToM44f(mMVP, ImageWidth(), ImageHeight(), x0, y0, x1, y1,
+                            u0, v0, u1, v1);
   
   Imath::M44f m(mMVP[0], mMVP[1], mMVP[2], mMVP[3],
                 mMVP[4], mMVP[5], mMVP[6], mMVP[7],

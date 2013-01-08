@@ -35,11 +35,11 @@ namespace tui {
   // Event structure, used in Obj-C, to pass OS events
   struct Event {
     struct Touch {                            // One finger
-      Touch(size_t id, int x, int y, double timeStamp) : id(id), x(x), y(y),
-                                                         timeStamp(timeStamp) {}
+      Touch(size_t id, int x, int y, double timestamp)
+        : id(id), x(x), y(y), timestamp(timestamp) {}
       size_t id;                              // Unique descriptor per touch
       int x, y;                               // Pixel location of this touch
-      double timeStamp;                       // Event time
+      double timestamp;                       // Event time
     };
     
     Event(EventPhase phase) : phase(phase) {}
@@ -52,9 +52,7 @@ namespace tui {
   class Widget {
   public:
     Widget() : mIsEnabled(true), mIsHidden(false), mIsScaling(false),
-               mIsDragging(false), mIsHorizontalDrag(false) {
-      memset(mPrevPan, 0, sizeof(mPrevPan));
-    }
+               mIsDragging(false), mIsHorizontalDrag(false) {}
     virtual ~Widget() {}
     
     // Called to draw contents. Viewport set prior to call.
@@ -70,10 +68,10 @@ namespace tui {
     virtual bool ProcessGestures(const Event &event);
     
     // Gesture callbacks invoked by ProcessGestures. Return true if consumed.
-    virtual bool OnScale(EventPhase phase, float scale, float dscale,
-                         float xorg, float yorg) { return false; }
-    virtual bool OnDrag(EventPhase phase, float x, float y, float dx, float dy,
-                        float xorg, float yorg) { return false; }
+    virtual bool OnScale(EventPhase phase, float scale, float x, float y,
+                         double timestamp) { return false; }
+    virtual bool OnDrag(EventPhase phase, float x, float y,
+                        double timestamp) { return false; }
     virtual bool IsScaling() const { return mIsScaling; }
     virtual bool IsDragging() const { return mIsDragging; }
     virtual bool IsHorizontalDrag() const { return mIsHorizontalDrag; }
@@ -102,7 +100,6 @@ namespace tui {
     bool mIsDragging;                         // True if processing pan event
     bool mIsHorizontalDrag;                   // True if drag started horiz
     std::vector<Event::Touch> mTouchStart;    // Tracking touches
-    float mPrevScale, mPrevPan[2];            // Last reported values
   };
   
   
@@ -310,8 +307,6 @@ namespace tui {
     virtual bool Draw();
     
   protected:
-    virtual int EdgeDim() const { return mDim[0] / 2; }
-    
     Label *mLabel;
     size_t mDim[2];
     unsigned int mDefaultTex, mPressedTex;
@@ -586,6 +581,8 @@ namespace tui {
       virtual bool Draw(float x0, float y0, float x1, float y1,
                         float u0, float v0, float u1, float v1) { return true; }
       virtual bool SetViewport(int x, int y, int w, int h) { return true; }
+      virtual bool OnActivate() { return true; }
+      virtual bool OnDeactivate() { return true; }
       virtual bool Touch(const tui::Event &event) { return false; }
       virtual bool Step(float seconds) { return true; }
       virtual bool Dormant() const { return true; }
@@ -597,6 +594,8 @@ namespace tui {
     
     FrameViewer() : mFrame(NULL),
                     mScale(1), mScaleVelocity(0),
+                    mStartScale(0), mPrevScale(0),
+                    mPrevScaleTimestamp(0), mPrevDragTimestamp(0),
                     mTargetScale(0),
                     mIsTargetScaleActive(false),
                     mIsTargetWindowActive(false),
@@ -608,6 +607,8 @@ namespace tui {
                     mDragVelK(30), mDragDamping(0.75),
                     mScaleVelK(50), mScaleDamping(0.75) {
       memset(mCenterUV, 0, sizeof(mCenterUV));
+      memset(mStartCenterUV, 0, sizeof(mStartCenterUV));
+      memset(mPrevDragXY, 0, sizeof(mPrevDragXY));
       memset(mCenterVelocityUV, 0, sizeof(mCenterVelocityUV));
     }
     virtual ~FrameViewer() {}
@@ -619,10 +620,9 @@ namespace tui {
     virtual bool Touch(const tui::Event &event); // Pass to active frame
     virtual bool Step(float seconds);         // Animate views
     virtual bool Dormant() const;             // True if all views dormant
-    virtual bool OnScale(EventPhase phase, float scale, float velocity,
-                         float xorg, float yorg);
-    virtual bool OnDrag(EventPhase phase, float x, float y, float dx, float dy,
-                        float xorg, float yorg);
+    virtual bool OnScale(EventPhase phase, float scale, float x, float y,
+                         double timestamp);
+    virtual bool OnDrag(EventPhase phase, float x, float y, double timestamp);
     virtual void SetDragSensitivity(float velocity, float damping);
     virtual void SetScaleSensitivity(float velocity, float damping);
     virtual void SnapToPixelCenter(bool status) { mIsSnappingToPixelCenter = status; }
@@ -658,6 +658,10 @@ namespace tui {
     Frame *mFrame;                            // Active frame
     float mScale, mScaleVelocity;             // Image scale, 1 -> 1 pixel
     float mCenterUV[2], mCenterVelocityUV[2]; // Center of screen in UV 0 -> 1
+    float mStartScale, mStartCenterUV[2];     // Values at TOUCH_BEGIN
+    float mPrevScale, mPrevDragXY[2];         // For velocity
+    double mPrevScaleTimestamp;               // For velocity
+    double mPrevDragTimestamp;                // For velocity
     float mTargetScale;                       // Rubberband targets
     bool mIsTargetScaleActive;                // True if we use target scale
     bool mIsTargetWindowActive;               // True if we use target center
@@ -677,7 +681,12 @@ namespace tui {
   class ButtonGridFrame : public FrameViewer::Frame {
   public:
     ButtonGridFrame();
-    virtual bool Init(FrameViewer *viewer, int wideCount, int narrowCount);
+    virtual bool Init(FrameViewer *viewer, int wideCount, int narrowCount,
+                      int buttonPad, int topPad, int bottomPad);
+    virtual void Add(Button *button);
+    virtual void Clear();                     // Delete buttons and clear
+    virtual size_t ButtonCount() const { return mButtonVec.size(); }
+    virtual Button *Button(size_t i) { return mButtonVec[i]; }
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual size_t ImageWidth() const;
     virtual size_t ImageHeight() const;
@@ -688,11 +697,14 @@ namespace tui {
 
   protected:
     tui::FrameViewer *mFrameViewer;           // Backpointer
-    std::vector<Button *> mButtonVec;         // Button grid
+    
+  private:
+    std::vector<tui::Button *> mButtonVec;    // Button grid
     int mButtonHorizCount[2];                 // Wide & narrow counts
     int mButtonHorizCountIdx;                 // Wide or narrow cur count
     int mButtonDim;                           // Size in pixels
     int mButtonPad;                           // Pixels between buttons
+    int mTopPad, mBottomPad;                  // Pixels above and below
     float mMVP[16];                           // Image pix -> NDC (draw)
     float mInvMVP[16];                        // NDC -> Image pix (touch)
   };
