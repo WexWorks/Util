@@ -595,7 +595,7 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
     } else {
       str.push_back(c);
       w += ptW * font->charWidthPt[(unsigned char)c];
-      if (w < wrapW)
+      if (w <= wrapW)
         continue;
       if (w - lastSepW > wrapW) {
         // FIXME: What happens if a single word is longer than the line?

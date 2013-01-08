@@ -189,6 +189,12 @@ Label::~Label() {
 
 
 bool Label::Init(const char *text, float pts) {
+  return SetText(text, pts);
+}
+
+
+bool Label::SetText(const char *text, float pts) {
+  free((void *)mText);
   mText = strdup(text);
   const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
   mPts = pts / font->charDimPt[1];
@@ -198,8 +204,8 @@ bool Label::Init(const char *text, float pts) {
 
 bool Label::FitViewport() {
   const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
-  const int w = mPts * GlesUtil::TextWidth(mText, font);
-  const int h = mPts * font->charDimPt[1];
+  const int w = ceilf(mPts * GlesUtil::TextWidth(mText, font));
+  const int h = ceilf(mPts * font->charDimPt[1]);
   if (!SetViewport(Left(), Bottom(), w, h))
     return false;
   return true;
@@ -813,6 +819,7 @@ bool Toolbar::SetViewport(int x, int y, int w, int h) {
 
 
 bool Toolbar::AddFixedSpacer(int w) {
+  assert(w > 0);
   ViewportWidget *widget = new ViewportWidget;   // LEAK!!
   widget->SetViewport(0, 0, w, 1);
   Add(widget);

@@ -143,6 +143,7 @@ namespace tui {
     Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0) {}
     virtual ~Label();
     virtual bool Init(const char *text, float pts);
+    virtual bool SetText(const char *text, float pts);
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual bool Draw();
