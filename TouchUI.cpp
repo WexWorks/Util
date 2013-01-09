@@ -1715,10 +1715,10 @@ void FilmstripImpl::SnapIdx(size_t idx, float seconds) {
 
 
 //
-// FrameViewer
+// Frame
 //
 
-bool FrameViewer::Reset() {
+bool Frame::Reset() {
   ComputeScaleRange();
   if (!Step(0.001))                           // Clamp scale and animate
     return false;
@@ -1726,21 +1726,21 @@ bool FrameViewer::Reset() {
 }
 
 
-void FrameViewer::ComputeScaleRange() {
-  if (!mFrame || !mFrame->ImageWidth() || !mFrame->ImageHeight())
+void Frame::ComputeScaleRange() {
+  if (!ImageWidth() || !ImageHeight())
     return;
   
   // Compute the scale so that the entire image fits within
   // the screen boundary, comparing the aspect ratios of the
   // screen and the image and fitting to the proper axis.
   const float frameAspect = Width()/float(Height());
-  const float imageAspect = mFrame->ImageWidth() / float(mFrame->ImageHeight());
+  const float imageAspect =ImageWidth() / float(ImageHeight());
   const float frameToImageRatio = frameAspect / imageAspect;
   
   if (frameToImageRatio < 1) {                // Frame narrower than image
-    mScaleMin = Width() / float(mFrame->ImageWidth());
+    mScaleMin = Width() / float(ImageWidth());
   } else {                                    // Image narrower than frame
-    mScaleMin = Height() / float(mFrame->ImageHeight());
+    mScaleMin = Height() / float(ImageHeight());
   }
   
   mScaleMax = 32;
@@ -1748,54 +1748,34 @@ void FrameViewer::ComputeScaleRange() {
 }
 
 
-bool FrameViewer::SetViewport(int x, int y, int w, int h) {
+bool Frame::SetViewport(int x, int y, int w, int h) {
   if (!AnimatedViewport::SetViewport(x, y, w, h))
     return false;
-  if (mFrame && !mFrame->SetViewport(x, y, w, h))
-    return false;
   if (!Reset())
     return false;
-  return true;
-}
-
-
-bool FrameViewer::SetFrame(class Frame *frame) {
-  if (mFrame == frame)
-    return true;
-  if (mFrame && !mFrame->OnDeactivate())
-    return false;
-  mFrame = frame;
-  if (!Reset())
-    return false;
-  if (mFrame) {
-    if (!mFrame->SetViewport(Left(), Bottom(), Width(), Height()))
-      return false;
-    if (!mFrame->OnActivate())
-      return false;
-  }
   return true;
 }
 
 
 // Helper functions to convert magnitude in image UV space to/from NDC units.
 
-float FrameViewer::U2Ndc(const class Frame &frame, float u) const {
-  return 2 * u * mScale * frame.ImageWidth() / Width();
+float Frame::U2Ndc(float u) const {
+  return 2 * u * mScale * ImageWidth() / Width();
 }
 
 
-float FrameViewer::V2Ndc(const class Frame &frame, float v) const {
-  return 2 * v * mScale * frame.ImageHeight() / Height();
+float Frame::V2Ndc(float v) const {
+  return 2 * v * mScale * ImageHeight() / Height();
 }
 
 
-float FrameViewer::Ndc2U(const class Frame &frame, float x) const {
-  return x / (2 * mScale * frame.ImageWidth() / Width());
+float Frame::Ndc2U(float x) const {
+  return x / (2 * mScale * ImageWidth() / Width());
 }
 
 
-float FrameViewer::Ndc2V(const class Frame &frame, float y) const {
-  return y / (2 * mScale * frame.ImageHeight() / Height());
+float Frame::Ndc2V(float y) const {
+  return y / (2 * mScale * ImageHeight() / Height());
 }
 
 
@@ -1804,12 +1784,9 @@ float FrameViewer::Ndc2V(const class Frame &frame, float y) const {
 // rather than storing them to ensure that they are always valid
 // and we only need to adjust mScale and mCenterUV when moving.
 
-void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
-                                          float *x0, float *y0,
-                                          float *x1, float *y1,
-                                          float *u0, float *v0,
-                                          float *u1, float *v1) {
-  const size_t sw = mScale * frame.ImageWidth();
+void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
+                               float *u0, float *v0, float *u1, float *v1) {
+  const size_t sw = mScale * ImageWidth();
   if (sw >= Width()) {                        // Image wider than screen
     *x0 = -1;                                 // Fill entire screen width
     *x1 = 1;
@@ -1817,8 +1794,8 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     *u0 = mCenterUV[0] - halfWidthUV;         // Fill the UV rect around center
     *u1 = mCenterUV[0] + halfWidthUV;
     if (*u0 < 0) {                            // Adjust NDC if UV out of range
-      const float inset = U2Ndc(frame, -1 * *u0);
-      if (frame.IsHorizontalInverted())
+      const float inset = U2Ndc(-1 * *u0);
+      if (IsHorizontalInverted())
         *x1 -= inset;
       else
         *x0 += inset;
@@ -1827,8 +1804,8 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
         *u1 = *u0;
     }
     if (*u1 > 1) {                            // Adjust NDC if UV out of range
-      const float inset = U2Ndc(frame, *u1 - 1);
-      if (frame.IsHorizontalInverted())
+      const float inset = U2Ndc(*u1 - 1);
+      if (IsHorizontalInverted())
         *x0 += inset;
       else
         *x1 -= inset;
@@ -1840,13 +1817,13 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     const float pad = (Width() - sw) / float(Width());
     *x0 = -1 + pad;                           // Pad left & right edges
     *x1 = 1 - pad;
-    const float offset = U2Ndc(frame, 0.5 - mCenterUV[0]);
+    const float offset = U2Ndc(0.5 - mCenterUV[0]);
     *x0 += offset;                            // Allow image to float
     *x1 += offset;
     *u0 = 0;
     *u1 = 1;
   }
-  const size_t sh = mScale * frame.ImageHeight();
+  const size_t sh = mScale * ImageHeight();
   if (sh >= Height()) {                       // Image taller than screen
     *y0 = -1;                                 // Fill entire screen height
     *y1 = 1;
@@ -1854,8 +1831,8 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     *v0 = mCenterUV[1] - halfHeightUV;        // Fill the UV rect around center
     *v1 = mCenterUV[1] + halfHeightUV;
     if (*v0 < 0) {                            // Adjust NDC if UV out of range
-      const float inset = V2Ndc(frame, -1 * *v0);
-      if (frame.IsVerticalInverted())
+      const float inset = V2Ndc(-1 * *v0);
+      if (IsVerticalInverted())
         *y1 -= inset;
       else
         *y0 += inset;
@@ -1864,8 +1841,8 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
         *v1 = *v0;
     }
     if (*v1 > 1) {                            // Adjust NDC if UV out of range
-      const float inset = V2Ndc(frame, *v1 - 1);
-      if (frame.IsVerticalInverted())
+      const float inset = V2Ndc(*v1 - 1);
+      if (IsVerticalInverted())
         *y0 += inset;
       else
         *y1 -= inset;
@@ -1877,7 +1854,7 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
     const float pad = (Height() - sh) / float(Height());
     *y0 = -1 + pad;                           // Pad the top & bottom edges
     *y1 = 1 - pad;
-    const float offset = V2Ndc(frame, 0.5 - mCenterUV[1]);
+    const float offset = V2Ndc(- mCenterUV[1]);
     *y0 -= offset;                            // Allow image to float
     *y1 -= offset;
     *v0 = 0;
@@ -1885,9 +1862,9 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
   }
 
   // Invert the texture coordinates as specified by the frame
-  if (frame.IsHorizontalInverted())
+  if (IsHorizontalInverted())
     std::swap(*u0, *u1);
-  if (frame.IsVerticalInverted())
+  if (IsVerticalInverted())
     std::swap(*v0, *v1);
 }
 
@@ -1895,53 +1872,38 @@ void FrameViewer::ComputeFrameDisplayRect(const class Frame &frame,
 // Origin and pan are specified in pixel coordinates for the frame.
 // The image is rendered in NDC space, which, at scale=1=fit-to-window.
 
-bool FrameViewer::Draw() {
+bool Frame::Draw() {
+  if (Hidden())
+    return true;
+  if (!AnimatedViewport::Draw())
+    return false;
+  
   glViewport(mViewport[0], mViewport[1], mViewport[2], mViewport[3]);
   glClearColor(0.5, 0.5, 0.5, 0);
   glClear(GL_COLOR_BUFFER_BIT);
   
-  if (mFrame) {
-    // Compute the NDC & UV rectangle for the image and draw
-    float x0, y0, x1, y1, u0, v0, u1, v1;
-    ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
-    if (!mFrame->Draw(x0, y0, x1, y1, u0, v0, u1, v1))
+  // Compute the NDC & UV rectangle for the image and draw
+  float x0, y0, x1, y1, u0, v0, u1, v1;
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+  if (!DrawImage(x0, y0, x1, y1, u0, v0, u1, v1))
       return false;
-  }
   
   return true;
 }
 
 
-bool FrameViewer::Touch(const tui::Event &event) {
-  class Frame *frame = ActiveFrame();
-  if (frame && frame->Touch(event)) {
-    AnimatedViewport::Touch(Event(TOUCH_CANCELLED));
-    return true;
-  }
-  if (AnimatedViewport::Touch(event)) {
-    if (frame)
-      frame->Touch(Event(TOUCH_CANCELLED));
-    return true;
-  }
-  return false;
-}
-
-
-bool FrameViewer::Step(float seconds) {
+bool Frame::Step(float seconds) {
   if (seconds == 0)
     return true;
-  if (!mFrame || !mFrame->ImageWidth() || !mFrame->ImageHeight())
+  if (!ImageWidth() || !ImageHeight())
     return true;
   if (mIsDirty)
     mIsDirty = false;
 
-  if (!mFrame->Step(seconds))
-    return false;
-  
   seconds = std::min(seconds, 0.1f);          // clamp to avoid debugging issues
   
   // Apply inertial scaling
-  mScaleVelocity *= mScaleDamping;
+  mScaleVelocity *= ScaleDamping();
   if (IsScaleLocked() || fabsf(mScaleVelocity) < 0.01)
     mScaleVelocity = 0;
   else if (!IsScaling() && !mIsTargetScaleActive)
@@ -1970,12 +1932,12 @@ bool FrameViewer::Step(float seconds) {
     }
   }
   
-  const int iw = mFrame->ImageWidth();
-  const int ih = mFrame->ImageHeight();
+  const int iw = ImageWidth();
+  const int ih = ImageHeight();
 
   // Apply inertial panning
-  mCenterVelocityUV[0] *= mDragDamping;
-  mCenterVelocityUV[1] *= mDragDamping;
+  mCenterVelocityUV[0] *= DragDamping();
+  mCenterVelocityUV[1] *= DragDamping();
   if (fabsf(mCenterVelocityUV[0]) < 1.0 / iw)
     mCenterVelocityUV[0] = 0;
   if (fabsf(mCenterVelocityUV[1]) < 1.0 / ih)
@@ -1993,19 +1955,18 @@ bool FrameViewer::Step(float seconds) {
   // We can also compute the center of each NDC axis and compare that
   // against (0.5, 0.5) to know which direction to move.
   float x0, y0, x1, y1, u0, v0, u1, v1;
-  ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   const float centerNDC[2] = { 0.5 * (x0 + x1), 0.5 * (y0 + y1) };
   const bool aligned[2] = { fabsf(centerNDC[0])==0, fabsf(centerNDC[1])==0 };
-  if (!mIsSnappingToPixelCenter && (!aligned[0] || !aligned[1]))
+  if (!IsSnappingToPixelCenter() && (!aligned[0] || !aligned[1]))
     mIsTargetWindowActive = true;
 
   if (!IsDragging()) {
     const float dUVPixels = 10;
     const float pctCloser = 0.75;
-    const float screenPixUV[2] = { Ndc2U(*mFrame, 2.0f / Width()),
-                                   Ndc2V(*mFrame, 2.0f / Height()) };
+    const float screenPixUV[2] = { Ndc2U(2.0f / Width()), Ndc2V(2.0f /Height())};
     
-    if (mIsSnappingToPixelCenter) {
+    if (IsSnappingToPixelCenter()) {
       // Find the pixel to center on, and clamp it to the image boundary
       const float pix[2] = { mCenterUV[0] * iw, mCenterUV[1] * ih };
       float cpix[2] = { floor(pix[0]), floor(pix[1]) };
@@ -2042,18 +2003,18 @@ bool FrameViewer::Step(float seconds) {
       assert(iw && ih && mScale != 0);
       
       // Compute a UV offset to move us closer to each edge
-      float offUV[2] = { Ndc2U(*mFrame,  pctCloser * centerNDC[0]),
-                         Ndc2V(*mFrame, -pctCloser * centerNDC[1]) };
+      float offUV[2] = { Ndc2U( pctCloser * centerNDC[0]),
+                         Ndc2V(-pctCloser * centerNDC[1]) };
       
       // If we get within a single screen pixel, snap to edge
       // FIXME: Find a smoother way to snap rather than 10 pixels.
       bool snap[2] = { false, false };
       if (!aligned[0] && fabsf(offUV[0]) < dUVPixels * screenPixUV[0]) {
-        offUV[0] = Ndc2U(*mFrame, centerNDC[0]);
+        offUV[0] = Ndc2U(centerNDC[0]);
         snap[0] = true;
       }
       if (!aligned[1] && fabsf(offUV[1]) < dUVPixels * screenPixUV[1]) {
-        offUV[1] = Ndc2V(*mFrame, -centerNDC[1]);
+        offUV[1] = Ndc2V(-centerNDC[1]);
         snap[1] = true;
       }
       
@@ -2073,7 +2034,7 @@ bool FrameViewer::Step(float seconds) {
 }
 
 
-bool FrameViewer::Dormant() const {
+bool Frame::Dormant() const {
   if (mIsDirty)
     return false;
   if (mIsTargetWindowActive || mIsTargetScaleActive)
@@ -2082,8 +2043,6 @@ bool FrameViewer::Dormant() const {
     return false;
   if (mCenterVelocityUV[0] != 0 || mCenterVelocityUV[1] != 0)
     return false;
-  if (mFrame && !mFrame->Dormant())
-    return false;
   return true;
 }
 
@@ -2091,12 +2050,9 @@ bool FrameViewer::Dormant() const {
 // Adjust mScale and offset mCenterUV so that the origin remains
 // invariant under scaling.
 
-bool FrameViewer::OnScale(EventPhase phase, float scale, float x, float y,
-                          double timestamp) {
+bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
+                    double timestamp) {
   assert(!isnan(scale));
-  if (!mFrame)
-    return false;
-  
   if (IsScaleLocked()) {
     mScaleVelocity = 0;
     mIsTargetScaleActive = false;
@@ -2126,7 +2082,7 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float x, float y,
       else
         dt = 0;                               // Avoid divide by zero
       if (dt != 0)
-        mScaleVelocity = mScaleVelK * dt * dscale;
+        mScaleVelocity = ScaleFling() * dt * dscale;
       mPrevScale = scale;
       mPrevScaleTimestamp = timestamp;
       break;
@@ -2141,7 +2097,7 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float x, float y,
 
   // Compute the visible NDC & UV display rectangles of the image
   float x0, y0, x1, y1, u0, v0, u1, v1;
-  ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   
   // Figure out the UV coordinates of the input point in the display rects
   float uNDC = (2.0 * x / Width() - 1 - x0) / (x1 - x0);
@@ -2165,10 +2121,7 @@ bool FrameViewer::OnScale(EventPhase phase, float scale, float x, float y,
 // Translate the mCenterUV value based on the input pan distances
 // in screen pixels.
 
-bool FrameViewer::OnDrag(EventPhase phase, float x, float y, double timestamp) {
-  if (!mFrame)
-    return false;
-  
+bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
   if (phase == TOUCH_BEGAN) {
     mStartCenterUV[0] = mCenterUV[0];
     mStartCenterUV[1] = mCenterUV[1];
@@ -2180,13 +2133,13 @@ bool FrameViewer::OnDrag(EventPhase phase, float x, float y, double timestamp) {
   
   // Convert velocity into image UV coordinates
   float x0, y0, x1, y1, u0, v0, u1, v1;
-  ComputeFrameDisplayRect(*mFrame, &x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   float dx = x - mPrevDragXY[0];              // Change in pixels from prev
   float dy = y - mPrevDragXY[1];
   float du = -2 * (u1 - u0) * dx / Width()  / (x1 - x0);
   float dv = -2 * (v1 - v0) * dy / Height() / (y1 - y0);
   
-  if (!mIsSnappingToPixelCenter) {
+  if (!IsSnappingToPixelCenter()) {
     if (fabsf(x0) != fabsf(x1))               // Translated off-center
       du *= 0.5;
     if (fabsf(y0) != fabsf(y1))
@@ -2204,8 +2157,8 @@ bool FrameViewer::OnDrag(EventPhase phase, float x, float y, double timestamp) {
     else
       dt = 0;                                 // Avoid divide by zero
     if (dt != 0) {
-      mCenterVelocityUV[0] = mDragVelK * dt * du;
-      mCenterVelocityUV[1] = mDragVelK * dt * dv;
+      mCenterVelocityUV[0] = DragFling() * dt * du;
+      mCenterVelocityUV[1] = DragFling() * dt * dv;
     }
     mPrevDragXY[0] = x;
     mPrevDragXY[1] = y;
@@ -2216,22 +2169,10 @@ bool FrameViewer::OnDrag(EventPhase phase, float x, float y, double timestamp) {
 }
 
 
-void FrameViewer::SetDragSensitivity(float velocity, float damping) {
-  mDragVelK = velocity;
-  mDragDamping = damping;
-}
-
-
-void FrameViewer::SetScaleSensitivity(float velocity, float damping) {
-  mScaleVelK = velocity;
-  mScaleDamping = damping;
-}
-
-
 // Center the image and compute the scaling required to fit the image
 // within the current frame.
 
-bool FrameViewer::SnapToFitFrame() {
+bool Frame::SnapToFitFrame() {
   mCenterUV[0] = 0.5;                         // Center image
   mCenterUV[1] = 0.5;
   ComputeScaleRange();                        // Recompute if needed
@@ -2249,28 +2190,22 @@ bool FrameViewer::SnapToFitFrame() {
 // Center the image and compute the scaling required to fit the image
 // across the current frame, offsetting the y location using v=[0,1]
 
-bool FrameViewer::SnapToFitWidth(float v) {
+bool Frame::SnapToFitWidth(float v) {
   SnapToFitFrame();
-  mScale = Width() / float(mFrame->ImageWidth());
-  float v2 = Height() / (mScale * mFrame->ImageHeight());
-  mCenterUV[1] = v * (1 - v2) + v2 / 2;
+  mScale = Width() / float(ImageWidth());
+  float v2 = Height() / (mScale * ImageHeight());
+  if (v2 < 1)
+    mCenterUV[1] = v * (1 - v2) + v2 / 2;
   return true;
-}
-
-
-void FrameViewer::LockMotion(bool lockX, bool lockY, bool lockScale) {
-  mIsXLocked = lockX;
-  mIsYLocked = lockY;
-  mIsScaleLocked = lockScale;
 }
 
 
 // Convert the region in NDC and UV space provided to Frame::Draw into
 // a 4x4 matrix (really 2D, so it could be 3x3), that transforms points
 // in pixel coordinates in the Frame image into NDC for use as a MVP.
-void FrameViewer::RegionToM44f(float dst[16], int imageWidth, int imageHeight,
-                               float x0, float y0, float x1, float y1,
-                               float u0, float v0, float u1, float v1) {
+void Frame::RegionToM44f(float dst[16], int imageWidth, int imageHeight,
+                         float x0, float y0, float x1, float y1,
+                         float u0, float v0, float u1, float v1) {
   Imath::M44f m;
   m.translate(Imath::V3f(-1, -1, 0));                   // -> [-1, 1]
   m.scale(Imath::V3f(2, 2, 1));                         // -> [0, 2]
@@ -2286,22 +2221,20 @@ void FrameViewer::RegionToM44f(float dst[16], int imageWidth, int imageHeight,
 
 
 //
-// ButtonGridFrame
+// ButtonGridSurface
 //
 
 
-ButtonGridFrame::ButtonGridFrame() : mFrameViewer(NULL), mButtonHorizCountIdx(0),
-                                     mButtonDim(0), mButtonPad(0), mTopPad(0),
-                                     mBottomPad(0) {
+ButtonGridFrame::ButtonGridFrame() : mButtonHorizCountIdx(0), mButtonDim(0),
+                                     mButtonPad(0), mTopPad(0), mBottomPad(0) {
   memset(mButtonHorizCount, 0, sizeof(mButtonHorizCount));
   memset(mMVP, 0, sizeof(mMVP));
   memset(mInvMVP, 0, sizeof(mInvMVP));
 }
 
 
-bool ButtonGridFrame::Init(FrameViewer *viewer, int wideCount, int narrowCount,
+bool ButtonGridFrame::Init(int wideCount, int narrowCount,
                            int buttonPad, int topPad, int bottomPad) {
-  mFrameViewer = viewer;
   mButtonHorizCount[0] = wideCount;
   mButtonHorizCount[1] = narrowCount;
   mButtonPad = buttonPad;
@@ -2324,6 +2257,9 @@ void ButtonGridFrame::Clear() {
 
 
 bool ButtonGridFrame::SetViewport(int x, int y, int w, int h) {
+  if (!Frame::SetViewport(x, y, w, h))
+    return false;
+  
   mButtonHorizCountIdx = w > h ? 0 : 1;
   const int hc = mButtonHorizCount[mButtonHorizCountIdx];
   mButtonDim = (w - mButtonPad * (hc + 1)) / hc;
@@ -2343,16 +2279,7 @@ bool ButtonGridFrame::SetViewport(int x, int y, int w, int h) {
 }
 
 
-size_t ButtonGridFrame::ImageWidth() const {
-  if (!mFrameViewer)
-    return 0;
-  return mFrameViewer->Width();
-}
-
-
 size_t ButtonGridFrame::ImageHeight() const {
-  if (!mFrameViewer)
-    return 0;
   const float hc = mButtonHorizCount[mButtonHorizCountIdx];
   const int vertCount = ceilf(mButtonVec.size() / hc);
   return vertCount * (mButtonPad + mButtonDim) + mTopPad + mBottomPad;
@@ -2360,14 +2287,17 @@ size_t ButtonGridFrame::ImageHeight() const {
 
 
 bool ButtonGridFrame::Touch(const tui::Event &event) {
-  if (mFrameViewer->IsDragging() || mFrameViewer->IsScaling())
+  if (Frame::Touch(event))
+    return true;
+  
+  if (IsDragging() || IsScaling())
     return false;
   tui::Event e(event);
   Imath::M44f t = *(Imath::M44f *)&mInvMVP[0];
   for (size_t i = 0; i < e.touchVec.size(); ++i) {
     // Touch location in NDC coordinates
-    Imath::V3f p(2.0 * e.touchVec[i].x / mFrameViewer->Width() - 1,
-                 2.0 * e.touchVec[i].y / mFrameViewer->Height() - 1, 0);
+    Imath::V3f p(2.0 * e.touchVec[i].x / Width() - 1,
+                 2.0 * e.touchVec[i].y / Height() - 1, 0);
     Imath::V3f q = p * t;
     e.touchVec[i].x = q.x;
     e.touchVec[i].y = q.y;
@@ -2377,14 +2307,14 @@ bool ButtonGridFrame::Touch(const tui::Event &event) {
     if (mButtonVec[i]->Touch(e))
       return true;
   }
+  
   return false;
 }
 
 
-bool ButtonGridFrame::Draw(float x0, float y0, float x1, float y1,
-                  float u0, float v0, float u1, float v1) {
-  FrameViewer::RegionToM44f(mMVP, ImageWidth(), ImageHeight(), x0, y0, x1, y1,
-                            u0, v0, u1, v1);
+bool ButtonGridFrame::DrawImage(float x0, float y0, float x1, float y1,
+                                float u0, float v0, float u1, float v1) {
+  RegionToM44f(mMVP, ImageWidth(), ImageHeight(), x0, y0, x1, y1, u0, v0,u1,v1);
   
   Imath::M44f m(mMVP[0], mMVP[1], mMVP[2], mMVP[3],
                 mMVP[4], mMVP[5], mMVP[6], mMVP[7],
@@ -2420,82 +2350,6 @@ bool ButtonGridFrame::Draw(float x0, float y0, float x1, float y1,
       return false;
   }
   
-  return true;
-}
-
-
-//
-// TabBar
-//
-
-
-int TabBar::FindTabIdx(int touchY) const {
-  int y = Bottom();
-  for (size_t i = 0; i < mTabVec.size(); ++i) {
-    int h = mTabVec[i]->Height();
-    if (touchY >= y && touchY < y + h)
-      return i;
-    y += h - mOverlap;
-  }
-  return -1;
-}
-
-
-bool TabBar::OnTapTouch(const Event::Touch &touch) {
-  // If touch start and end are in the same tab, select it
-  assert(touch.x >= Left() && touch.x < Right());
-  int i = FindTabIdx(touch.y);
-  if (i < 0)
-    return false;
-  Select(mTabVec[i]);  
-  return true;
-}
-
-
-// Manage tab re-ordering
-
-bool TabBar::OnDrag(EventPhase phase, float x, float y, float dx, float dy,
-                    float xorg, float yorg) {
-  return false;
-}
-
-
-bool TabBar::Draw() {
-  // Compute tab viewport and pass to draw function
-  const int x = Left();
-  const int w = Width();
-  int y = Bottom();
-  for (size_t i = 0; i < mTabVec.size(); ++i) {
-    const size_t h = mTabVec[i]->Height();
-    if (!mTabVec[i]->Draw(x, y, w, h))
-      return false;
-    y += h - mOverlap;
-  }
-  return true;
-}
-
-
-bool TabBar::Step(float seconds) {
-  return true;
-}
-
-
-bool TabBar::Dormant() const {
-  return true;
-}
-
-
-bool TabBar::Select(const Tab *tab) {
-  std::vector<Tab *>::const_iterator i;
-  i = std::find(mTabVec.begin(), mTabVec.end(), tab);
-  if (i == mTabVec.end()) {
-    mCurTab = -1;
-    return false;
-  }
-  
-  int j = i - mTabVec.begin();
-  mCurTab = j;
-  mTabVec[mCurTab]->OnSelect();
   return true;
 }
 

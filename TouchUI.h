@@ -569,70 +569,55 @@ namespace tui {
   // Manages a rectangular frame with pan and zoom.
   // Animated "soft limits" keep the image within a set of bounds,
   // but allow some movement past the edge.
-  class FrameViewer : public AnimatedViewport {
+  // Derive a custom class and implement content definition methods.
+  class Frame : public AnimatedViewport {
   public:
-    // Manages a rectangular region that can be panned and zoomed
-    class Frame {
-    public:
-      Frame() {}
-      virtual ~Frame() {}
-      
-      // Draw the UV region [u0,v0]x[u1,v1] into NDC rect [x0,y0]x[x1,y1]
-      // into the current viewport.
-      virtual bool Draw(float x0, float y0, float x1, float y1,
-                        float u0, float v0, float u1, float v1) { return true; }
-      virtual bool SetViewport(int x, int y, int w, int h) { return true; }
-      virtual bool OnActivate() { return true; }
-      virtual bool OnDeactivate() { return true; }
-      virtual bool Touch(const tui::Event &event) { return false; }
-      virtual bool Step(float seconds) { return true; }
-      virtual bool Dormant() const { return true; }
-      virtual bool IsVerticalInverted() const { return false; }
-      virtual bool IsHorizontalInverted() const { return false; }
-      virtual size_t ImageWidth() const = 0;  // Width of frame image in pixels
-      virtual size_t ImageHeight() const = 0; // Height of frame image in pixels
-    };
-    
-    FrameViewer() : mFrame(NULL),
-                    mScale(1), mScaleVelocity(0),
-                    mStartScale(0), mPrevScale(0),
-                    mPrevScaleTimestamp(0), mPrevDragTimestamp(0),
-                    mTargetScale(0),
-                    mIsTargetScaleActive(false),
-                    mIsTargetWindowActive(false),
-                    mIsDirty(false),
-                    mIsSnappingToPixelCenter(false),
-                    mIsXLocked(false), mIsYLocked(false),
-                    mIsScaleLocked(false),
-                    mScaleMin(0), mScaleMax(0),
-                    mDragVelK(30), mDragDamping(0.75),
-                    mScaleVelK(50), mScaleDamping(0.75) {
+    Frame() : mScale(1), mScaleVelocity(0),
+              mStartScale(0), mPrevScale(0),
+              mPrevScaleTimestamp(0), mPrevDragTimestamp(0),
+              mTargetScale(0),
+              mIsTargetScaleActive(false),
+              mIsTargetWindowActive(false),
+              mIsDirty(false),
+              mScaleMin(0), mScaleMax(0) {
       memset(mCenterUV, 0, sizeof(mCenterUV));
       memset(mStartCenterUV, 0, sizeof(mStartCenterUV));
       memset(mPrevDragXY, 0, sizeof(mPrevDragXY));
       memset(mCenterVelocityUV, 0, sizeof(mCenterVelocityUV));
     }
-    virtual ~FrameViewer() {}
+    virtual ~Frame() {}
+
+    // Content Definition -- Override these to define the Frame content
+    virtual size_t ImageWidth() const = 0;    // Width of frame image in pixels
+    virtual size_t ImageHeight() const = 0;   // Height of frame image in pixels
     
+    // Draw the Frame content within the UV region [u0,v0]x[u1,v1]
+    // into NDC rect [x0,y0]x[x1,y1] into the current viewport.
+    virtual bool DrawImage(float x0, float y0, float x1, float y1,
+                           float u0, float v0, float u1,float v1) = 0;
+    
+    // Content manipulation -- Override to define Frame behavior
+    virtual bool IsVerticalInverted() const { return false; }
+    virtual bool IsHorizontalInverted() const { return false; }
+    virtual bool IsXLocked() const { return false; }
+    virtual bool IsYLocked() const { return false; }
+    virtual bool IsScaleLocked() const { return false; }
+    virtual bool IsSnappingToPixelCenter() const { return false; }
+    virtual float DragDamping() const { return 0.9; }
+    virtual float DragFling() const { return 2; }
+    virtual float ScaleDamping() const { return 0.9; }
+    virtual float ScaleFling() const { return 1; }
+    
+    // Widget Methods -- Override if you need custom behavior
     virtual bool SetViewport(int x, int y, int w, int h);
-    virtual bool SetFrame(Frame *frame);      // Set current frame
-    virtual Frame *ActiveFrame() const { return mFrame; }
     virtual bool Draw();                      // Render all visible views
-    virtual bool Touch(const tui::Event &event); // Pass to active frame
     virtual bool Step(float seconds);         // Animate views
     virtual bool Dormant() const;             // True if all views dormant
     virtual bool OnScale(EventPhase phase, float scale, float x, float y,
                          double timestamp);
     virtual bool OnDrag(EventPhase phase, float x, float y, double timestamp);
-    virtual void SetDragSensitivity(float velocity, float damping);
-    virtual void SetScaleSensitivity(float velocity, float damping);
-    virtual void SnapToPixelCenter(bool status) { mIsSnappingToPixelCenter = status; }
     virtual bool SnapToFitFrame();            // Whole image in frame
     virtual bool SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
-    virtual void LockMotion(bool lockX, bool lockY, bool lockScale);
-    virtual bool IsXLocked() const { return mIsXLocked; }
-    virtual bool IsYLocked() const { return mIsYLocked; }
-    virtual bool IsScaleLocked() const { return mIsScaleLocked; }
     virtual float Scale() const { return mScale; }
     
     // Convert the region in NDC and UV space provided to Frame::Draw into
@@ -643,20 +628,18 @@ namespace tui {
                              float u0, float v0, float u1, float v1);
     
   private:
-    FrameViewer(const FrameViewer &);         // Disallow copy ctor
-    void operator=(const FrameViewer &);      // Disallow assignment
+    Frame(const Frame &);                     // Disallow copy ctor
+    void operator=(const Frame &);            // Disallow assignment
     
     bool Reset();
     void ComputeScaleRange();
-    void ComputeFrameDisplayRect(const Frame &frame, float *x0, float *y0,
-                                 float *x1, float *y1, float *u0, float *v0,
-                                 float *u1, float *v1);
-    float U2Ndc(const Frame &frame, float u) const;
-    float V2Ndc(const Frame &frame, float v) const;
-    float Ndc2U(const Frame &frame, float x) const;
-    float Ndc2V(const Frame &frame, float y) const;
+    void ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
+                            float *u0, float *v0, float *u1, float *v1);
+    float U2Ndc(float u) const;
+    float V2Ndc(float v) const;
+    float Ndc2U(float x) const;
+    float Ndc2V(float y) const;
     
-    Frame *mFrame;                            // Active frame
     float mScale, mScaleVelocity;             // Image scale, 1 -> 1 pixel
     float mCenterUV[2], mCenterVelocityUV[2]; // Center of screen in UV 0 -> 1
     float mStartScale, mStartCenterUV[2];     // Values at TOUCH_BEGIN
@@ -667,38 +650,30 @@ namespace tui {
     bool mIsTargetScaleActive;                // True if we use target scale
     bool mIsTargetWindowActive;               // True if we use target center
     bool mIsDirty;                            // True if we need to repaint
-    bool mIsSnappingToPixelCenter;            // True if we align center pixel
-    bool mIsXLocked, mIsYLocked;              // True if motion not allowed
-    bool mIsScaleLocked;                      // True if scaling not allowed
     float mScaleMin, mScaleMax;               // Valid scale range
-    float mDragVelK, mDragDamping;            // Drag sensitivity
-    float mScaleVelK, mScaleDamping;          // Scale sensitivity
   };
   
   
   // A frame using grid of custom buttons. Buttons are drawn in pixel
   // coordinates of the frame (not screen) using the MVP transform.
   // Buttons are clipped prior to drawing to 
-  class ButtonGridFrame : public FrameViewer::Frame {
+  class ButtonGridFrame : public Frame {
   public:
     ButtonGridFrame();
-    virtual bool Init(FrameViewer *viewer, int wideCount, int narrowCount,
+    virtual bool Init(int wideCount, int narrowCount,
                       int buttonPad, int topPad, int bottomPad);
     virtual void Add(Button *button);
     virtual void Clear();                     // Delete buttons and clear
     virtual size_t ButtonCount() const { return mButtonVec.size(); }
     virtual Button *Button(size_t i) { return mButtonVec[i]; }
     virtual bool SetViewport(int x, int y, int w, int h);
-    virtual size_t ImageWidth() const;
+    virtual size_t ImageWidth() const { return Width(); }
     virtual size_t ImageHeight() const;
     virtual bool Touch(const tui::Event &event);
-    virtual bool Draw(float x0, float y0, float x1, float y1,
-                      float u0, float v0, float u1, float v1);
+    virtual bool DrawImage(float x0, float y0, float x1, float y1,
+                           float u0, float v0, float u1, float v1);
     virtual const float *MVP() const { return mMVP; }
 
-  protected:
-    tui::FrameViewer *mFrameViewer;           // Backpointer
-    
   private:
     std::vector<tui::Button *> mButtonVec;    // Button grid
     int mButtonHorizCount[2];                 // Wide & narrow counts
@@ -710,41 +685,6 @@ namespace tui {
     float mInvMVP[16];                        // NDC -> Image pix (touch)
   };
   
-  
-  // A collection of tabs that can be re-ordered and sized to fit a display
-  class TabBar : public AnimatedViewport {
-  public:
-    // A tab that can be pressed or dragged and often changes size
-    class Tab {
-    public:
-      virtual size_t Height() const { return 128; }
-      virtual bool Draw(int x, int y, int w, int h) { return true; }
-      virtual bool OnSelect() { return true; }
-    };
-
-    TabBar() : mCurTab(-1), mOverlap(0) {}
-    
-    virtual bool Draw();
-    virtual bool Step(float seconds);
-    virtual bool Dormant() const;
-    virtual bool OnTapTouch(const Event::Touch &touch);
-    virtual bool OnDrag(EventPhase phase, float x, float y, float dx, float dy,
-                        float xorg, float yorg);
-
-    virtual bool Add(Tab *tab) { mTabVec.push_back(tab); return true; }
-    virtual bool Empty() const { return mTabVec.empty(); }
-    virtual bool Select(const Tab *tab);
-    virtual const Tab *Selected() const {
-      if (mCurTab < 0) return NULL; return mTabVec[mCurTab];
-    }
-    
-  protected:
-    virtual int FindTabIdx(int touchY) const;
-    
-    std::vector<Tab *> mTabVec;
-    int mCurTab;
-    int mOverlap;
-  };
   
 } // namespace tui
 
