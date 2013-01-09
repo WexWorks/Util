@@ -517,7 +517,7 @@ bool CheckboxImageButton::Draw() {
   glViewport(Left(), Bottom(), Width(), Height());
   
   unsigned int texture = Pressed() ? mPressedTex : Selected() ?
-  mSelectedTex : mDeselectedTex;
+                                    mSelectedTex : mDeselectedTex;
   if (!GlesUtil::DrawTexture2f(texture, -1, -1, 1, 1, 0, 1, 1, 0))
     return false;
   
@@ -684,7 +684,7 @@ bool RadioButton::Draw() {
     if (!mButtonVec[i]->Draw())
       return false;
   }
-  return false;
+  return true;
 }
 
 
