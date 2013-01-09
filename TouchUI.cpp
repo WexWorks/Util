@@ -836,6 +836,8 @@ bool Toolbar::AddFlexibleSpacer() {
 
 
 bool Toolbar::Touch(const tui::Event &event) {
+  if (!Enabled())
+    return false;
   bool consumed = false;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
     if (mWidgetVec[i]->Touch(event))
@@ -846,6 +848,8 @@ bool Toolbar::Touch(const tui::Event &event) {
 
 
 bool Toolbar::Draw() {
+  if (Hidden())
+    return true;
   assert(!mEdgeDim && !mEdgeTex);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
