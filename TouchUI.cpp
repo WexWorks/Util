@@ -742,12 +742,11 @@ bool Group::Draw() {
 
 
 bool Group::Touch(const Event &event) {
-  bool consumed = false;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
     if (mWidgetVec[i]->Touch(event))
-      consumed = true;
+      return true;
   }
-  return consumed;
+  return false;
 }
 
 
