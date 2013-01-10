@@ -88,8 +88,8 @@ namespace tui {
     virtual const Event::Touch &TouchStart(size_t idx) const { return mTouchStart[idx]; }
     
   private:
-    static const float kMinScale = 0.01;      // Min scaling amount before event
-    static const int kMinPanPix = 10;         // Min pan motion before event
+    static const float kMinScale = 0.03;      // Min scaling amount before event
+    static const int kMinPanPix = 20;         // Min pan motion before event
 
     Widget(const Widget&);                    // Disallow copy ctor
     void operator=(const Widget&);            // Disallow assignment
@@ -351,8 +351,11 @@ namespace tui {
     virtual void Clear();
     
     // Perform the following actions on all the widgets in the group
+    // (dynamic cast used for Viewport and AnimateViewport methods)
     virtual bool Draw();
     virtual bool Touch(const Event &event);
+    virtual bool Step(float seconds);
+    virtual bool Dormant() const;
     virtual bool Enabled() const;
     virtual void Enable(bool status);
     virtual bool Hidden() const;

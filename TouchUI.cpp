@@ -41,7 +41,16 @@ static float length(int ax, int ay, int bx, int by) {
 // coordinates in screen pixel units.
 
 bool Widget::ProcessGestures(const tui::Event &event) {
-
+  if (event.phase == TOUCH_BEGAN) {
+    if (mIsDragging)
+      OnDrag(TOUCH_CANCELLED, 0, 0, 0);
+    if (mIsScaling)
+      OnDrag(TOUCH_CANCELLED, 0, 0, 0);
+    mTouchStart.clear();
+    mIsDragging = false;
+    mIsScaling = false;
+  }
+  
   EventPhase trackingPhase = event.phase; // Change if touch ids change
   size_t idx[mTouchStart.size()];         // Vector indices of start touches
   if (mTouchStart.size() != event.touchVec.size()) {
@@ -378,7 +387,7 @@ int Button::FindPress(size_t id) const {
 
 bool Button::Touch(const Event &event) {
   // Don't process events when disabled
-  if (!Enabled() || Hidden())
+  if (!Enabled())
     return false;
   
   // Check each touch, add to PressedIdVector if inside on begin,
@@ -389,6 +398,11 @@ bool Button::Touch(const Event &event) {
     int idx = 0;
     switch (event.phase) {
       case TOUCH_BEGAN:
+        idx = FindPress(touch.id);
+        if (idx >= 0) {                     // Clear out if FSM is out-of-order
+          std::vector<Press>::iterator i = mPressVec.begin() + idx;
+          mPressVec.erase(i);
+        }
         if (Inside(touch.x, touch.y)) {
           mPressVec.push_back(Press(touch.id, true, touch.x, touch.y));
           return false;
@@ -423,6 +437,10 @@ bool Button::Touch(const Event &event) {
         break;
     }
   }
+  
+  // Clear all touches on cancel (which may not include a touch vector)
+  if (event.phase == TOUCH_CANCELLED)
+    mPressVec.clear();
   
   return false;
 }
@@ -730,6 +748,32 @@ bool Group::Touch(const Event &event) {
       consumed = true;
   }
   return consumed;
+}
+
+
+bool Group::Step(float seconds) {
+  bool status = true;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    AnimatedViewport *av = dynamic_cast<AnimatedViewport *>(mWidgetVec[i]);
+    if (!av)
+      continue;
+    if (!av->Step(seconds))
+      status = false;
+  }
+  return status;
+}
+
+
+bool Group::Dormant() const {
+  bool status = true;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    AnimatedViewport *av = dynamic_cast<AnimatedViewport *>(mWidgetVec[i]);
+    if (!av)
+      continue;
+    if (!av->Dormant())
+      status = false;
+  }
+  return status;
 }
 
 
