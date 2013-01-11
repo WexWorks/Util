@@ -27,7 +27,6 @@ public:
   virtual bool LoadText(const char *name, const char **text) = 0;
   virtual bool LoadImageDirectory(const char *name) = 0;
   virtual bool LoadImage(const char *name, void *data) = 0;
-  virtual bool OpenImagePicker(const int viewport[4]) = 0;
 
   virtual float PixelScale() const = 0;
 };
@@ -51,13 +50,13 @@ public:
   // Called at startup and whenever the device orientation changes
   virtual bool SetDeviceResolution(int w, int h) = 0;
   
-  // Called by LoadImageDirectory
+  // Called by Callbacks::LoadImageDirectory
   virtual bool AddImage(const char *album, const char *name, const char *url,
                         size_t w, size_t h, const unsigned char *thumb) = 0;
   virtual bool AddAlbum(const char *name, const char *url, size_t w, size_t h,
                         const unsigned char *thumb) = 0;
 
-  // Called by LoadImage and OpenImagePicker
+  // Called by Callbacks::LoadImage
   virtual bool LoadImage(const char *name, void *data, size_t w, size_t h,
                          size_t channelCount, size_t bytePerChannelCount,
                          const unsigned char *pixel) = 0;
