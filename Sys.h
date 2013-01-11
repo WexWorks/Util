@@ -41,7 +41,7 @@ public:
   
   static App *Create();                               // Factory
   
-  virtual bool Init(Callbacks &callbacks) = 0;        // Setup app
+  virtual bool Init(Callbacks *callbacks) = 0;        // Setup app
   virtual bool Touch(const tui::Event &event) = 0;    // Process events
   virtual bool Step(float seconds) = 0;               // Animate widgets
   virtual bool Dormant() = 0;                         // True = no refresh
