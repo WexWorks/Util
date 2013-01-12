@@ -649,6 +649,8 @@ CheckboxButton *RadioButton::Selected() const {
 
 
 void RadioButton::SetSelected(CheckboxButton *button) {
+  bool wasSelected = Selected() != NULL;
+  
   // Deselect any currently selected buttons
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
     CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
@@ -659,7 +661,7 @@ void RadioButton::SetSelected(CheckboxButton *button) {
   if (!button->Selected())
     button->SetSelected(true);
   
-  if (Selected() == NULL)
+  if (Selected() == NULL && wasSelected)
     OnNoneSelected();
 }
 
@@ -680,6 +682,8 @@ bool RadioButton::SetViewport(int x, int y, int w, int h) {
 
 
 bool RadioButton::Touch(const Event &event) {
+  bool wasSelected = Selected() != NULL;
+  
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
     CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
     if (!mIsNoneAllowed && cb->Selected())
@@ -690,7 +694,7 @@ bool RadioButton::Touch(const Event &event) {
     }
   }
   
-  if (Selected() == NULL)
+  if (Selected() == NULL && wasSelected)
     OnNoneSelected();
   
   return false;
@@ -2004,7 +2008,8 @@ bool Frame::Step(float seconds) {
   float x0, y0, x1, y1, u0, v0, u1, v1;
   ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   const float centerNDC[2] = { 0.5 * (x0 + x1), 0.5 * (y0 + y1) };
-  const bool aligned[2] = { fabsf(centerNDC[0])==0, fabsf(centerNDC[1])==0 };
+  const float eps = 0.000001;
+  const bool aligned[2] = { fabsf(centerNDC[0])<eps, fabsf(centerNDC[1])<eps };
   if (!IsSnappingToPixelCenter() && (!aligned[0] || !aligned[1]))
     mIsTargetWindowActive = true;
 
