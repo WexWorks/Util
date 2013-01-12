@@ -109,6 +109,7 @@ GLuint CreateShader(GLenum type, const char *source_code);
 GLuint CreateProgram(GLuint vp, GLuint fp, const char *name=0);
   
 GLuint ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP);
+GLuint VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP);
 GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP, GLuint *uTex);
 
 

@@ -311,7 +311,6 @@ GLuint GlesUtil::ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP) {
     // Note: the program below is leaked and should be destroyed in _atexit()
     static const char *vpCode =
     "attribute vec4 aP;\n"
-    "attribute vec2 aUV;\n"
     "uniform mat4 uMVP;\n"
     "void main() {\n"
     "  gl_Position = uMVP * aP;\n"
@@ -343,6 +342,55 @@ GLuint GlesUtil::ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP) {
   
   *aP = gAP;
   *uC = gUC;
+  *uMVP = gUMVP;
+  return gProgram;
+}
+
+
+GLuint GlesUtil::VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP) {
+  static bool gInitialized = false;             // WARNING: Static variables!
+  static GLuint gProgram = 0;
+  static GLuint gAP = 0, gAC = 0, gUMVP = 0;
+  if (!gInitialized) {
+    gInitialized = true;
+    
+    // Note: the program below is leaked and should be destroyed in _atexit()
+    static const char *vpCode =
+    "attribute vec4 aP;\n"
+    "attribute vec4 aC;\n"
+    "uniform mat4 uMVP;\n"
+    "varying vec4 vC;\n"
+    "void main() {\n"
+    "  vC = aC;\n"
+    "  gl_Position = uMVP * aP;\n"
+    "}\n";
+    static const char *fpCode =
+    "precision mediump float;\n"
+    "varying vec4 vC;\n"
+    "void main() {\n"
+    "  gl_FragColor = vC;\n"
+    "}\n";
+    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
+    if (!vp)
+      return false;
+    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    if (!fp)
+      return false;
+    gProgram = GlesUtil::CreateProgram(vp, fp, "Constant");
+    if (!gProgram)
+      return false;
+    glDeleteShader(vp);
+    glDeleteShader(fp);
+    glUseProgram(gProgram);
+    gAP = glGetAttribLocation(gProgram, "aP");
+    gAC = glGetAttribLocation(gProgram, "aC");
+    gUMVP = glGetUniformLocation(gProgram, "uMVP");
+    if (Error())
+      return false;
+  }
+  
+  *aP = gAP;
+  *aC = gAC;
   *uMVP = gUMVP;
   return gProgram;
 }
