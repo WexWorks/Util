@@ -59,7 +59,9 @@ public:
   // Called by Callbacks::LoadImage
   virtual bool LoadImage(const char *name, void *data, size_t w, size_t h,
                          size_t channelCount, size_t bytePerChannelCount,
-                         const unsigned char *pixel) = 0;
+                         const unsigned char *pixel,
+                         size_t metadataSectionCount, const char **title,
+                         const char **key, const char **value) = 0;
   
 protected:
   App() {}                                            // Derived class factory

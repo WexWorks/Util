@@ -683,13 +683,16 @@ bool RadioButton::SetViewport(int x, int y, int w, int h) {
 
 bool RadioButton::Touch(const Event &event) {
   bool wasSelected = Selected() != NULL;
+  bool consumed = false;
   
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
     CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
     if (!mIsNoneAllowed && cb->Selected())
       continue;                               // Don't deselect if selected
-    if (cb->Touch(event) && cb->Selected()) {
-      SetSelected(cb);
+    if (cb->Touch(event)) {
+      consumed = true;
+      if (cb->Selected())
+        SetSelected(cb);
       break;
     }
   }
@@ -697,7 +700,7 @@ bool RadioButton::Touch(const Event &event) {
   if (Selected() == NULL && wasSelected)
     OnNoneSelected();
   
-  return false;
+  return consumed;
 }
 
 
