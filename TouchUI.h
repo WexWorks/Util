@@ -466,7 +466,10 @@ namespace tui {
     int TotalHeight() const { return mFrameDim * mFrameVec.size(); }
     int ScrollMin() const { const int dim = mVertical ? Height() : Width();
       return dim / 2 + mScrollableDim / 2 - dim + mSnapLocationOffset; }
-    int ScrollMax() const { return ScrollMin() + Size() * mFrameDim - mScrollableDim; }
+    int ScrollMax() const {
+      int x = ScrollMin() + Size() * mFrameDim - mScrollableDim;
+      return x < ScrollMin() ? ScrollMin() : x;
+    }
     int ScrollToOffset(int i) const { return i * mFrameDim + ScrollMin(); }
     virtual void SnapIdx(size_t idx, float seconds);
     virtual int FlingingSnapIdx() const;
