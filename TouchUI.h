@@ -657,6 +657,20 @@ namespace tui {
   };
   
   
+  // Implement to compare two buttons for ordering in the ButtonGridFrame::Sort
+  struct CompareFunctor {
+    virtual bool operator()(const Button *a, const Button *b) const = 0;
+  };
+  
+  // Proxy because std::sort accepts Compare by-value, slicing derived classes.
+  // Example: MyCompareFunctor f; Sort(tui::CompareButton(f));
+  struct CompareButton {
+    CompareButton(CompareFunctor &f) : cmp(f) {}
+    bool operator()(const Button *a, const Button *b) const { return cmp(a, b); }
+    CompareFunctor &cmp;
+  };
+  
+  
   // A frame using grid of custom buttons. Buttons are drawn in pixel
   // coordinates of the frame (not screen) using the MVP transform.
   // Buttons are clipped prior to drawing to 
@@ -669,6 +683,7 @@ namespace tui {
     virtual void Clear();                     // Delete buttons and clear
     virtual size_t ButtonCount() const { return mButtonVec.size(); }
     virtual Button *Button(size_t i) { return mButtonVec[i]; }
+    virtual void Sort(const CompareButton &compare);
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual size_t ImageWidth() const { return Width(); }
     virtual size_t ImageHeight() const;

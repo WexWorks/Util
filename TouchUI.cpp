@@ -6,8 +6,9 @@
 
 #include <ImathMatrix.h>
 
-#include <math.h>
+#include <algorithm>
 #include <assert.h>
+#include <math.h>
 
 
 using namespace tui;
@@ -2276,9 +2277,8 @@ void Frame::RegionToM44f(float dst[16], int imageWidth, int imageHeight,
 
 
 //
-// ButtonGridSurface
+// ButtonGridFrame
 //
-
 
 ButtonGridFrame::ButtonGridFrame() : mButtonHorizCountIdx(0), mButtonDim(0),
                                      mButtonPad(0), mTopPad(0), mBottomPad(0) {
@@ -2308,6 +2308,11 @@ void ButtonGridFrame::Clear() {
   for (size_t i = 0; i < mButtonVec.size(); ++i)
     delete mButtonVec[i];
   mButtonVec.clear();
+}
+
+
+void ButtonGridFrame::Sort(const CompareButton &compare) {
+  std::sort(mButtonVec.begin(), mButtonVec.end(), compare);
 }
 
 

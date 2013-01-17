@@ -39,7 +39,8 @@ public:
   virtual bool LoadImageDirectory(const char *url) = 0;
   
   // Load only the metadata, not the pixels, from an image (asynchronous)
-  virtual bool LoadImageMetadata(const char *url) = 0;
+  virtual bool LoadImageMetadata(const char *url, bool getThumbnail,
+                                 bool getMetadata) = 0;
   
   // Load the full image of pixels into memory (asynchronous)
   virtual bool LoadImagePixels(const char *url) = 0;
@@ -50,9 +51,11 @@ public:
 
 
 // Image metadata, broken into sections, each with a title and key-value map
+typedef std::map<std::string, std::string> MetadataMap;
+  
 struct MetadataSection {
   std::string title;
-  std::map<std::string, std::string> keyValueMap;
+  MetadataMap keyValueMap;
 };
 
 struct Metadata {
