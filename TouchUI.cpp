@@ -1491,7 +1491,8 @@ bool FlinglistImpl::Step(float seconds) {
       if (mLongPressSeconds >= kLongPressSeconds) {
         // If long touch returns true, eat the next touch event,
         // otherwise, reset for another long touch after a delay
-        if (mFrameVec[mTouchFrameIdx]->OnLongTouch(mTouchStart)) {
+        if (mFrameVec[mTouchFrameIdx]->OnLongTouch(mTouchStart[0],
+                                                   mTouchStart[1])) {
           mTouchFrameIdx = -1;
           mMovedAfterDown = false;
           mMovedOffAxisAfterDown = false;
@@ -1601,7 +1602,7 @@ bool FlinglistImpl::Touch(const Event &event) {
         if (!mMovedAfterDown && dOffAxis > mPixelsPerCm / 10 * kDragMm)
           mMovedOffAxisAfterDown = true;
         if (mMovedOffAxisAfterDown && 
-            OnOffAxisMove(event.touchVec[t], mTouchStart))
+            OnOffAxisMove(event.touchVec[t], mTouchStart[0], mTouchStart[1]))
             return true;
         if (!mMovedAfterDown)
           break;

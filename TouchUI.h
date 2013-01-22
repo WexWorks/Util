@@ -398,7 +398,7 @@ namespace tui {
     public:
       virtual bool Draw() = 0;                // Viewport set prior to call
       virtual bool OnTouchTap(const Event::Touch &touch) { return false; }
-      virtual bool OnLongTouch(const int locationInView[2]) { return false; }
+      virtual bool OnLongTouch(int x, int y) { return false; }
     };
     
     FlinglistImpl() : mFrameDim(0), mScrollableDim(0),
@@ -449,7 +449,7 @@ namespace tui {
     virtual void OnOverpullRelease() {}
     virtual void OnMove() {}
     virtual bool OnOffAxisMove(const Event::Touch &touch,
-                               const int touchStart[2]) { return false; }
+                               int x, int y) { return false; }
     virtual void OnTouchEnded() {}
 
   protected:
