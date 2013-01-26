@@ -44,7 +44,7 @@ const char *GlesUtil::ErrorString() {
 
 
 bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
-                          GLuint aUV, float u0, float v0, float u1, float v1) {
+                         GLuint aUV, float u0, float v0, float u1, float v1) {
   const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
   if (aUV != -1) {
     const float UV[8] = { u0, v0,  u0, v1,  u1, v0,  u1, v1 };
@@ -135,10 +135,12 @@ bool GlesUtil::DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
 
 bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                              float u0, float v0, float u1, float v1,
+                             float r, float g, float b, float a,
                              const float *MVP) {
-  GLuint aP, aUV, uMVP, uTex;
-  GLuint program = TextureProgram(&aP, &aUV, &uMVP, &uTex);
+  GLuint aP, aUV, uC, uMVP, uTex;
+  GLuint program = TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
   glUseProgram(program);
+  glUniform4f(uC, r, g, b, a);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, tex);
   glUniform1i(uTex, 0);
@@ -155,6 +157,13 @@ bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
     return false;
   
   return true;
+}
+
+
+bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
+                             float u0, float v0, float u1, float v1,
+                             const float *MVP) {
+  return DrawTexture2f(tex, x0, y0, x1, y1, u0, v0, u1, v1, 1, 1, 1, 1, MVP);
 }
 
 
@@ -396,11 +405,11 @@ GLuint GlesUtil::VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP) {
 }
 
 
-GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
-                                GLuint *uTex) {
+GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
+                                GLuint *uMVP, GLuint *uTex) {
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
-  static GLuint gAP = 0, gAUV = 0, gUMVP = 0, gUCTex = 0;
+  static GLuint gAP = 0, gAUV = 0, gUC = 0, gUMVP = 0, gUCTex = 0;
   if (!gInitialized) {
     gInitialized = true;
     
@@ -418,8 +427,9 @@ GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
     "precision mediump float;\n"
     "varying vec2 vUV;\n"
     "uniform sampler2D uCTex;\n"
+    "uniform vec4 uC;\n"
     "void main() {\n"
-    "  gl_FragColor = texture2D(uCTex, vUV);\n"
+    "  gl_FragColor = uC * texture2D(uCTex, vUV);\n"
     "}\n";
     GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
     if (!vp)
@@ -435,6 +445,7 @@ GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
     glUseProgram(gProgram);
     gAUV = glGetAttribLocation(gProgram, "aUV");
     gAP = glGetAttribLocation(gProgram, "aP");
+    gUC = glGetUniformLocation(gProgram, "uC");
     gUMVP = glGetUniformLocation(gProgram, "uMVP");
     gUCTex = glGetUniformLocation(gProgram, "uCTex");
     if (Error())
@@ -443,6 +454,7 @@ GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
   
   *aP = gAP;
   *aUV = gAUV;
+  *uC = gUC;
   *uMVP = gUMVP;
   *uTex = gUCTex;
   return gProgram;
@@ -505,7 +517,8 @@ unsigned int GlesUtil::TextWidth(const char *text, const Font *font,
 struct V2f { float x, y; };                           // 2D Position & UV
 
 bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
-                        float ptW, float ptH, const float *MVP,float charPadPt){
+                        float ptW, float ptH, float r, float g, float b,float a,
+                        const float *MVP,float charPadPt) {
   if (text == NULL)
     return false;
   if (font == NULL)
@@ -570,9 +583,10 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   }
   
   // Set up the texture shader
-  GLuint program, aP, aUV, uMVP, uTex;
-  program = GlesUtil::TextureProgram(&aP, &aUV, &uMVP, &uTex);
+  GLuint program, aP, aUV, uC, uMVP, uTex;
+  program = GlesUtil::TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
   glUseProgram(program);                              // Setup program
+  glUniform4f(uC, r, g, b, a);
   glEnableVertexAttribArray(aUV);                     // Vertex arrays
   glEnableVertexAttribArray(aP);
   glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, &UV[0].x);
@@ -595,10 +609,17 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
 }
 
 
+bool GlesUtil::DrawText(const char *text, float x, float y,
+                        const GlesUtil::Font *font, float ptW, float ptH,
+                        const float *MVP, float charPadPt) {
+  return DrawText(text, x, y, font, ptW, ptH, 1, 1, 1, 1, MVP, charPadPt);
+}
+
+
 static bool DrawJustified(const char *text, float x0, float x1,
                           float y, float textW, GlesUtil::Align align,
                           const GlesUtil::Font *font, float ptW, float ptH,
-                          const float *MVP) {
+                          float r, float g, float b, float a, const float *MVP){
   const float w = x1 - x0;
   float x, pad = 0;
   switch (align) {
@@ -614,7 +635,7 @@ static bool DrawJustified(const char *text, float x0, float x1,
       }
       break;
   }
-  if (!GlesUtil::DrawText(text, x + x0, y, font, ptW, ptH, MVP, pad))
+  if (!GlesUtil::DrawText(text, x + x0, y, font, ptW, ptH, r,g,b,a, MVP, pad))
     return false;
   return true;
 }
@@ -622,7 +643,8 @@ static bool DrawJustified(const char *text, float x0, float x1,
 
 bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
                              float x1, float y1, Align align, const Font *font,
-                             float ptW, float ptH, const float *MVP) {
+                             float ptW, float ptH, float r, float g, float b,
+                             float a, const float *MVP) {
   const float wrapW = x1 - x0;
   if (wrapW <= 0)
     return false;
@@ -656,7 +678,7 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
     
     // Draw the current line. We either hit a return, the end of the string,
     // or went past the width of the rectangle and moved back to last separator
-    if (!DrawJustified(&str[0], x0, x1, y, w, align, font, ptW, ptH, MVP))
+    if (!DrawJustified(&str[0], x0,x1, y, w, align, font, ptW,ptH, r,g,b,a,MVP))
       return false;
     
     w = 0;
@@ -665,3 +687,11 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
   }
   return true;
 }
+
+
+bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
+                             float x1, float y1, Align align, const Font *font,
+                             float ptW, float ptH,  const float *MVP) {
+  return DrawParagraph(text, x0, y0, x1, y1, align, font, ptW,ptH, 1,1,1,1,MVP);
+}
+

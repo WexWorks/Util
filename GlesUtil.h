@@ -36,6 +36,10 @@ bool DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
 bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                    float u0, float v0, float u1, float v1,
                    const float *MVP = 0);
+bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
+                   float u0, float v0, float u1, float v1,
+                   float r, float g, float b, float a,
+                   const float *MVP = 0);
 
 // Bitmapped font drawing functions:
 //   Characters are defined in points and scaled to MVP space using (ptW,ptH),
@@ -68,6 +72,9 @@ unsigned int TextWidth(const char *text, const Font *font, float charPadPt = 0);
 
 bool DrawText(const char *text, float x, float y, const Font *font,
               float ptW, float ptH, const float *MVP = 0, float charPadPt = 0);
+bool DrawText(const char *text, float x, float y, const Font *font,
+              float ptW, float ptH, float r, float g, float b, float a,
+              const float *MVP = 0, float charPadPt = 0);
 
 // Paragraph rendering with text justification and word wrapping within
 // the specified rectangle. Text is aligned within the specified rectangle,
@@ -81,6 +88,9 @@ enum Align { LeftJustify, CenterJustify, RightJustify, FullJustify };
 bool DrawParagraph(const char *text, float x0, float y0, float x1, float y1,
                    Align align, const Font *font, float ptW, float ptH,
                    const float *MVP = 0);
+bool DrawParagraph(const char *text, float x0, float y0, float x1, float y1,
+                   Align align, const Font *font, float ptW, float ptH,
+                   float r, float g, float b, float a, const float *MVP = 0);
 
 
 // Texture functions:
@@ -115,7 +125,8 @@ GLuint CreateProgram(GLuint vp, GLuint fp, const char *name=0);
   
 GLuint ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP);
 GLuint VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP);
-GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP, GLuint *uTex);
+GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC, GLuint *uMVP,
+                      GLuint *uTex);
 
 
 // Buffer functions:

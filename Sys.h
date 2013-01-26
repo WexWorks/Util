@@ -47,6 +47,11 @@ public:
 
   // Return the "scaling factor" for this display (poorly defined!)
   virtual float PixelScale() const = 0;
+  
+  // Display an alert box with optional text input and button names
+  virtual void AlertBox(const char *title, const char *msg, const char *ok,
+                        const char *cancel, bool secure, void *cbData,
+                        void (*textCB)(void *cbData, const char *inputText))=0;
 };
 
 

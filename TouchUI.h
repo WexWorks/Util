@@ -683,7 +683,8 @@ namespace tui {
     virtual bool Init(int wideCount, int narrowCount,
                       int buttonPad, int topPad, int bottomPad);
     virtual void Add(Button *button);
-    virtual void Clear();                     // Delete buttons and clear
+    virtual bool Delete(Button *button);
+    virtual void Clear();                     // Delete all buttons and clear
     virtual size_t ButtonCount() const { return mButtonVec.size(); }
     virtual Button *Button(size_t i) { return mButtonVec[i]; }
     virtual void Sort(const CompareButton &compare);

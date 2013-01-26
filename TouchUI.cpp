@@ -2305,6 +2305,20 @@ void ButtonGridFrame::Add(tui::Button *button) {
 }
 
 
+bool ButtonGridFrame::Delete(tui::Button *button) {
+  for (std::vector<tui::Button *>::iterator i = mButtonVec.begin();
+       i != mButtonVec.end(); ++i) {
+    if (*i == button) {
+      delete *i;
+      mButtonVec.erase(i);
+      SetViewport(Left(), Bottom(), Width(), Height()); // re-layout
+      return true;
+    }
+  }
+  return false;
+}
+
+
 void ButtonGridFrame::Clear() {
   for (size_t i = 0; i < mButtonVec.size(); ++i)
     delete mButtonVec[i];
