@@ -34,19 +34,36 @@ struct Metadata {
 };
 
 
-// Function callback types
-typedef bool (*AddImageCB)(void *cbData, const char *album, const char *name,
-                           const char *url);
-typedef bool (*AddAlbumCB)(void *cbData, const char *name, const char *url,
-                           size_t w, size_t h, const unsigned char *thumb);
-typedef bool (*SetImageThumbnailCB)(void *cbData, const char *url, size_t w,
-                                    size_t h, const unsigned char *thumb);
-typedef bool (*SetImageMetadataCB)(void *cbData, const char *url,
-                                   const Metadata &metadata);
-typedef bool (*SetImagePixelsCB)(void *cbData,const char *url,size_t w,size_t h,
-                                 size_t channelCount, size_t bytesPerChannel,
-                                 const unsigned char *pixel);
-typedef void (*SetAlertTextCB)(void *cbData, const char *inputText);
+// Callback functors, executed asynchronously, e.g. from system blocks
+
+struct AddImage {
+  virtual bool operator()(const char *album, const char *name,
+                          const char *url) = 0;
+};
+
+struct AddAlbum {
+  virtual bool operator()(const char *name, const char *url,
+                          size_t w, size_t h, const unsigned char *thumb) = 0;
+};
+
+struct SetImageThumbnail {
+  virtual bool operator()(const char *url, size_t w, size_t h,
+                          const unsigned char *thumb) = 0;
+};
+
+struct SetImageMetadata {
+  virtual bool operator()(const char *url, const Metadata &metadata) = 0;
+};
+
+struct SetImagePixels {
+  virtual bool operator()(const char *url, size_t w, size_t h,
+                          size_t channelCount, size_t bytesPerChannel,
+                          const unsigned char *pixel) = 0;
+};
+
+struct SetAlertText {
+  virtual bool operator()(const char *inputText) = 0;
+};
 
 
 // Derive a custom Callback class that implements the interface using OS-side
@@ -72,29 +89,25 @@ public:
   virtual bool LoadText(const char *name, const char **text) = 0;
   
   // Load all image folders in the system
-  virtual bool LoadSystemFolders(void *cbData, AddAlbumCB addAlbumCB) = 0;
+  virtual bool LoadSystemFolders(AddAlbum *addAlbum) = 0;
   
   // Load a folder of images
-  virtual bool LoadFolderImages(const char *url, void *cbData,
-                                AddImageCB addImageCB) = 0;
+  virtual bool LoadFolderImages(const char *url, AddImage *addImage) = 0;
   
   // Load only the metadata, not the pixels, from an image
   virtual bool LoadImageMetadata(const char *url, bool getThumbnail,
-                                 bool getMetadata, void *cbData,
-                                 SetImageThumbnailCB setThumbCB,
-                                 SetImageMetadataCB setMetadataCB) = 0;
+                                 bool getMetadata, SetImageThumbnail *setThumb,
+                                 SetImageMetadata *setMetadata) = 0;
   
   // Load the full image of pixels into memory
-  virtual bool LoadImagePixels(const char *url, void *cbData,
-                               SetImagePixelsCB setPixelsCB) = 0;
+  virtual bool LoadImagePixels(const char *url, SetImagePixels *setPixels) = 0;
 
   // Return the "scaling factor" for this display (poorly defined!)
   virtual float PixelScale() const = 0;
   
   // Display an alert box with optional text input and button names
   virtual void AlertBox(const char *title, const char *msg, const char *ok,
-                        const char *cancel, bool secure, void *cbData,
-                        SetAlertTextCB setTextCB) = 0;
+                        const char *cancel,bool secure,SetAlertText *setText)=0;
 };
 
 
