@@ -140,12 +140,17 @@ namespace tui {
   // Text label, display only
   class Label : public ViewportWidget {
   public:
-    Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0) {}
+    Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0) {
+      mColor[0] = mColor[1] = mColor[2] = mColor[3] = 1;
+    }
     virtual ~Label();
     virtual bool Init(const char *text, float pts);
     virtual bool SetText(const char *text, float pts);
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetTextColor(float r, float g, float b, float a) {
+      mColor[0] = r; mColor[1] = g; mColor[2] = b; mColor[3] = a;
+    }
     virtual bool Draw();
     
     // Initialize the font used to draw all labels
@@ -155,6 +160,7 @@ namespace tui {
     static void *sFont;
     const char *mText;
     float mPts, mPtW, mPtH;
+    float mColor[4];
   };
   
   
@@ -305,12 +311,37 @@ namespace tui {
                       unsigned int defaultTex, unsigned int pressedTex);
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetLabelColor(float r, float g, float b, float a) {
+      mLabel->SetTextColor(r, g, b, a);
+    }
     virtual bool Draw();
     
   protected:
     Label *mLabel;
     size_t mDim[2];
     unsigned int mDefaultTex, mPressedTex;
+  };
+  
+  
+  // Checkbox button with extended background and foreground text
+  class TextCheckbox : public CheckboxButton {
+  public:
+    TextCheckbox() : mLabel(NULL), mDeselectedTex(0), mPressedTex(0),
+                     mSelectedTex(0) {}
+    virtual bool Init(const char *text, float pts, size_t w, size_t h,
+                      unsigned int deselectedTex, unsigned int pressedTex,
+                      unsigned int selectedTex);
+    virtual bool FitViewport();
+    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetLabelColor(float r, float g, float b, float a) {
+      mLabel->SetTextColor(r, g, b, a);
+    }
+    virtual bool Draw();
+    
+  protected:
+    Label *mLabel;
+    size_t mDim[2];
+    unsigned int mDeselectedTex, mPressedTex, mSelectedTex;
   };
   
   
@@ -336,6 +367,29 @@ namespace tui {
   };
   
   
+  // Movable button with optional constraints
+  class HandleButton : public Button {
+  public:
+    HandleButton() {
+      memset(mConstraint, 0, sizeof(mConstraint));
+      memset(mLine, 0, sizeof(mConstraint));
+    }
+    virtual ~HandleButton() {}
+    virtual bool Touch(const Event &event);
+    virtual void SetXConstrained(bool status) { SetConstraintDir(0, status); }
+    virtual void SetYConstrained(bool status) { SetConstraintDir(status, 0); }
+    virtual void SetConstraintDir(float x, float y);
+    
+  private:
+    virtual bool Constrained() const {
+      return mConstraint[0] != 0 || mConstraint[1] != 0;
+    }
+    
+    float mConstraint[2];                       // Direction vector
+    float mLine[4];                             // [ax, ay, bx, by]
+  };
+  
+  
   //
   // Groups
   //
@@ -343,12 +397,13 @@ namespace tui {
   // Group operations
   class Group : public Widget {
   public:
-    Group() {}
+    Group() : mIsMultitouch(false) {}
     virtual ~Group() {}
     
     virtual bool Add(Widget *widget);
     virtual bool Remove(Widget *widget);
     virtual void Clear();
+    virtual void SetMultitouch(bool status) { mIsMultitouch = status; }
     
     // Perform the following actions on all the widgets in the group
     // (dynamic cast used for Viewport and AnimateViewport methods)
@@ -363,6 +418,7 @@ namespace tui {
     
   protected:
     std::vector<Widget *> mWidgetVec;         // Grouped widgets
+    bool mIsMultitouch;                       // Touch first or all widgets?
   };
   
   
@@ -462,7 +518,7 @@ namespace tui {
     virtual bool Append(Frame *frame);        // Do not allow generic frames,
     virtual bool Prepend(Frame *frame);       //   use templates instead.
     virtual bool Delete(Frame *frame);
-    int FindFrameIdx(const int xy[2]) const;
+    int FindFrameIdx(int x, int y) const;
     int TotalHeight() const { return mFrameDim * mFrameVec.size(); }
     int ScrollMin() const { const int dim = mVertical ? Height() : Width();
       return dim / 2 + mScrollableDim / 2 - dim + mSnapLocationOffset; }
@@ -626,6 +682,10 @@ namespace tui {
     virtual bool SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
     virtual float Scale() const { return mScale; }
     
+    // Compute the current display region that would be sent to DrawImage
+    virtual void ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
+                                    float *u0, float *v0, float *u1, float *v1) const;
+    
     // Convert the region in NDC and UV space provided to Frame::Draw into
     // a 4x4 matrix (really 2D, so it could be 3x3), that transforms points
     // in pixel coordinates in the Frame image into NDC for use as a MVP.
@@ -639,8 +699,6 @@ namespace tui {
     
     bool Reset();
     void ComputeScaleRange();
-    void ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
-                            float *u0, float *v0, float *u1, float *v1);
     float U2Ndc(float u) const;
     float V2Ndc(float v) const;
     float Ndc2U(float x) const;

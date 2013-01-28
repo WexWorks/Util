@@ -127,6 +127,7 @@ GLuint ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP);
 GLuint VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP);
 GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC, GLuint *uMVP,
                       GLuint *uTex);
+GLuint ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP, GLuint *uTex);
 
 
 // Buffer functions:

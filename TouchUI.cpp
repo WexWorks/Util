@@ -239,7 +239,8 @@ bool Label::Draw() {
   const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
   float y = 1 - (Height() - mPts * font->charDimPt[1]) / float(Height());
   if (!GlesUtil::DrawParagraph(mText, -1, -y, 1, y, GlesUtil::CenterJustify,
-                               font, mPtW, mPtH))
+                               font, mPtW, mPtH, mColor[0], mColor[1],
+                               mColor[2], mColor[3]))
     return false;
   glDisable(GL_BLEND);
   return true;
@@ -413,6 +414,8 @@ bool Button::Touch(const Event &event) {
         idx = FindPress(touch.id);
         if (idx >= 0) {
           mPressVec[idx].pressed = Inside(touch.x, touch.y);
+          mPressVec[idx].x = touch.x;       // Update current touch position
+          mPressVec[idx].y = touch.y;
           return false;
         }
         break;
@@ -618,6 +621,82 @@ bool TextButton::Draw() {
 
 
 //
+// TextCheckbox
+//
+
+bool TextCheckbox::Init(const char *text, float pts, size_t w, size_t h,
+                        unsigned int deselectedTex, unsigned int pressedTex,
+                        unsigned int selectedTex) {
+  mLabel = new Label;
+  if (!mLabel->Init(text, pts))
+    return true;
+  mDim[0] = w;
+  mDim[1] = h;
+  mDeselectedTex = deselectedTex;
+  mPressedTex = pressedTex;
+  mSelectedTex = selectedTex;
+  return true;
+}
+
+
+bool TextCheckbox::FitViewport() {
+  if (!mLabel->FitViewport())
+    return false;
+  const int padH = 0.5 * mLabel->Height();
+  const int h = mLabel->Height() + 2 * padH;
+  const int padW = h * mDim[0] / (2 * mDim[1]);
+  const int w = mLabel->Width() + 2 * padW;
+  if (!mLabel->SetViewport(Left() + padW, Bottom() + padH,
+                           mLabel->Width(), mLabel->Height()))
+    return false;
+  if (!Button::SetViewport(Left(), Bottom(), w, h))
+    return false;
+  return true;
+}
+
+
+bool TextCheckbox::SetViewport(int x, int y, int w, int h) {
+  if (!Button::SetViewport(x, y, w, h))
+    return false;
+  const int padH = 0.5 * mLabel->Height();
+  const int padW = h * mDim[0] / (2 * mDim[1]);
+  if (!mLabel->SetViewport(x + padW, y + padH, w - 2 * padW, h - 2 * padH))
+    return false;
+  return true;
+}
+
+
+bool TextCheckbox::Draw() {
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  glViewport(Left(), Bottom(), Width(), Height());
+  
+  const GLuint tex = Pressed() ? mPressedTex : Selected() ?
+                                mSelectedTex : mDeselectedTex;
+  const int edgeDim = Height() * mDim[0] / (2 * mDim[1]);
+  float x0 = -1;
+  float x1 = x0 + 2 * edgeDim / float(Width());
+  if (!GlesUtil::DrawTexture2f(tex, x0, -1, x1, 1, 0, 1, 0.5, 0))
+    return false;
+  x0 = x1;
+  x1 = -x1;
+  if (!GlesUtil::DrawTexture2f(tex, x0, -1, x1, 1, 0.5, 1, 0.5, 0))
+    return false;
+  x0 = x1;
+  x1 = 1;
+  if (!GlesUtil::DrawTexture2f(tex, x0, -1, x1, 1, 0.5, 1, 1, 0))
+    return false;
+  
+  if (!mLabel->Draw())
+    return false;
+  glDisable(GL_BLEND);
+  
+  return true;
+}
+
+
+//
 // RadioButton
 //
 
@@ -715,6 +794,69 @@ bool RadioButton::Draw() {
 
 
 //
+// HandleButton
+//
+
+void HandleButton::SetConstraintDir(float x, float y) {
+  mConstraint[0] = x; mConstraint[1] = y;
+
+  // Compute the constraint line [ax, ay, bx, by].
+  // Do it here, once, when the direction is set, not on each touch!
+  mLine[0] = Left() + Width() / 2.0;
+  mLine[1] = Bottom() + Height() / 2.0;
+  mLine[2] = mLine[0] + mConstraint[0];
+  mLine[3] = mLine[1] + mConstraint[1];
+}
+
+
+// Closest point along the line AB to the point P.
+// Projects P onto AB and interpolates result.
+
+static void ClosestPoint(double ax, double ay, double bx, double by,
+                         double px, double py, double *dx, double *dy) {
+  const double apx = px - ax;
+  const double apy = py - ay;
+  const double abx = bx - ax;
+  const double aby = by - ay;
+  const double ab2 = abx * abx + aby * aby;
+  const double ap_ab = apx * abx + apy * aby;
+  const double t = ap_ab / ab2;
+  *dx = ax + t * abx;
+  *dy = ay + t * aby;
+}
+
+
+bool HandleButton::Touch(const Event &event) {
+  if (!Enabled())
+    return false;
+  bool consumed = Button::Touch(event);
+  bool drag = Pressed() || (Constrained() && !mPressVec.empty());
+  drag = !mPressVec.empty();
+  if (drag) {
+    consumed = true;
+    double px, py;                                 // Average touch position
+    for (size_t i = 0; i < mPressVec.size(); ++i) {
+      px += mPressVec[i].x;
+      py += mPressVec[i].y;
+    }
+    px /= mPressVec.size();                       // Average
+    py /= mPressVec.size();
+    double vx, vy;
+    if (Constrained()) {
+      ClosestPoint(mLine[0], mLine[1], mLine[2], mLine[3], px, py, &vx, &vy);
+    } else {
+      vx = px;
+      vy = py;
+    }
+    vx -= Width() / 2.0;                          // Offset to corner
+    vy -= Height() / 2.0;
+    SetViewport(vx, vy, Width(), Height());       // Move the handle
+  }
+  return consumed;
+}
+
+
+//
 // Group
 //
 
@@ -750,11 +892,15 @@ bool Group::Draw() {
 
 
 bool Group::Touch(const Event &event) {
+  bool consumed = false;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
-    if (mWidgetVec[i]->Touch(event))
-      return true;
+    if (mWidgetVec[i]->Touch(event)) {
+      consumed = true;
+      if (!mIsMultitouch)
+        break;
+    }
   }
-  return false;
+  return consumed;
 }
 
 
@@ -1577,7 +1723,7 @@ bool FlinglistImpl::Touch(const Event &event) {
     switch (event.phase) {
       case TOUCH_BEGAN:
         if (Inside(xy[0], xy[1]) && mTouchFrameIdx < 0) {
-          mTouchFrameIdx = FindFrameIdx(xy);
+          mTouchFrameIdx = FindFrameIdx(xy[0], xy[1]);
           mTouchStart[0] = xy[0];
           mTouchStart[1] = xy[1];
           mScrollVelocity = 0;
@@ -1678,14 +1824,14 @@ bool FlinglistImpl::Touch(const Event &event) {
 }
 
 
-int FlinglistImpl::FindFrameIdx(const int *xy) const {
-  if (xy[0] < mViewport[0] || xy[0] > Right())
+int FlinglistImpl::FindFrameIdx(int x, int y) const {
+  if (x < mViewport[0] || x > Right())
     return -1;
   int i = -1;
   if (mVertical)
-    i = trunc((Top() - xy[1] + mScrollOffset) / mFrameDim);
+    i = trunc((Top() - y + mScrollOffset) / mFrameDim);
   else 
-    i = trunc((Right() - xy[0] + mScrollOffset) / mFrameDim);
+    i = trunc((Right() - x + mScrollOffset) / mFrameDim);
   if (i < 0 || i > int(mFrameVec.size()) - 1)
     return -1;
   return i;
@@ -1841,7 +1987,7 @@ float Frame::Ndc2V(float y) const {
 // and we only need to adjust mScale and mCenterUV when moving.
 
 void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
-                               float *u0, float *v0, float *u1, float *v1) {
+                               float *u0, float *v0, float *u1, float *v1) const {
   const size_t sw = mScale * ImageWidth();
   if (sw >= Width()) {                        // Image wider than screen
     *x0 = -1;                                 // Fill entire screen width

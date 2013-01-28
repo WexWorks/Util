@@ -461,6 +461,57 @@ GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
 }
 
 
+GLuint GlesUtil::ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP,
+                                      GLuint *uTex) {
+  static bool gInitialized = false;             // WARNING: Static variables!
+  static GLuint gProgram = 0;
+  static GLuint gAP = 0, gUC = 0, gUMVP = 0, gUCTex = 0;
+  if (!gInitialized) {
+    gInitialized = true;
+    
+    // Note: the program below is leaked and should be destroyed in _atexit()
+    static const char *vpCode =
+    "attribute vec4 aP;\n"
+    "uniform mat4 uMVP;\n"
+    "varying vec2 vUV;\n"
+    "void main() {\n"
+    "  gl_Position = uMVP * aP;\n"
+    "}\n";
+    static const char *fpCode =
+    "precision mediump float;\n"
+    "uniform sampler2D uCTex;\n"
+    "uniform vec4 uC;\n"
+    "void main() {\n"
+    "  gl_FragColor = uC * texture2D(uCTex, gl_FragCoord.xy);\n"
+    "}\n";
+    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
+    if (!vp)
+      return false;
+    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    if (!fp)
+      return false;
+    gProgram = GlesUtil::CreateProgram(vp, fp, "Texture");
+    if (!gProgram)
+      return false;
+    glDeleteShader(vp);
+    glDeleteShader(fp);
+    glUseProgram(gProgram);
+    gAP = glGetAttribLocation(gProgram, "aP");
+    gUC = glGetUniformLocation(gProgram, "uC");
+    gUMVP = glGetUniformLocation(gProgram, "uMVP");
+    gUCTex = glGetUniformLocation(gProgram, "uCTex");
+    if (Error())
+      return false;
+  }
+  
+  *aP = gAP;
+  *uC = gUC;
+  *uMVP = gUMVP;
+  *uTex = gUCTex;
+  return gProgram;
+}
+
+
 GLuint GlesUtil::CreateBuffer(GLenum target, GLsizeiptr bytes, void *data,
                               GLenum usage, const char *name) {
   GLuint buf;
@@ -593,6 +644,7 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, &P[0].x);
   glActiveTexture(GL_TEXTURE0);                       // Setup texture
   glBindTexture(GL_TEXTURE_2D, font->tex);
+  glUniform1i(uTex, 0);
   static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
   if (!MVP)
     MVP = &I[0];  
