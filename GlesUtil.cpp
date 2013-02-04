@@ -133,6 +133,32 @@ bool GlesUtil::DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
 }
 
 
+bool GlesUtil::DrawGradientBox2f(float x0, float y0, float x1, float y1,
+                                 bool isVertical, float r0, float g0, float b0,
+                                 float r1,float g1,float b1, const float *MVP) {
+  GLuint aP, aC, uMVP;
+  GLuint program = GlesUtil::VertexColorProgram(&aP, &aC, &uMVP);
+  if (!program)
+    return false;
+  glUseProgram(program);
+  const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
+  const float vC[4*4] = { r0,g0,b0,1,  r1,g1,b1,1, r0,r0,r0,1,  r1,g1,b1,1 };
+  const float hC[4*4] = { r0,g0,b0,1,  r0,g0,b0,1, r1,r1,r1,1,  r1,g1,b1,1 };
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP ? MVP : I);
+  glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
+  glEnableVertexAttribArray(aC);
+  glVertexAttribPointer(aC, 4, GL_FLOAT, GL_FALSE, 0, isVertical ? vC : hC);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  glDisableVertexAttribArray(aP);
+  glDisableVertexAttribArray(aC);
+  if (GlesUtil::Error())
+    return false;
+  return true;
+}
+
+
 bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                              float u0, float v0, float u1, float v1,
                              float r, float g, float b, float a,

@@ -52,7 +52,7 @@ namespace tui {
   class Widget {
   public:
     Widget() : mIsEnabled(true), mIsHidden(false), mIsScaling(false),
-               mIsDragging(false), mIsHorizontalDrag(false) {}
+               mIsDragging(false), mIsHorizontalDrag(false), mMVP(NULL) {}
     virtual ~Widget() {}
     
     // Called to draw contents. Viewport set prior to call.
@@ -87,9 +87,15 @@ namespace tui {
     virtual size_t TouchStartCount() const { return mTouchStart.size(); }
     virtual const Event::Touch &TouchStart(size_t idx) const { return mTouchStart[idx]; }
     
+    virtual void SetMVP(const float *mvp) { mMVP = mvp; }
+    virtual const float *MVP() const { return mMVP; }
+    virtual void GetNDCRect(float *x0, float *y0, float *x1, float *y1) const {
+      *x0 = *y0 = -1; *x1 = *y1 = 1;
+    }
+    
   private:
     static const float kMinScale = 0.03;      // Min scaling amount before event
-    static const int kMinPanPix = 20;         // Min pan motion before event
+    static const int kMinPanPix = 40;         // Min pan motion before event
 
     Widget(const Widget&);                    // Disallow copy ctor
     void operator=(const Widget&);            // Disallow assignment
@@ -100,6 +106,7 @@ namespace tui {
     bool mIsDragging;                         // True if processing pan event
     bool mIsHorizontalDrag;                   // True if drag started horiz
     std::vector<Event::Touch> mTouchStart;    // Tracking touches
+    const float *mMVP;
   };
   
   
@@ -127,12 +134,21 @@ namespace tui {
     bool Inside(int x, int y) const {
       return x >= Left() && x <= Right() && y >= Bottom() && y <= Top();
     }
+    virtual void GetNDCRect(float *x0, float *y0, float *x1, float *y1) const {
+      if (MVP()) {
+        *x0 = Left(); *y0 = Bottom(); *x1 = Right(); *y1 = Top();
+      } else {
+        Widget::GetNDCRect(x0, y0, x1, y1);
+      }
+    }
 
     virtual bool OnTapTouch(const Event::Touch &touch) { return false; }
     virtual bool OnLongTouch(const Event::Touch &touch) { return false; }
     virtual bool ProcessGestures(const Event &event);
     
   protected:
+    virtual bool TouchStartInside() const;
+    
     int mViewport[4];                         // [x, y, w, h]
   };
   
@@ -148,6 +164,7 @@ namespace tui {
     virtual bool SetText(const char *text, float pts);
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetMVP(const float *mvp);
     virtual void SetTextColor(float r, float g, float b, float a) {
       mColor[0] = r; mColor[1] = g; mColor[2] = b; mColor[3] = a;
     }
@@ -311,6 +328,7 @@ namespace tui {
                       unsigned int defaultTex, unsigned int pressedTex);
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetMVP(const float *mvp);
     virtual void SetLabelColor(float r, float g, float b, float a) {
       mLabel->SetTextColor(r, g, b, a);
     }
@@ -333,6 +351,7 @@ namespace tui {
                       unsigned int selectedTex);
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetMVP(const float *mvp);
     virtual void SetLabelColor(float r, float g, float b, float a) {
       mLabel->SetTextColor(r, g, b, a);
     }
@@ -353,6 +372,7 @@ namespace tui {
     virtual ~RadioButton();
     virtual void Add(CheckboxButton *button);
     virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetMVP(const float *mvp);
     virtual bool Touch(const Event &event);
     virtual bool Draw();
     virtual CheckboxButton *Selected() const;
@@ -368,25 +388,62 @@ namespace tui {
   
   
   // Movable button with optional constraints
-  class HandleButton : public Button {
+  class Handle : public Button {
   public:
-    HandleButton() {
-      memset(mConstraint, 0, sizeof(mConstraint));
-      memset(mLine, 0, sizeof(mConstraint));
-    }
-    virtual ~HandleButton() {}
+    Handle() : mIsSegment(false) { memset(mLine, 0, sizeof(mLine)); }
+    virtual ~Handle() {}
     virtual bool Touch(const Event &event);
+    virtual void SetUnconstrained() { memset(mLine, 0, sizeof(mLine)); }
     virtual void SetXConstrained(bool status) { SetConstraintDir(0, status); }
     virtual void SetYConstrained(bool status) { SetConstraintDir(status, 0); }
     virtual void SetConstraintDir(float x, float y);
+    virtual void SetConstraintSegment(float x0, float y0, float x1, float y1) {
+       mIsSegment = true; mLine[0]=x0; mLine[1]=y0; mLine[2]=x1; mLine[3]=y1;
+    }
     
   private:
     virtual bool Constrained() const {
-      return mConstraint[0] != 0 || mConstraint[1] != 0;
+      return mLine[0] != 0 || mLine[1] != 0 || mLine[2] != 0 || mLine[3] != 0;
     }
     
-    float mConstraint[2];                       // Direction vector
     float mLine[4];                             // [ax, ay, bx, by]
+    bool mIsSegment;                            // Direction or segment
+  };
+  
+  
+  // Handle with an associated texture for display
+  class ImageHandle : public Handle {
+  public:
+    ImageHandle() : mDefaultTex(0), mPressedTex(0) {}
+    virtual ~ImageHandle() {}
+    
+    virtual bool Init(unsigned int defaultTex, unsigned int pressedTex);
+    virtual bool Draw();
+    
+  private:
+    unsigned int mDefaultTex, mPressedTex;
+  };
+  
+  
+  // Slider using a constrained handle
+  
+  class Slider : public ViewportWidget {
+  public:
+    Slider() : mHandle(NULL), mSliderTex(0) {}
+    virtual ~Slider();
+    
+    virtual bool Init(unsigned int sliderTex, size_t handleW, size_t handleH,
+                      unsigned int handleTex, unsigned int handlePressedTex);
+    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetMVP(const float *mvp);
+    virtual bool Touch(const Event &event);
+    virtual bool Draw();
+    virtual float Value() const;
+    
+  private:
+    ImageHandle *mHandle;
+    unsigned int mSliderTex;
+    float mHandleT;
   };
   
   
@@ -415,6 +472,7 @@ namespace tui {
     virtual void Enable(bool status);
     virtual bool Hidden() const;
     virtual void Hide(bool status);
+    virtual void SetMVP(const float *mvp);
     
   protected:
     std::vector<Widget *> mWidgetVec;         // Grouped widgets
@@ -429,10 +487,13 @@ namespace tui {
   // Set the size of each widget for spacing, but the (x,y) is ignored.
   class Toolbar : public ViewportWidget {
   public:
+    static const size_t kStdHeight = 44;
+    
     Toolbar() : mEdgeTex(0), mCenterTex(0), mEdgeDim(0) {}
     virtual bool Init(unsigned int centerTex);
     virtual bool SetEdge(unsigned int edgeTex, unsigned int edgeDim);
     virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetMVP(const float *mvp);
     virtual void Add(ViewportWidget *widget) { mWidgetVec.push_back(widget); }
     virtual bool AddFixedSpacer(int w);
     virtual bool AddFlexibleSpacer();
@@ -632,6 +693,11 @@ namespace tui {
   // Animated "soft limits" keep the image within a set of bounds,
   // but allow some movement past the edge.
   // Derive a custom class and implement content definition methods.
+  // Unlike the Flinglist classes, the Frame is drawn using a
+  // set of NDC coords and a uv-rectangle, and it is up to the
+  // implementation to draw the appropriate region in the image.
+  // Similarly, any event processing for sub-widgets within the frame
+  // requires an invserse transformation of the touch event coordinates.
   class Frame : public AnimatedViewport {
   public:
     Frame() : mScale(1), mScaleVelocity(0),
@@ -747,22 +813,21 @@ namespace tui {
     virtual Button *Button(size_t i) { return mButtonVec[i]; }
     virtual void Sort(const CompareButton &compare);
     virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetMVP(const float *mvp);
     virtual size_t ImageWidth() const { return Width(); }
     virtual size_t ImageHeight() const;
     virtual bool Touch(const tui::Event &event);
     virtual bool DrawImage(float x0, float y0, float x1, float y1,
                            float u0, float v0, float u1, float v1);
-    virtual const float *MVP() const { return mMVP; }
 
   private:
     std::vector<tui::Button *> mButtonVec;    // Button grid
+    float mMVPBuf[16];                        // Current view transform
     int mButtonHorizCount[2];                 // Wide & narrow counts
     int mButtonHorizCountIdx;                 // Wide or narrow cur count
     int mButtonDim;                           // Size in pixels
     int mButtonPad;                           // Pixels between buttons
     int mTopPad, mBottomPad;                  // Pixels above and below
-    float mMVP[16];                           // Image pix -> NDC (draw)
-    float mInvMVP[16];                        // NDC -> Image pix (touch)
   };
   
   

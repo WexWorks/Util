@@ -33,6 +33,9 @@ bool DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
 bool DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
                          float w, float h, float r, float g, float b, float a,
                          const float *MVP=0);
+bool DrawGradientBox2f(float x0, float y0, float x1, float y1, bool isVertical,
+                       float r0, float g0, float b0, float r1,float g1,float b1,
+                       const float *MVP=0);
 bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                    float u0, float v0, float u1, float v1,
                    const float *MVP = 0);

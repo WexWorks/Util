@@ -187,6 +187,18 @@ bool ViewportWidget::ProcessGestures(const Event &event) {
 }
 
 
+bool ViewportWidget::TouchStartInside() const {
+  bool touchInside = false;
+  for (size_t i = 0; i < TouchStartCount(); ++i) {
+    if (Inside(TouchStart(i).x, TouchStart(i).y)) {
+      touchInside = true;
+      break;
+    }
+  }
+  return touchInside;
+}
+
+
 //
 // Label
 //
@@ -225,9 +237,15 @@ bool Label::FitViewport() {
 bool Label::SetViewport(int x, int y, int w, int h) {
   if (!ViewportWidget::SetViewport(x, y, w, h))
     return false;
-  mPtW = 2 * mPts / Width();
-  mPtH = 2 * mPts / Height();
+  mPtW = mPts / (MVP() ? 1 : 0.5 * Width());
+  mPtH = mPts / (MVP() ? 1 : 0.5 * Height());
   return true;
+}
+
+
+void Label::SetMVP(const float *mvp) {
+  ViewportWidget::SetMVP(mvp);
+  SetViewport(Left(), Bottom(), Width(), Height());   // Set mPtW, mPtH
 }
 
 
@@ -235,12 +253,16 @@ bool Label::Draw() {
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glBlendEquation(GL_FUNC_ADD);
-  glViewport(Left(), Bottom(), Width(), Height());
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
   const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
-  float y = 1 - (Height() - mPts * font->charDimPt[1]) / float(Height());
-  if (!GlesUtil::DrawParagraph(mText, -1, -y, 1, y, GlesUtil::CenterJustify,
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
+  const float n = MVP() ? 0.5 : Height();
+  const float y = y1 - (Height() - mPts * font->charDimPt[1]) / n;
+  if (!GlesUtil::DrawParagraph(mText, x0, -y, x1, y, GlesUtil::CenterJustify,
                                font, mPtW, mPtH, mColor[0], mColor[1],
-                               mColor[2], mColor[3]))
+                               mColor[2], mColor[3], MVP()))
     return false;
   glDisable(GL_BLEND);
   return true;
@@ -348,13 +370,16 @@ bool Sprite::Draw() {
   } else {
     glDisable(GL_BLEND);
   }
-  glViewport(Left(), Bottom(), Width(), Height());
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
   glUseProgram(mSpriteProgram);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, mSpriteTexture);
   glUniform1i(mSpriteUCTex, 0);
   glUniform1f(mSpriteUOpacity, mOpacity);
-  if (!GlesUtil::DrawBox2f(mSpriteAP, -1, -1, 1, 1, mSpriteAUV, mSpriteUV[0],
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
+  if (!GlesUtil::DrawBox2f(mSpriteAP, x0, y0, x1, y1, mSpriteAUV, mSpriteUV[0],
                            mSpriteUV[1], mSpriteUV[2], mSpriteUV[3]))
     return false;
   
@@ -416,6 +441,8 @@ bool Button::Touch(const Event &event) {
           mPressVec[idx].pressed = Inside(touch.x, touch.y);
           mPressVec[idx].x = touch.x;       // Update current touch position
           mPressVec[idx].y = touch.y;
+          if (OnDrag(TOUCH_MOVED, touch.x, touch.y, touch.timestamp))
+            return true;
           return false;
         }
         break;
@@ -443,7 +470,7 @@ bool Button::Touch(const Event &event) {
   }
   
   // Clear all touches on cancel (which may not include a touch vector)
-  if (event.phase == TOUCH_CANCELLED)
+  if (event.phase == TOUCH_CANCELLED && event.touchVec.empty())
     mPressVec.clear();
   
   return false;
@@ -496,10 +523,14 @@ bool ImageButton::Draw() {
   } else {
     glDisable(GL_BLEND);
   }
-  glViewport(Left(), Bottom(), Width(), Height());
   
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
+  
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
   unsigned int texture = Pressed() ? mPressedTex : mDefaultTex;
-  if (!GlesUtil::DrawTexture2f(texture, -1, -1, 1, 1, 0, 1, 1, 0))
+  if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0, MVP()))
     return false;
   
   return true;
@@ -536,12 +567,18 @@ bool CheckboxImageButton::Draw() {
   } else {
     glDisable(GL_BLEND);
   }
-  glViewport(Left(), Bottom(), Width(), Height());
   
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
+  
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
   unsigned int texture = Pressed() ? mPressedTex : Selected() ?
                                     mSelectedTex : mDeselectedTex;
-  if (!GlesUtil::DrawTexture2f(texture, -1, -1, 1, 1, 0, 1, 1, 0))
+  if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0, MVP()))
     return false;
+  
+  glDisable(GL_BLEND);
   
   return true;
 }
@@ -591,25 +628,29 @@ bool TextButton::SetViewport(int x, int y, int w, int h) {
 }
 
 
+void TextButton::SetMVP(const float *mvp) {
+  Button::SetMVP(mvp);
+  mLabel->SetMVP(mvp);
+}
+
+
 bool TextButton::Draw() {
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glBlendEquation(GL_FUNC_ADD);
-  glViewport(Left(), Bottom(), Width(), Height());
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
   
   const GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
   const int edgeDim = Height() * mDim[0] / (2 * mDim[1]);
-  float x0 = -1;
-  float x1 = x0 + 2 * edgeDim / float(Width());
-  if (!GlesUtil::DrawTexture2f(tex, x0, -1, x1, 1, 0, 1, 0.5, 0))
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
+  float ew = edgeDim / float(MVP() ? 1 : 0.5 * Width());
+  if (!GlesUtil::DrawTexture2f(tex, x0, y0, x0+ew, y1, 0, 1, 0.5, 0, MVP()))
     return false;
-  x0 = x1;
-  x1 = -x1;
-  if (!GlesUtil::DrawTexture2f(tex, x0, -1, x1, 1, 0.5, 1, 0.5, 0))
+  if (!GlesUtil::DrawTexture2f(tex, x0+ew, y0, x1-ew, y1, 0.5, 1, 0.5, 0,MVP()))
     return false;
-  x0 = x1;
-  x1 = 1;
-  if (!GlesUtil::DrawTexture2f(tex, x0, -1, x1, 1, 0.5, 1, 1, 0))
+  if (!GlesUtil::DrawTexture2f(tex, x1-ew, y0, x1, y1, 0.5, 1, 1, 0, MVP()))
     return false;
   
   if (!mLabel->Draw())
@@ -666,26 +707,30 @@ bool TextCheckbox::SetViewport(int x, int y, int w, int h) {
 }
 
 
+void TextCheckbox::SetMVP(const float *mvp) {
+  CheckboxButton::SetMVP(mvp);
+  mLabel->SetMVP(mvp);
+}
+
+
 bool TextCheckbox::Draw() {
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glBlendEquation(GL_FUNC_ADD);
-  glViewport(Left(), Bottom(), Width(), Height());
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
   
   const GLuint tex = Pressed() ? mPressedTex : Selected() ?
                                 mSelectedTex : mDeselectedTex;
   const int edgeDim = Height() * mDim[0] / (2 * mDim[1]);
-  float x0 = -1;
-  float x1 = x0 + 2 * edgeDim / float(Width());
-  if (!GlesUtil::DrawTexture2f(tex, x0, -1, x1, 1, 0, 1, 0.5, 0))
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
+  float ew = edgeDim / float(MVP() ? 1 : 0.5 * Width());
+  if (!GlesUtil::DrawTexture2f(tex, x0, y0, x0+ew, y1, 0, 1, 0.5, 0, MVP()))
     return false;
-  x0 = x1;
-  x1 = -x1;
-  if (!GlesUtil::DrawTexture2f(tex, x0, -1, x1, 1, 0.5, 1, 0.5, 0))
+  if (!GlesUtil::DrawTexture2f(tex, x0+ew, y0, x1-ew, y1, 0.5, 1, 0.5, 0, MVP()))
     return false;
-  x0 = x1;
-  x1 = 1;
-  if (!GlesUtil::DrawTexture2f(tex, x0, -1, x1, 1, 0.5, 1, 1, 0))
+  if (!GlesUtil::DrawTexture2f(tex, x1-ew, y0, x1, y1, 0.5, 1, 1, 0, MVP()))
     return false;
   
   if (!mLabel->Draw())
@@ -761,6 +806,13 @@ bool RadioButton::SetViewport(int x, int y, int w, int h) {
 }
 
 
+void RadioButton::SetMVP(const float *mvp) {
+  ViewportWidget::SetMVP(mvp);
+  for (size_t i = 0; i < mButtonVec.size(); ++i)
+    mButtonVec[i]->SetMVP(mvp);
+}
+
+
 bool RadioButton::Touch(const Event &event) {
   bool wasSelected = Selected() != NULL;
   bool consumed = false;
@@ -794,25 +846,24 @@ bool RadioButton::Draw() {
 
 
 //
-// HandleButton
+// Handle
 //
 
-void HandleButton::SetConstraintDir(float x, float y) {
-  mConstraint[0] = x; mConstraint[1] = y;
-
+void Handle::SetConstraintDir(float x, float y) {
   // Compute the constraint line [ax, ay, bx, by].
   // Do it here, once, when the direction is set, not on each touch!
   mLine[0] = Left() + Width() / 2.0;
   mLine[1] = Bottom() + Height() / 2.0;
-  mLine[2] = mLine[0] + mConstraint[0];
-  mLine[3] = mLine[1] + mConstraint[1];
+  mLine[2] = mLine[0] + x;
+  mLine[3] = mLine[1] + y;
+  mIsSegment = false;
 }
 
 
 // Closest point along the line AB to the point P.
 // Projects P onto AB and interpolates result.
 
-static void ClosestPoint(double ax, double ay, double bx, double by,
+static void ClosestPoint(double ax, double ay, double bx, double by, bool clamp,
                          double px, double py, double *dx, double *dy) {
   const double apx = px - ax;
   const double apy = py - ay;
@@ -820,13 +871,19 @@ static void ClosestPoint(double ax, double ay, double bx, double by,
   const double aby = by - ay;
   const double ab2 = abx * abx + aby * aby;
   const double ap_ab = apx * abx + apy * aby;
-  const double t = ap_ab / ab2;
+  double t = ap_ab / ab2;
+  if (clamp) {
+    if (t < 0.0f)
+      t = 0.0f;
+    else if (t > 1.0f)
+      t = 1.0f;
+  }
   *dx = ax + t * abx;
   *dy = ay + t * aby;
 }
 
 
-bool HandleButton::Touch(const Event &event) {
+bool Handle::Touch(const Event &event) {
   if (!Enabled())
     return false;
   bool consumed = Button::Touch(event);
@@ -834,7 +891,7 @@ bool HandleButton::Touch(const Event &event) {
   drag = !mPressVec.empty();
   if (drag) {
     consumed = true;
-    double px, py;                                 // Average touch position
+    double px = 0, py = 0;                        // Average touch position
     for (size_t i = 0; i < mPressVec.size(); ++i) {
       px += mPressVec[i].x;
       py += mPressVec[i].y;
@@ -843,7 +900,8 @@ bool HandleButton::Touch(const Event &event) {
     py /= mPressVec.size();
     double vx, vy;
     if (Constrained()) {
-      ClosestPoint(mLine[0], mLine[1], mLine[2], mLine[3], px, py, &vx, &vy);
+      ClosestPoint(mLine[0], mLine[1], mLine[2], mLine[3], mIsSegment,
+                   px, py, &vx, &vy);
     } else {
       vx = px;
       vy = py;
@@ -851,8 +909,113 @@ bool HandleButton::Touch(const Event &event) {
     vx -= Width() / 2.0;                          // Offset to corner
     vy -= Height() / 2.0;
     SetViewport(vx, vy, Width(), Height());       // Move the handle
+    OnDrag(event.phase, px, py, event.touchVec[0].timestamp);
   }
   return consumed;
+}
+
+
+//
+// ImageHandle
+//
+
+bool ImageHandle::Init(unsigned int defaultTex, unsigned int pressedTex) {
+  mDefaultTex = defaultTex;
+  mPressedTex = pressedTex;
+  return true;
+}
+
+
+bool ImageHandle::Draw() {
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
+  if (!GlesUtil::DrawTexture2f(tex, x0, y0, x1, y1, 0, 1, 1, 0, MVP()))
+    return false;
+  glDisable(GL_BLEND);
+  
+  return true;
+}
+
+
+//
+// Slider
+//
+
+Slider::~Slider() {
+  delete mHandle;
+}
+
+
+bool Slider::Init(unsigned int sliderTex, size_t handleW, size_t handleH,
+                  unsigned int handleTex, unsigned int handlePressedTex) {
+  mSliderTex = sliderTex;
+  mHandleT = 0.5;
+  
+  mHandle = new ImageHandle;
+  if (!mHandle->Init(handleTex, handlePressedTex))
+    return false;
+  mHandle->SetViewport(0, 0, handleW, handleH);
+  mHandle->SetYConstrained(true);
+  
+  return true;
+}
+
+
+bool Slider::SetViewport(int x, int y, int w, int h) {
+  if (!ViewportWidget::SetViewport(x, y, w, h))
+    return false;
+  int hx = x + mHandleT * Width();
+  int hy = y + (Height() - mHandle->Height()) / 2;
+  if (!mHandle->SetViewport(hx, hy, mHandle->Width(), mHandle->Height()))
+    return false;
+  
+  const float pad = mHandle->Height() / 2;
+  const float hcy = Bottom() + 0.5 * Height();
+  mHandle->SetConstraintSegment(Left() + pad, hcy, Right() - pad, hcy);
+
+  return true;
+}
+
+
+void Slider::SetMVP(const float *mvp) {
+  ViewportWidget::SetMVP(mvp);
+  mHandle->SetMVP(mvp);
+}
+
+
+bool Slider::Draw() {
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
+  if (!GlesUtil::DrawTexture2f(mSliderTex, x0, y0, x1, y1, 0, 1, 1, 0, MVP()))
+    return false;
+  glDisable(GL_BLEND);
+  if (!mHandle->Draw())
+    return false;
+  return true;
+}
+
+
+bool Slider::Touch(const Event &event) {
+  bool consumed = mHandle->Touch(event);
+  return consumed;
+}
+
+
+float Slider::Value() const {
+  float x = mHandle->Left() + 0.5 * mHandle->Width();
+  float v = (x - Left()) / float(Width());
+  return v;
 }
 
 
@@ -896,8 +1059,14 @@ bool Group::Touch(const Event &event) {
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
     if (mWidgetVec[i]->Touch(event)) {
       consumed = true;
-      if (!mIsMultitouch)
+      if (!mIsMultitouch) {
+        for (size_t j = 0; j < mWidgetVec.size(); ++j) {
+          if (j != i) {
+            mWidgetVec[j]->Touch(Event(TOUCH_CANCELLED));
+          }
+        }
         break;
+      }
     }
   }
   return consumed;
@@ -962,6 +1131,13 @@ void Group::Hide(bool status) {
 }
 
 
+void Group::SetMVP(const float *mvp) {
+  Widget::SetMVP(mvp);
+  for (size_t i = 0; i < mWidgetVec.size(); ++i)
+    mWidgetVec[i]->SetMVP(mvp);
+}
+
+
 //
 // Toolbar
 //
@@ -1015,6 +1191,13 @@ bool Toolbar::SetViewport(int x, int y, int w, int h) {
 }
 
 
+void Toolbar::SetMVP(const float *mvp) {
+  ViewportWidget::SetMVP(mvp);
+  for (size_t i = 0; i < mWidgetVec.size(); ++i)
+    mWidgetVec[i]->SetMVP(mvp);
+}
+
+
 bool Toolbar::AddFixedSpacer(int w) {
   assert(w > 0);
   ViewportWidget *widget = new ViewportWidget;   // LEAK!!
@@ -1051,8 +1234,11 @@ bool Toolbar::Draw() {
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glBlendEquation(GL_FUNC_ADD);
-  glViewport(Left(), Bottom(), Width(), Height());
-  if (!GlesUtil::DrawTexture2f(mCenterTex, -1, -1, 1, 1, 0, 1, 1, 0))
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
+  if (!GlesUtil::DrawTexture2f(mCenterTex, x0, y0, x1, y1, 0, 1, 1, 0, MVP()))
     return false;
   glDisable(GL_BLEND);
   
@@ -1422,7 +1608,7 @@ bool FlinglistImpl::Draw() {
           xf1 = x1;
         }
   
-        if (!GlesUtil::DrawTexture2f(overpullTex, xf0, y0, xf1, y1, 0, 1, 1, 0))
+        if (!GlesUtil::DrawTexture2f(overpullTex, xf0,y0,xf1,y1, 0,1,1,0,MVP()))
           return false;
       }
     }
@@ -1456,7 +1642,7 @@ bool FlinglistImpl::Draw() {
         x = 2 * mScrollBounce / vp[2] - 1;
       }
     }
-    if (!GlesUtil::DrawTexture2f(mDragHandleTex, x, y, x+w, y+h, 0, 1, 1, 0))
+    if (!GlesUtil::DrawTexture2f(mDragHandleTex, x, y, x+w, y+h, 0,1,1,0,MVP()))
       return false;
     
     if (mGlowDragHandle) {
@@ -2081,8 +2267,6 @@ bool Frame::Draw() {
     return false;
   
   glViewport(mViewport[0], mViewport[1], mViewport[2], mViewport[3]);
-  glClearColor(0.5, 0.5, 0.5, 0);
-  glClear(GL_COLOR_BUFFER_BIT);
   
   // Compute the NDC & UV rectangle for the image and draw
   float x0, y0, x1, y1, u0, v0, u1, v1;
@@ -2255,6 +2439,9 @@ bool Frame::Dormant() const {
 
 bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
                     double timestamp) {
+  if (!TouchStartInside())
+    return false;
+  
   assert(!isnan(scale));
   if (IsScaleLocked()) {
     mScaleVelocity = 0;
@@ -2325,6 +2512,9 @@ bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
 // in screen pixels.
 
 bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
+  if (!TouchStartInside())
+    return false;
+
   if (phase == TOUCH_BEGAN) {
     mStartCenterUV[0] = mCenterUV[0];
     mStartCenterUV[1] = mCenterUV[1];
@@ -2430,8 +2620,7 @@ void Frame::RegionToM44f(float dst[16], int imageWidth, int imageHeight,
 ButtonGridFrame::ButtonGridFrame() : mButtonHorizCountIdx(0), mButtonDim(0),
                                      mButtonPad(0), mTopPad(0), mBottomPad(0) {
   memset(mButtonHorizCount, 0, sizeof(mButtonHorizCount));
-  memset(mMVP, 0, sizeof(mMVP));
-  memset(mInvMVP, 0, sizeof(mInvMVP));
+  memset(mMVPBuf, 0, sizeof(mMVPBuf));
 }
 
 
@@ -2442,6 +2631,7 @@ bool ButtonGridFrame::Init(int wideCount, int narrowCount,
   mButtonPad = buttonPad;
   mTopPad = topPad;
   mBottomPad = bottomPad;
+  SetMVP(mMVPBuf);
   return true;
 }
 
@@ -2500,6 +2690,13 @@ bool ButtonGridFrame::SetViewport(int x, int y, int w, int h) {
 }
 
 
+void ButtonGridFrame::SetMVP(const float *mvp) {
+  Frame::SetMVP(mvp);
+  for (size_t i = 0; i < mButtonVec.size(); ++i)
+    mButtonVec[i]->SetMVP(mvp);
+}
+
+
 size_t ButtonGridFrame::ImageHeight() const {
   const float hc = mButtonHorizCount[mButtonHorizCountIdx];
   const int vertCount = ceilf(mButtonVec.size() / hc);
@@ -2508,18 +2705,28 @@ size_t ButtonGridFrame::ImageHeight() const {
 
 
 bool ButtonGridFrame::Touch(const tui::Event &event) {
+  if (!Enabled())
+    return false;
+  
   if (Frame::Touch(event))
     return true;
   
   if (IsDragging() || IsScaling())
     return false;
+  
+  float x0, y0, x1, y1, u0, v0, u1, v1;
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+  Imath::M44f t;
+  const float w = ImageWidth(), h = ImageHeight();
+  RegionToM44f(t.getValue(), w, h, x0, y0, x1, y1, u0, v0, u1, v1);
+  t.invert();
+
   tui::Event e(event);
-  Imath::M44f t = *(Imath::M44f *)&mInvMVP[0];
   for (size_t i = 0; i < e.touchVec.size(); ++i) {
     // Touch location in NDC coordinates
-    Imath::V3f p(2.0 * e.touchVec[i].x / Width() - 1,
-                 2.0 * e.touchVec[i].y / Height() - 1, 0);
-    Imath::V3f q = p * t;
+    Imath::V3f p(2.0 * (e.touchVec[i].x - Left()) / Width() - 1,
+                 2.0 * (e.touchVec[i].y - Bottom()) / Height() - 1, 0);
+    Imath::V3f q = p * t;         // Convert to pixel coords for all widgets
     e.touchVec[i].x = q.x;
     e.touchVec[i].y = q.y;
   }
@@ -2535,14 +2742,10 @@ bool ButtonGridFrame::Touch(const tui::Event &event) {
 
 bool ButtonGridFrame::DrawImage(float x0, float y0, float x1, float y1,
                                 float u0, float v0, float u1, float v1) {
-  RegionToM44f(mMVP, ImageWidth(), ImageHeight(), x0, y0, x1, y1, u0, v0,u1,v1);
-  
-  Imath::M44f m(mMVP[0], mMVP[1], mMVP[2], mMVP[3],
-                mMVP[4], mMVP[5], mMVP[6], mMVP[7],
-                mMVP[8], mMVP[9], mMVP[10], mMVP[11],
-                mMVP[12], mMVP[13], mMVP[14], mMVP[15]);  
-  m.invert();
-  memcpy(mInvMVP, m.getValue(), 16 * sizeof(float));
+  glClearColor(0.5, 0.5, 0.5, 0);
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  RegionToM44f(mMVPBuf, ImageWidth(), ImageHeight(), x0,y0,x1,y1, u0,v0,u1,v1);
   
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
     float bu0 = mButtonVec[i]->Left() / float(ImageWidth());

@@ -58,7 +58,8 @@ struct SetImageMetadata {
 struct SetImagePixels {
   virtual bool operator()(const char *url, size_t w, size_t h,
                           size_t channelCount, size_t bytesPerChannel,
-                          const unsigned char *pixel) = 0;
+                          const unsigned char *pixel,
+                          size_t histogramCount, unsigned long *histogram) = 0;
 };
 
 struct SetAlertText {
@@ -100,7 +101,9 @@ public:
                                  SetImageMetadata *setMetadata) = 0;
   
   // Load the full image of pixels into memory
-  virtual bool LoadImagePixels(const char *url, SetImagePixels *setPixels) = 0;
+  virtual bool LoadImagePixels(const char *url, size_t histogramCount,
+                               unsigned long *histogram,
+                               SetImagePixels *setPixels) = 0;
 
   // Return the "scaling factor" for this display (poorly defined!)
   virtual float PixelScale() const = 0;
