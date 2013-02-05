@@ -259,8 +259,9 @@ bool Label::Draw() {
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
   const float n = MVP() ? 0.5 : Height();
+  GlesUtil::Align align = (GlesUtil::Align)mAlign;
   const float y = y1 - (Height() - mPts * font->charDimPt[1]) / n;
-  if (!GlesUtil::DrawParagraph(mText, x0, -y, x1, y, GlesUtil::CenterJustify,
+  if (!GlesUtil::DrawParagraph(mText, x0, -y, x1, y, align,
                                font, mPtW, mPtH, mColor[0], mColor[1],
                                mColor[2], mColor[3], MVP()))
     return false;

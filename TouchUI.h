@@ -156,12 +156,13 @@ namespace tui {
   // Text label, display only
   class Label : public ViewportWidget {
   public:
-    Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0) {
+    Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0), mAlign(1) {
       mColor[0] = mColor[1] = mColor[2] = mColor[3] = 1;
     }
     virtual ~Label();
     virtual bool Init(const char *text, float pts);
     virtual bool SetText(const char *text, float pts);
+    virtual void SetJustify(int glesUtilAlign) { mAlign = glesUtilAlign; }
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
@@ -178,6 +179,7 @@ namespace tui {
     const char *mText;
     float mPts, mPtW, mPtH;
     float mColor[4];
+    int mAlign;
   };
   
   
