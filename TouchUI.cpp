@@ -1007,7 +1007,12 @@ bool Slider::Draw() {
 
 
 bool Slider::Touch(const Event &event) {
+  float oldVal = Value();
   bool consumed = mHandle->Touch(event);
+  float newVal = Value();
+  if (consumed && oldVal != newVal) {
+    consumed = OnValueChanged(newVal);
+  }
   return consumed;
 }
 

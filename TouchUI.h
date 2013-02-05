@@ -439,6 +439,7 @@ namespace tui {
     virtual bool Touch(const Event &event);
     virtual bool Draw();
     virtual float Value() const;
+    virtual bool OnValueChanged(float value) const { return false; }
     
   private:
     ImageHandle *mHandle;
