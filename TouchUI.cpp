@@ -971,7 +971,7 @@ bool Slider::Init(unsigned int sliderTex, size_t handleW, size_t handleH,
 bool Slider::SetViewport(int x, int y, int w, int h) {
   if (!ViewportWidget::SetViewport(x, y, w, h))
     return false;
-  int hx = x + mHandleT * Width();
+  int hx = x + mHandleT * Width() - mHandle->Width() / 2.0;
   int hy = y + (Height() - mHandle->Height()) / 2;
   if (!mHandle->SetViewport(hx, hy, mHandle->Width(), mHandle->Height()))
     return false;
@@ -1008,20 +1008,18 @@ bool Slider::Draw() {
 
 
 bool Slider::Touch(const Event &event) {
+  if (!Enabled())
+    return false;
   float oldVal = Value();
   bool consumed = mHandle->Touch(event);
-  float newVal = Value();
+  const float pad = mHandle->Height() / 2;
+  float x = mHandle->Left() + 0.5 * mHandle->Width();
+  float newVal = (x - Left() - pad) / float(Width() - 2 * pad);
   if (consumed && oldVal != newVal) {
+    mHandleT = newVal;
     consumed = OnValueChanged(newVal);
   }
   return consumed;
-}
-
-
-float Slider::Value() const {
-  float x = mHandle->Left() + 0.5 * mHandle->Width();
-  float v = (x - Left()) / float(Width());
-  return v;
 }
 
 
