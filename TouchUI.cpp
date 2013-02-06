@@ -971,11 +971,8 @@ bool Slider::Init(unsigned int sliderTex, size_t handleW, size_t handleH,
 bool Slider::SetViewport(int x, int y, int w, int h) {
   if (!ViewportWidget::SetViewport(x, y, w, h))
     return false;
-  int hx = x + mHandleT * Width() - mHandle->Width() / 2.0;
-  int hy = y + (Height() - mHandle->Height()) / 2;
-  if (!mHandle->SetViewport(hx, hy, mHandle->Width(), mHandle->Height()))
+  if (!SetValue(0.5))
     return false;
-  
   const float pad = mHandle->Height() / 2;
   const float hcy = Bottom() + 0.5 * Height();
   mHandle->SetConstraintSegment(Left() + pad, hcy, Right() - pad, hcy);
@@ -1002,6 +999,17 @@ bool Slider::Draw() {
     return false;
   glDisable(GL_BLEND);
   if (!mHandle->Draw())
+    return false;
+  return true;
+}
+
+
+bool Slider::SetValue(float value) {
+  mHandleT = value;
+  assert(value >= 0 && value <= 1);
+  int hx = Left() + mHandleT * Width() - mHandle->Width() / 2.0;
+  int hy = Bottom() + (Height() - mHandle->Height()) / 2;
+  if (!mHandle->SetViewport(hx, hy, mHandle->Width(), mHandle->Height()))
     return false;
   return true;
 }

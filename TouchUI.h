@@ -440,6 +440,7 @@ namespace tui {
     virtual void SetMVP(const float *mvp);
     virtual bool Touch(const Event &event);
     virtual bool Draw();
+    virtual bool SetValue(float value);
     virtual float Value() const { return mHandleT; }
     virtual bool OnValueChanged(float value) const { return false; }
     
