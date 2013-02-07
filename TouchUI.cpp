@@ -2254,7 +2254,7 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
     const float pad = (Height() - sh) / float(Height());
     *y0 = -1 + pad;                           // Pad the top & bottom edges
     *y1 = 1 - pad;
-    const float offset = V2Ndc(- mCenterUV[1]);
+    const float offset = V2Ndc(0.5 - mCenterUV[1]);
     *y0 -= offset;                            // Allow image to float
     *y1 -= offset;
     *v0 = 0;
