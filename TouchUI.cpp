@@ -250,6 +250,8 @@ void Label::SetMVP(const float *mvp) {
 
 
 bool Label::Draw() {
+  if (Hidden())
+    return true;
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glBlendEquation(GL_FUNC_ADD);
@@ -636,6 +638,9 @@ void TextButton::SetMVP(const float *mvp) {
 
 
 bool TextButton::Draw() {
+  if (Hidden())
+    return true;
+  
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glBlendEquation(GL_FUNC_ADD);
@@ -715,6 +720,9 @@ void TextCheckbox::SetMVP(const float *mvp) {
 
 
 bool TextCheckbox::Draw() {
+  if (Hidden())
+    return true;
+  
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glBlendEquation(GL_FUNC_ADD);
@@ -838,11 +846,19 @@ bool RadioButton::Touch(const Event &event) {
 
 
 bool RadioButton::Draw() {
+  if (Hidden())
+    return true;
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
     if (!mButtonVec[i]->Draw())
       return false;
   }
   return true;
+}
+
+
+void RadioButton::Hide(bool status) {
+  for (size_t i = 0; i < mButtonVec.size(); ++i)
+    mButtonVec[i]->Hide(status);
 }
 
 
@@ -928,6 +944,8 @@ bool ImageHandle::Init(unsigned int defaultTex, unsigned int pressedTex) {
 
 
 bool ImageHandle::Draw() {
+  if (Hidden())
+    return true;
   if (!MVP())
     glViewport(Left(), Bottom(), Width(), Height());
   glEnable(GL_BLEND);
@@ -988,6 +1006,8 @@ void Slider::SetMVP(const float *mvp) {
 
 
 bool Slider::Draw() {
+  if (Hidden())
+    return true;
   if (!MVP())
     glViewport(Left(), Bottom(), Width(), Height());
   glEnable(GL_BLEND);

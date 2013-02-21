@@ -377,6 +377,7 @@ namespace tui {
     virtual void SetMVP(const float *mvp);
     virtual bool Touch(const Event &event);
     virtual bool Draw();
+    virtual void Hide(bool status);
     virtual CheckboxButton *Selected() const;
     virtual void SetSelected(CheckboxButton *button);
     virtual void SetIsNoneAllowed(bool status) { mIsNoneAllowed = status; }

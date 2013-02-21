@@ -18,6 +18,8 @@ namespace GlesUtil {
 bool Error();
 const char *ErrorString();
 
+// Validate FBO for rendering, printing an error in DEBUG mode.
+bool IsFramebufferComplete();
 
 // Drawing functions:
 //   Attributes: aP is used for position, aUV for texture coordinates.

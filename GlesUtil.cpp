@@ -16,7 +16,7 @@ static GLint gErrorCode = GL_NO_ERROR;
 
 
 bool GlesUtil::Error() {
-#if 1
+#if DEBUG
   gErrorCode = glGetError();            // Note: GLES only has one active err
   if (gErrorCode != GL_NO_ERROR) {
     printf("GL ERROR: %s\n", ErrorString());
@@ -40,6 +40,38 @@ const char *GlesUtil::ErrorString() {
                                 return "Invalid framebuffer operation";
     default:                    return "Unknown";
   }
+}
+
+
+bool GlesUtil::IsFramebufferComplete() {
+  GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (status == GL_FRAMEBUFFER_COMPLETE)
+    return true;
+#if DEBUG
+  const char *errstr = NULL;
+  switch (status) {
+    case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+      errstr = "Incomplete attachment";
+      break;
+    case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+      errstr = "Missing attachment";
+      break;
+    case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS:
+      errstr = "Attachments do not have the same dimensions";
+      break;
+    case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE_APPLE:
+      errstr = "Internal attachment format not renderable";
+      break;
+    case GL_FRAMEBUFFER_UNSUPPORTED:
+      errstr = "Combination of attachment internal formats is not renderable";
+      break;
+    default:
+      errstr = "Unknown framebuffer error";
+      break;
+  }
+  printf("GL FBO ERROR: %s\n", errstr);
+#endif
+  return false;
 }
 
 
