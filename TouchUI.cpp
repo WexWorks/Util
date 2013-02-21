@@ -2774,9 +2774,6 @@ bool ButtonGridFrame::Touch(const tui::Event &event) {
 
 bool ButtonGridFrame::DrawImage(float x0, float y0, float x1, float y1,
                                 float u0, float v0, float u1, float v1) {
-  glClearColor(0.5, 0.5, 0.5, 0);
-  glClear(GL_COLOR_BUFFER_BIT);
-
   RegionToM44f(mMVPBuf, ImageWidth(), ImageHeight(), x0,y0,x1,y1, u0,v0,u1,v1);
   
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
