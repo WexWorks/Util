@@ -220,6 +220,10 @@ bool Label::SetText(const char *text, float pts) {
   mText = strdup(text);
   const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
   mPts = pts / font->charDimPt[1];
+  size_t len = strlen(mText);
+  mLineCount = len > 0 ? 1 : 0;
+  for (size_t i = 0; i < len; ++i)
+    mLineCount += mText[i] == '\n';
   return true;
 }
 
@@ -231,9 +235,9 @@ bool Label::FitViewport() {
 
   if (mTex) {
     const int padH = 0.5 * h;
-    h = std::max(mTexDim[1], int(h + 1.5 * padH));
+    h = std::max(mTexDim[1], int(h + mTexPad * padH));
     const int padW = h * mTexDim[0] / (2 * mTexDim[1]);
-    w = std::max(mTexDim[0], int(w + 1.5 * padW));
+    w = std::max(mTexDim[0], int(w + mTexPad * padW));
   }
   
   if (!SetViewport(Left(), Bottom(), w, h))
@@ -280,15 +284,21 @@ bool Label::Draw() {
       return false;
   }
   
-  const float n = MVP() ? 2 : Height();
   GlesUtil::Align align = (GlesUtil::Align)mAlign;
-  const float y = y1 - (Height() - mPts * font->charDimPt[1]) / n;
+  float y = y1 - TopLineOffset();
   if (!GlesUtil::DrawParagraph(mText, x0, y0, x1, y, align,
                                font, mPtW, mPtH, mColor[0], mColor[1],
                                mColor[2], mColor[3], MVP()))
     return false;
   glDisable(GL_BLEND);
   return true;
+}
+
+
+float Label::TopLineOffset() const {
+  float k = MVP() ? 0.5 : 1.0 / Height();
+  const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
+  return k * (Height() - mLineCount * mPts * font->charDimPt[1]);
 }
 
 
@@ -620,6 +630,7 @@ bool TextButton::Init(const char *text, float pts, size_t w, size_t h,
   mDim[1] = h;
   mDefaultTex = defaultTex;
   mPressedTex = pressedTex;
+  mLabel->SetBackgroundTex(mDim[0], mDim[1], mDefaultTex, 2);
   return true;
 }
 
@@ -627,14 +638,8 @@ bool TextButton::Init(const char *text, float pts, size_t w, size_t h,
 bool TextButton::FitViewport() {
   if (!mLabel->FitViewport())
     return false;
-  const int padH = 0.5 * mLabel->Height();
-  const int h = mLabel->Height() + 2 * padH;
-  const int padW = h * mDim[0] / (2 * mDim[1]);
-  const int w = mLabel->Width() + 2 * padW;
-  if (!mLabel->SetViewport(Left() + padW, Bottom() + padH,
+  if (!Button::SetViewport(mLabel->Left(), mLabel->Bottom(),
                            mLabel->Width(), mLabel->Height()))
-    return false;
-  if (!Button::SetViewport(Left(), Bottom(), w, h))
     return false;
   return true;
 }
@@ -659,18 +664,11 @@ bool TextButton::Draw() {
   if (Hidden())
     return true;
   
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glBlendEquation(GL_FUNC_ADD);
-  if (!MVP())
-    glViewport(Left(), Bottom(), Width(), Height());
-  
   const GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
-  mLabel->SetBackgroundTex(mDim[0], mDim[1], tex);
+  mLabel->SetBackgroundTex(mDim[0], mDim[1], tex, 2);
   
   if (!mLabel->Draw())
     return false;
-  glDisable(GL_BLEND);
   
   return true;
 }
