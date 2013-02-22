@@ -226,8 +226,16 @@ bool Label::SetText(const char *text, float pts) {
 
 bool Label::FitViewport() {
   const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
-  const int w = ceilf(mPts * GlesUtil::TextWidth(mText, font));
-  const int h = ceilf(mPts * font->charDimPt[1]);
+  int w = ceilf(mPts * GlesUtil::TextWidth(mText, font));
+  int h = ceilf(mPts * font->charDimPt[1]);
+
+  if (mTex) {
+    const int padH = 0.5 * h;
+    h = std::max(mTexDim[1], int(h + 1.5 * padH));
+    const int padW = h * mTexDim[0] / (2 * mTexDim[1]);
+    w = std::max(mTexDim[0], int(w + 1.5 * padW));
+  }
+  
   if (!SetViewport(Left(), Bottom(), w, h))
     return false;
   return true;
@@ -260,10 +268,22 @@ bool Label::Draw() {
   const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
-  const float n = MVP() ? 0.5 : Height();
+  
+  if (mTex) {
+    const int edgeDim = Height() * mTexDim[0] / (2 * mTexDim[1]);
+    float ew = edgeDim / float(MVP() ? 1 : 0.5 * Width());
+    if (!GlesUtil::DrawTexture2f(mTex, x0, y0, x0+ew, y1, 0, 1, 0.5, 0, MVP()))
+      return false;
+    if (!GlesUtil::DrawTexture2f(mTex, x0+ew, y0, x1-ew, y1, 0.5, 1, 0.5, 0,MVP()))
+      return false;
+    if (!GlesUtil::DrawTexture2f(mTex, x1-ew, y0, x1, y1, 0.5, 1, 1, 0, MVP()))
+      return false;
+  }
+  
+  const float n = MVP() ? 2 : Height();
   GlesUtil::Align align = (GlesUtil::Align)mAlign;
   const float y = y1 - (Height() - mPts * font->charDimPt[1]) / n;
-  if (!GlesUtil::DrawParagraph(mText, x0, -y, x1, y, align,
+  if (!GlesUtil::DrawParagraph(mText, x0, y0, x1, y, align,
                                font, mPtW, mPtH, mColor[0], mColor[1],
                                mColor[2], mColor[3], MVP()))
     return false;
@@ -623,9 +643,7 @@ bool TextButton::FitViewport() {
 bool TextButton::SetViewport(int x, int y, int w, int h) {
   if (!Button::SetViewport(x, y, w, h))
     return false;
-  const int padH = 0.5 * mLabel->Height();
-  const int padW = h * mDim[0] / (2 * mDim[1]);
-  if (!mLabel->SetViewport(x + padW, y + padH, w - 2 * padW, h - 2 * padH))
+  if (!mLabel->SetViewport(x, y, w, h))
     return false;
   return true;
 }
@@ -648,16 +666,7 @@ bool TextButton::Draw() {
     glViewport(Left(), Bottom(), Width(), Height());
   
   const GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
-  const int edgeDim = Height() * mDim[0] / (2 * mDim[1]);
-  float x0, y0, x1, y1;
-  GetNDCRect(&x0, &y0, &x1, &y1);
-  float ew = edgeDim / float(MVP() ? 1 : 0.5 * Width());
-  if (!GlesUtil::DrawTexture2f(tex, x0, y0, x0+ew, y1, 0, 1, 0.5, 0, MVP()))
-    return false;
-  if (!GlesUtil::DrawTexture2f(tex, x0+ew, y0, x1-ew, y1, 0.5, 1, 0.5, 0,MVP()))
-    return false;
-  if (!GlesUtil::DrawTexture2f(tex, x1-ew, y0, x1, y1, 0.5, 1, 1, 0, MVP()))
-    return false;
+  mLabel->SetBackgroundTex(mDim[0], mDim[1], tex);
   
   if (!mLabel->Draw())
     return false;

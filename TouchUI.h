@@ -156,8 +156,9 @@ namespace tui {
   // Text label, display only
   class Label : public ViewportWidget {
   public:
-    Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0), mAlign(1) {
+    Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0), mAlign(1), mTex(0) {
       mColor[0] = mColor[1] = mColor[2] = mColor[3] = 1;
+      mTexDim[0] = mTexDim[1] = 0;
     }
     virtual ~Label();
     virtual bool Init(const char *text, float pts);
@@ -168,6 +169,9 @@ namespace tui {
     virtual void SetMVP(const float *mvp);
     virtual void SetTextColor(float r, float g, float b, float a) {
       mColor[0] = r; mColor[1] = g; mColor[2] = b; mColor[3] = a;
+    }
+    virtual void SetBackgroundTex(int w, int h, unsigned long tex) {
+      mTexDim[0] = w; mTexDim[1] = h; mTex = tex;
     }
     virtual bool Draw();
     
@@ -180,6 +184,8 @@ namespace tui {
     float mPts, mPtW, mPtH;
     float mColor[4];
     int mAlign;
+    unsigned long mTex;
+    int mTexDim[2];
   };
   
   
