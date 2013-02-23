@@ -174,8 +174,8 @@ bool GlesUtil::DrawGradientBox2f(float x0, float y0, float x1, float y1,
     return false;
   glUseProgram(program);
   const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
-  const float vC[4*4] = { r0,g0,b0,1,  r1,g1,b1,1, r0,r0,r0,1,  r1,g1,b1,1 };
-  const float hC[4*4] = { r0,g0,b0,1,  r0,g0,b0,1, r1,r1,r1,1,  r1,g1,b1,1 };
+  const float vC[4*4] = { r0,g0,b0,1,  r1,g1,b1,1, r0,g0,b0,1,  r1,g1,b1,1 };
+  const float hC[4*4] = { r0,g0,b0,1,  r0,g0,b0,1, r1,g1,b1,1,  r1,g1,b1,1 };
   static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
   glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP ? MVP : I);
   glEnableVertexAttribArray(aP);
