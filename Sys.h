@@ -43,7 +43,7 @@ struct AddImage {
 
 struct AddAlbum {
   virtual bool operator()(const char *name, const char *url,
-                          size_t w, size_t h, const unsigned char *thumb) = 0;
+                          size_t assetCount) = 0;
 };
 
 struct SetImageThumbnail {
@@ -89,15 +89,18 @@ public:
   // Load a text file from the app's resource bundle (blocking)
   virtual bool LoadText(const char *name, const char **text) = 0;
   
-  // Load all image folders in the system
-  virtual bool LoadSystemFolders(AddAlbum *addAlbum) = 0;
+  // Load all image albums in the system
+  virtual bool LoadSystemAlbums(AddAlbum *addAlbum) = 0;
   
-  // Load a folder of images
-  virtual bool LoadFolderImages(const char *url, AddImage *addImage) = 0;
+  // Load a all the image names in an album
+  virtual bool LoadAlbumImageNames(const char *url, AddImage *addImage) = 0;
+  
+  // Load the thumbnail representation of the image
+  virtual bool LoadImageThumbnail(const char *url,
+                                  SetImageThumbnail *setThumb) = 0;
   
   // Load only the metadata, not the pixels, from an image
-  virtual bool LoadImageMetadata(const char *url, bool getThumbnail,
-                                 bool getMetadata, SetImageThumbnail *setThumb,
+  virtual bool LoadImageMetadata(const char *url,
                                  SetImageMetadata *setMetadata) = 0;
   
   // Load the full image of pixels into memory
