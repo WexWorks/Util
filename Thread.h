@@ -67,6 +67,15 @@ public:
     return true;
 #endif
   }
+  virtual void SetName(const char *name) {
+#if defined(WINDOWS)
+    DWORD threadId = GetThreadId(thread_);
+    if (threadId)
+      SetThreadName(GetThreadId(thread_), name);
+#else
+    pthread_setname_np(name);
+#endif
+  }
   virtual void Run() = 0;                       // Override with main
 
 private:
@@ -226,6 +235,9 @@ private:
 
 typedef WriteLockGuard<RWLock> WriteRWLockGuard;
 
+// Block in Wait and signal using Notify.
+// Lock mutex and check condition and then call Wait to block.
+// Mutex is unlocked inside of Wait and locked upon release.
 class ConditionVariable {
 public:
   ConditionVariable() {
