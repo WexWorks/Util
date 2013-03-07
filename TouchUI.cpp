@@ -2154,8 +2154,10 @@ bool Frame::Reset() {
 
 
 void Frame::ComputeScaleRange() {
-  if (!ImageWidth() || !ImageHeight())
+  if (!ImageWidth() || !ImageHeight()) {
+    mScaleMin = mScaleMax = 0;                // Zero to force reset on load
     return;
+  }
   
   // Compute the scale so that the entire image fits within
   // the screen boundary, comparing the aspect ratios of the
