@@ -742,12 +742,11 @@ namespace tui {
                            float u0, float v0, float u1,float v1) = 0;
     
     // Content manipulation -- Override to define Frame behavior
-    virtual bool IsVerticalInverted() const { return false; }
-    virtual bool IsHorizontalInverted() const { return false; }
     virtual bool IsXLocked() const { return false; }
     virtual bool IsYLocked() const { return false; }
     virtual bool IsScaleLocked() const { return false; }
     virtual bool IsSnappingToPixelCenter() const { return false; }
+    virtual int ExifOrientation() const { return 1; }
     virtual float DragDamping() const { return 0.9; }
     virtual float DragFling() const { return 2; }
     virtual float ScaleDamping() const { return 0.9; }
@@ -764,6 +763,11 @@ namespace tui {
     virtual bool SnapToFitFrame();            // Whole image in frame
     virtual bool SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
     virtual float Scale() const { return mScale; }
+    
+    // Rotate and flip uv coordinates to match the current ExifOrientation
+    virtual void Orient(float u0, float v0, float u1, float v1,
+                        float *s0, float *t0, float *s1, float *t1,
+                        bool flopHorizontal, bool flipVertical) const;
     
     // Compute the current display region that would be sent to DrawImage
     virtual void ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,

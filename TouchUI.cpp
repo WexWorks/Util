@@ -2163,7 +2163,7 @@ void Frame::ComputeScaleRange() {
   // the screen boundary, comparing the aspect ratios of the
   // screen and the image and fitting to the proper axis.
   const float frameAspect = Width()/float(Height());
-  const float imageAspect =ImageWidth() / float(ImageHeight());
+  const float imageAspect = ImageWidth() / float(ImageHeight());
   const float frameToImageRatio = frameAspect / imageAspect;
   
   if (frameToImageRatio < 1) {                // Frame narrower than image
@@ -2208,6 +2208,29 @@ float Frame::Ndc2V(float y) const {
 }
 
 
+void Frame::Orient(float u0, float v0, float u1, float v1,
+                   float *s0, float *t0, float *s1, float *t1,
+                   bool flopHorizontal, bool flipVertical) const {
+  switch (ExifOrientation()) {
+    case 0:
+    case 1: *s0 = u0;  *t0 = v0;  *s1 = u1;  *t1 = v1;  break;  // Top Left
+    case 2: *s0 = u1;  *t0 = v0;  *s1 = u0;  *t1 = v1;  break;  // Top Right
+    case 3: *s0 = u1;  *t0 = v1;  *s1 = u0;  *t1 = v0;  break;  // Bottom Right
+    case 4: *s0 = u0;  *t0 = v1;  *s1 = u1;  *t1 = v0;  break;  // Bottom Left
+    case 5: *s0 = v1;  *t0 = u0;  *s1 = v0;  *t1 = u1;  break;  // Left Top
+    case 6: *s0 = v1;  *t0 = u1;  *s1 = v0;  *t1 = u0;  break;  // Right Top
+    case 7: *s0 = v0;  *t0 = u1;  *s1 = v1;  *t1 = u0;  break;  // Right Bottom
+    case 8: *s0 = v0;  *t0 = u0;  *s1 = v1;  *t1 = u1;  break;  // Left Bottom
+    default:                                            break;  // Unknown
+  }
+  
+  if (flopHorizontal)
+    std::swap(*s0, *s1);
+  if (flipVertical)
+    std::swap(*t0, *t1);
+}
+
+
 // Compute the NDC and UV rectangles needed to render the current
 // frame using mScale and mCenterUV. We compute these on-demand
 // rather than storing them to ensure that they are always valid
@@ -2215,86 +2238,131 @@ float Frame::Ndc2V(float y) const {
 
 void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
                                float *u0, float *v0, float *u1, float *v1) const {
-  const size_t sw = mScale * ImageWidth();
+  size_t sw = mScale * ImageWidth();
+  float s0, t0, s1, t1;                       // Oriented below to u0,v0 & u1,v1
   if (sw >= Width()) {                        // Image wider than screen
     *x0 = -1;                                 // Fill entire screen width
     *x1 = 1;
     const float halfWidthUV = std::min(0.5f * Width() / sw, 0.5f);
-    *u0 = mCenterUV[0] - halfWidthUV;         // Fill the UV rect around center
-    *u1 = mCenterUV[0] + halfWidthUV;
-    if (*u0 < 0) {                            // Adjust NDC if UV out of range
-      const float inset = U2Ndc(-1 * *u0);
-      if (IsHorizontalInverted())
-        *x1 -= inset;
-      else
-        *x0 += inset;
-      *u0 = 0;
-      if (*u1 < *u0)
-        *u1 = *u0;
+    s0 = mCenterUV[0] - halfWidthUV;          // Fill the UV rect around center
+    s1 = mCenterUV[0] + halfWidthUV;
+    if (s0 < 0) {                             // Adjust NDC if UV out of range
+      const float inset = U2Ndc(-1 * s0);
+      switch (ExifOrientation()) {
+        case 0:
+        case 1:
+        case 4: *x0 += inset; break;
+        case 2:
+        case 3: *x1 -= inset; break;
+        case 5:
+        case 8: *x1 -= inset; break;
+        case 7:
+        case 6: *x0 += inset; break;
+      }
+      s0 = 0;
+      if (s1 < s0)
+        s1 = s0;
     }
-    if (*u1 > 1) {                            // Adjust NDC if UV out of range
-      const float inset = U2Ndc(*u1 - 1);
-      if (IsHorizontalInverted())
-        *x0 += inset;
-      else
-        *x1 -= inset;
-      *u1 = 1;
-      if (*u0 > *u1)
-        *u0 = *u1;
+    if (s1 > 1) {                             // Adjust NDC if UV out of range
+      const float inset = U2Ndc(s1 - 1);
+      switch (ExifOrientation()) {
+        case 0:
+        case 1:
+        case 4: *x1 -= inset; break;
+        case 2:
+        case 3: *x0 += inset; break;
+        case 5:
+        case 8: *x0 += inset; break;
+        case 7:
+        case 6: *x1 -= inset; break;
+      }
+      s1 = 1;
+      if (s0 > s1)
+        s0 = s1;
     }
   } else {                                    // Image narrower than screen
     const float pad = (Width() - sw) / float(Width());
     *x0 = -1 + pad;                           // Pad left & right edges
     *x1 = 1 - pad;
-    const float offset = U2Ndc(0.5 - mCenterUV[0]);
+    float offset = U2Ndc(0.5 - mCenterUV[0]);
+    switch (ExifOrientation()) {
+      case 2:
+      case 3:
+      case 5:
+      case 8:
+        offset = -offset;
+        break;
+    }
     *x0 += offset;                            // Allow image to float
     *x1 += offset;
-    *u0 = 0;
-    *u1 = 1;
+    s0 = 0;
+    s1 = 1;
   }
-  const size_t sh = mScale * ImageHeight();
+  size_t sh = mScale * ImageHeight();
   if (sh >= Height()) {                       // Image taller than screen
     *y0 = -1;                                 // Fill entire screen height
     *y1 = 1;
     const float halfHeightUV = std::min(0.5f * Height() / sh, 0.5f);
-    *v0 = mCenterUV[1] - halfHeightUV;        // Fill the UV rect around center
-    *v1 = mCenterUV[1] + halfHeightUV;
-    if (*v0 < 0) {                            // Adjust NDC if UV out of range
-      const float inset = V2Ndc(-1 * *v0);
-      if (IsVerticalInverted())
-        *y1 -= inset;
-      else
-        *y0 += inset;
-      *v0 = 0;
-      if (*v1 < *v0)
-        *v1 = *v0;
+    t0 = mCenterUV[1] - halfHeightUV;         // Fill the UV rect around center
+    t1 = mCenterUV[1] + halfHeightUV;
+    if (t0 < 0) {                             // Adjust NDC if UV out of range
+      const float inset = V2Ndc(-1 * t0);
+      switch (ExifOrientation()) {
+        case 0:
+        case 1:
+        case 2: *y1 -= inset; break;
+        case 3:
+        case 4: *y0 += inset; break;
+        case 7:
+        case 8: *y0 += inset; break;
+        case 5:
+        case 6: *y1 -= inset; break;
+      }
+      t0 = 0;
+      if (t1 < t0)
+        t1 = t0;
     }
-    if (*v1 > 1) {                            // Adjust NDC if UV out of range
-      const float inset = V2Ndc(*v1 - 1);
-      if (IsVerticalInverted())
-        *y0 += inset;
-      else
-        *y1 -= inset;
-      *v1 = 1;
-      if (*v0 > *v1)
-        *v0 = *v1;
+    if (t1 > 1) {                             // Adjust NDC if UV out of range
+      const float inset = V2Ndc(t1 - 1);
+      switch (ExifOrientation()) {
+        case 0:
+        case 1:
+        case 2: *y0 += inset; break;
+        case 3:
+        case 4: *y1 -= inset; break;
+        case 7:
+        case 8: *y1 -= inset; break;
+        case 5:
+        case 6: *y0 += inset; break;
+      }
+      t1 = 1;
+      if (t0 > t1)
+        t0 = t1;
     }
   } else {                                    // Image shorter than screen
     const float pad = (Height() - sh) / float(Height());
     *y0 = -1 + pad;                           // Pad the top & bottom edges
     *y1 = 1 - pad;
-    const float offset = V2Ndc(0.5 - mCenterUV[1]);
+    float offset = V2Ndc(0.5 - mCenterUV[1]);
+    switch (ExifOrientation()) {
+      case 3:
+      case 4:
+      case 7:
+      case 8:
+        offset = -offset;
+        break;
+    }
     *y0 -= offset;                            // Allow image to float
     *y1 -= offset;
-    *v0 = 0;
-    *v1 = 1;
+    t0 = 0;
+    t1 = 1;
   }
 
-  // Invert the texture coordinates as specified by the frame
-  if (IsHorizontalInverted())
-    std::swap(*u0, *u1);
-  if (IsVerticalInverted())
-    std::swap(*v0, *v1);
+  Orient(s0, t0, s1, t1, u0, v0, u1, v1, false, true);
+  if (ExifOrientation() >= 5) {
+    std::swap(*x0, *y0);
+    std::swap(*x1, *y1);
+  }
 }
 
 
@@ -2450,7 +2518,39 @@ bool Frame::Step(float seconds) {
         mIsTargetWindowActive = false;
         mIsDirty = true;
       }
-      
+
+      switch (ExifOrientation()) {
+        case 0:
+        case 1:
+          break;
+        case 2:
+          offUV[0] = -offUV[0];
+          break;
+        case 3:
+          offUV[0] = -offUV[0];
+          offUV[1] = -offUV[1];
+          break;
+        case 4:
+          offUV[1] = -offUV[1];
+          break;
+        case 5:
+          std::swap(offUV[0], offUV[1]);
+          offUV[1] = -offUV[1];
+          break;
+        case 6:
+          std::swap(offUV[0], offUV[1]);
+          offUV[0] = -offUV[0];
+          offUV[1] = -offUV[1];
+          break;
+        case 7:
+          std::swap(offUV[0], offUV[1]);
+          offUV[0] = -offUV[0];
+          break;
+        case 8:
+          std::swap(offUV[0], offUV[1]);
+          break;
+          
+      }
       if (!IsXLocked())
         mCenterUV[0] += offUV[0];
       if (!IsYLocked())
@@ -2529,19 +2629,29 @@ bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
   // Compute the visible NDC & UV display rectangles of the image
   float x0, y0, x1, y1, u0, v0, u1, v1;
   ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
-  
+
   // Figure out the UV coordinates of the input point in the display rects
-  float uNDC = (2.0 * x / Width() - 1 - x0) / (x1 - x0);
-  float vNDC = (2.0 * y / Height() - 1 - y0) / (y1 - y0);
-  float screenU = u0 + uNDC * (u1 - u0);
-  float screenV = v0 + vNDC * (v1 - v0);
+  float sNDC, tNDC, screenU, screenV, flip;
+  if (ExifOrientation() < 5) {
+    sNDC = (2.0 * x / Width() - 1 - x0) / (x1 - x0);
+    tNDC = (2.0 * y / Height() - 1 - y0) / (y1 - y0);
+    screenU = u0 + sNDC * (u1 - u0);
+    screenV = v0 + tNDC * (v1 - v0);
+    flip = 1;
+  } else {
+    sNDC = (2.0 * x / Width() - 1 - y0) / (y1 - y0);
+    tNDC = (2.0 * y / Height() - 1 - x0) / (x1 - x0);
+    screenV = u0 + tNDC * (u1 - u0);
+    screenU = v0 + sNDC * (v1 - v0);
+    flip = -1;
+  }
 
   // Move the center of the image toward the origin to keep
   // that point invariant, scaling by velocity (change in scale).
   // TRICKY! Must use relative changes to mCenterUV both here and in
   //         OnDrag because absolute changes would override each other.
   if (!IsXLocked())
-    mCenterUV[0] -= (mCenterUV[0] - screenU) * dscale;
+    mCenterUV[0] -= flip * (mCenterUV[0] - screenU) * dscale;
   if (!IsYLocked())
     mCenterUV[1] -= (mCenterUV[1] - screenV) * dscale;
   
@@ -2578,6 +2688,13 @@ bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
       du *= 0.5;
     if (fabsf(y0) != fabsf(y1))
       dv *= 0.5;
+  }
+
+  switch (ExifOrientation()) {
+    case 5: du = -du; break;
+    case 6: dv = -dv; break;
+    case 7: du = -du; break;
+    case 8: dv = -dv; break;
   }
   
   if (phase == TOUCH_MOVED) {                 // Update position on move
@@ -2790,24 +2907,12 @@ bool ButtonGridFrame::DrawImage(float x0, float y0, float x1, float y1,
     float bv0 = mButtonVec[i]->Bottom() / float(ImageHeight());
     float bu1 = mButtonVec[i]->Right() / float(ImageWidth());
     float bv1 = mButtonVec[i]->Top() / float(ImageHeight());
-    if (IsHorizontalInverted()) {
-      bu0 = 1 - bu0;
-      bu1 = 1 - bu1;
-      if (bu1 > u0 || bu0 < u1)
-        continue;
-    } else {
-      if (bu0 > u1 || bu1 < u0)
-        continue;
-    }
-    if (IsVerticalInverted()) {
-      bv0 = 1 - bv0;
-      bv1 = 1 - bv1;
-      if (bv1 > v0 || bv0 < v1)
-        continue;
-    } else {
-      if (bv0 > v1 || bv1 < v0)
-        continue;
-    }
+    float s0, t0, s1, t1;
+    Orient(bu0, bv0, bu1, bv1, &s0, &t0, &s1, &t1, false, true);
+//    if (s0 > u1 || s1 < u0)
+//      continue;
+//    if (t0 > v1 || t1 < v0)
+//      continue;
     if (!mButtonVec[i]->Draw())
       return false;
   }
