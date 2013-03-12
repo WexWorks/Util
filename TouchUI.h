@@ -737,15 +737,21 @@ namespace tui {
     virtual size_t ImageHeight() const = 0;   // Height of frame image in pixels
     
     // Draw the Frame content within the UV region [u0,v0]x[u1,v1]
-    // into NDC rect [x0,y0]x[x1,y1] into the current viewport.
+    // into NDC rect [x0,y0]x[x1,y1] with a rotation of theta
+    // into the current viewport.
     virtual bool DrawImage(float x0, float y0, float x1, float y1,
-                           float u0, float v0, float u1,float v1) = 0;
+                           float u0, float v0, float u1, float v1,
+                           float theta) = 0;
     
     // Content manipulation -- Override to define Frame behavior
     virtual bool IsXLocked() const { return false; }
     virtual bool IsYLocked() const { return false; }
     virtual bool IsScaleLocked() const { return false; }
     virtual bool IsSnappingToPixelCenter() const { return false; }
+    virtual bool IsOrientationRotated() const { return ExifOrientation() >= 5; }
+    virtual bool IsOrientationFlipped() const { // UV horizontally flipped
+      const int e = ExifOrientation(); return e==2 || e==7 || e==4 || e==5;
+    }
     virtual int ExifOrientation() const { return 1; }
     virtual float DragDamping() const { return 0.9; }
     virtual float DragFling() const { return 2; }
@@ -764,21 +770,18 @@ namespace tui {
     virtual bool SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
     virtual float Scale() const { return mScale; }
     
-    // Rotate and flip uv coordinates to match the current ExifOrientation
-    virtual void Orient(float u0, float v0, float u1, float v1,
-                        float *s0, float *t0, float *s1, float *t1,
-                        bool flopHorizontal, bool flipVertical) const;
-    
     // Compute the current display region that would be sent to DrawImage
     virtual void ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
-                                    float *u0, float *v0, float *u1, float *v1) const;
+                                    float *u0, float *v0, float *u1, float *v1,
+                                    float *theta) const;
     
     // Convert the region in NDC and UV space provided to Frame::Draw into
     // a 4x4 matrix (really 2D, so it could be 3x3), that transforms points
     // in pixel coordinates in the Frame image into NDC for use as a MVP.
     static void RegionToM44f(float dst[16], int imageWidth, int imageHeight,
                              float x0, float y0, float x1, float y1,
-                             float u0, float v0, float u1, float v1);
+                             float u0, float v0, float u1, float v1,
+                             float theta);
     
   private:
     Frame(const Frame &);                     // Disallow copy ctor
@@ -839,7 +842,7 @@ namespace tui {
     virtual size_t ImageHeight() const;
     virtual bool Touch(const tui::Event &event);
     virtual bool DrawImage(float x0, float y0, float x1, float y1,
-                           float u0, float v0, float u1, float v1);
+                           float u0, float v0, float u1, float v1, float theta);
 
   private:
     std::vector<tui::Button *> mButtonVec;    // Button grid
