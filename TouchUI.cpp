@@ -2186,134 +2186,6 @@ bool Frame::SetViewport(int x, int y, int w, int h) {
 }
 
 
-// Helper functions to convert magnitude in image UV space to/from NDC units.
-
-float Frame::U2Ndc(float u) const {
-  return 2 * u * mScale * ImageWidth() / Width();
-}
-
-
-float Frame::V2Ndc(float v) const {
-  return 2 * v * mScale * ImageHeight() / Height();
-}
-
-
-float Frame::Ndc2U(float x) const {
-  return x / (2 * mScale * ImageWidth() / Width());
-}
-
-
-float Frame::Ndc2V(float y) const {
-  return y / (2 * mScale * ImageHeight() / Height());
-}
-
-
-// Compute the NDC and UV rectangles needed to render the current
-// frame using mScale and mCenterUV. We compute these on-demand
-// rather than storing them to ensure that they are always valid
-// and we only need to adjust mScale and mCenterUV when moving.
-
-void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
-                               float *u0, float *v0, float *u1, float *v1,
-                               float *theta) const {
-  size_t sw = mScale * ImageWidth();
-  size_t sh = mScale * ImageHeight();
-  float halfWidthUV = std::min(0.5f * Width() / sw, 0.5f);
-  float halfHeightUV = std::min(0.5f * Height() / sh, 0.5f);
-  float padW = (Width() - sw) / float(Width());
-  float padH = (Height() - sh) / float(Height());
-  bool isWider = sw >= Width();
-  bool isTaller = sh >= Height();
-  if (IsOrientationRotated()) {
-    std::swap(isTaller, isWider);
-    std::swap(sw, sh);
-//    std::swap(halfWidthUV, halfHeightUV);
-    std::swap(padW, padH);
-  }
-  if (isWider) {                              // Image wider than screen
-    *x0 = -1;                                 // Fill entire screen width
-    *x1 = 1;
-    *u0 = mCenterUV[0] - halfWidthUV;         // Fill the UV rect around center
-    *u1 = mCenterUV[0] + halfWidthUV;
-    if (*u0 < 0) {                            // Adjust NDC if UV out of range
-      const float inset = IsOrientationRotated() ? V2Ndc(-1 * *u0) : U2Ndc(-1 * *u0);
-      if (IsOrientationFlipped())
-        *x1 -= inset;
-      else
-        *x0 += inset;
-      *u0 = 0;
-      if (*u1 < *u0)
-        *u1 = *u0;
-    }
-    if (*u1 > 1) {                            // Adjust NDC if UV out of range
-      const float inset = IsOrientationRotated() ? V2Ndc(*u1 - 1) : U2Ndc(*u1 - 1);
-      if (IsOrientationFlipped())
-        *x0 += inset;
-      else
-        *x1 -= inset;
-      *u1 = 1;
-      if (*u0 > *u1)
-        *u0 = *u1;
-    }
-  } else {                                    // Image narrower than screen
-    float offset = IsOrientationRotated() ? V2Ndc(0.5 - mCenterUV[0]) : U2Ndc(0.5 - mCenterUV[0]);
-    if (IsOrientationFlipped())
-      offset = -offset;
-    *x0 = -1 + padW + offset;                 // Pad left & right edges
-    *x1 = 1 - padW + offset;
-    *u0 = 0;
-    *u1 = 1;
-  }
-  
-  if (isTaller) {                             // Image taller than screen
-    *y0 = -1;                                 // Fill entire screen height
-    *y1 = 1;
-    *v0 = mCenterUV[1] - halfHeightUV;        // Fill the UV rect around center
-    *v1 = mCenterUV[1] + halfHeightUV;
-    if (*v0 < 0) {                            // Adjust NDC if UV out of range
-      const float inset = IsOrientationRotated() ? U2Ndc(-1 * *v0) : V2Ndc(-1 * *v0);
-      *y1 -= inset;
-      *v0 = 0;
-      if (*v1 < *v0)
-        *v1 = *v0;
-    }
-    if (*v1 > 1) {                            // Adjust NDC if UV out of range
-      const float inset = IsOrientationRotated() ? U2Ndc(*v1 - 1) : V2Ndc(*v1 - 1);
-      *y0 += inset;
-      *v1 = 1;
-      if (*v0 > *v1)
-        *v0 = *v1;
-    }
-  } else  {                                    // Image shorter than screen
-    float offset = IsOrientationRotated() ? U2Ndc(0.5 - mCenterUV[1]) : V2Ndc(0.5 - mCenterUV[1]);
-    *y0 = -1 + padH - offset;                           // Pad the top & bottom edges
-    *y1 = 1 - padH - offset;
-    *v0 = 0;
-    *v1 = 1;
-  }
-
-  // Exif orientations 1 - 8 adjust the rotation and flipping of the image.
-  // Orientations 1-4 are un-rotated, just flips/flops of the original.
-  // Orientations 5-8 are rotated so that horizontal and vertical are swapped.
-  // Orientations 1,8,3,6 are CW from original (1, row & col 0 are top-left).
-  // Orientations 2,7,4,5 are CW from a horizontally flipped original.
-  // See: http://recursive-design.com/blog/2012/07/28/exif-orientation-handling-is-a-ghetto/
-  //      http://www.80sidea.com/archives/2316
-  if (IsOrientationFlipped() && IsOrientationRotated()) {
-    std::swap(*u0, *u1);
-    *u0 = 1 - *u0;
-    *u1 = 1 - *u1;
-    *v0 = 1 - *v0;
-    *v1 = 1 - *v1;
-  } else if (IsOrientationFlipped())
-    std::swap(*u0, *u1);                      // Flip horizontally
-  std::swap(*v0, *v1);                        // OpenGL coordinate flip!
-
-  static const float T[9] = { 0,0,0, M_PI,M_PI, -M_PI_2,-M_PI_2, M_PI_2,M_PI_2 };
-  *theta = T[ExifOrientation()];              // Rotate
-}
-
-
 // Origin and pan are specified in pixel coordinates for the frame.
 // The image is rendered in NDC space, which, at scale=1=fit-to-window.
 
@@ -2544,16 +2416,11 @@ bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
       return true;
   }
 
-  // Compute the visible NDC & UV display rectangles of the image
-  float x0, y0, x1, y1, u0, v0, u1, v1, theta;
-  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1, &theta);
-
   // Figure out the UV coordinates of the input point in the display rects
-  // FIXME: Verify that the orientation scaling is correct? Seems to work??
-  const float sNDC = (2.0 * x / Width() - 1 - x0) / (x1 - x0);
-  const float tNDC = (2.0 * y / Height() - 1 - y0) / (y1 - y0);
-  const float screenU = u0 + sNDC * (u1 - u0);
-  const float screenV = v0 + tNDC * (v1 - v0);
+  float screenU, screenV;
+  float xNDC = 2.0 * x / Width() - 1;
+  float yNDC = 2.0 * y / Height() - 1;
+  NDCToUV(xNDC, yNDC, &screenU, &screenV);
   
   float du = (mCenterUV[0] - screenU) * dscale;
   float dv = (mCenterUV[1] - screenV) * dscale;
@@ -2564,16 +2431,16 @@ bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
       du = -du; dv = -dv;
       break;
     case 5:
-      std::swap(du, dv); dv = -dv;
+      du = -du;
       break;
     case 6:
-      std::swap(du, dv); dv = -dv;
+      du = -du;
       break;
     case 7:
-      std::swap(du, dv); du = -du;
+      dv = -dv;
       break;
     case 8:
-      std::swap(du, dv); du = -du;
+      dv = -dv;
       break;
     default:
       break;
@@ -2608,17 +2475,17 @@ bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
     return true;
   }
   
-  // Convert velocity into image UV coordinates
+  // Convert velocity from pixel into image UV coordinates
+  float dx = (x - mPrevDragXY[0]) / Width();  // Change in pixels from prev
+  float dy = (y - mPrevDragXY[1]) / Height();
   float x0, y0, x1, y1, u0, v0, u1, v1, theta;
   ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1, &theta);
-  float dx = x - mPrevDragXY[0];              // Change in pixels from prev
-  float dy = y - mPrevDragXY[1];
   float invDx = 1.0 / (x1 - x0);
   float invDy = 1.0 / (y1 - y0);
   if (IsOrientationRotated())
     std::swap(invDx, invDy);
-  float du = -2 * (u1 - u0) * dx / Width()  * invDx;
-  float dv = -2 * (v1 - v0) * dy / Height() * invDy;
+  float du = -2 * (u1 - u0) * dx * invDx;
+  float dv = -2 * (v1 - v0) * dy * invDy;
   
   if (!IsSnappingToPixelCenter()) {
     if (fabsf(x0) != fabsf(x1))               // Translated off-center
@@ -2687,6 +2554,157 @@ bool Frame::SnapToFitWidth(float v) {
   if (v2 < 1)
     mCenterUV[1] = v * (1 - v2) + v2 / 2;
   return true;
+}
+
+
+// Helper functions to convert magnitude in image UV space to/from NDC units.
+
+float Frame::U2Ndc(float u) const {
+  return 2 * u * mScale * ImageWidth() / Width();
+}
+
+
+float Frame::V2Ndc(float v) const {
+  return 2 * v * mScale * ImageHeight() / Height();
+}
+
+
+float Frame::Ndc2U(float x) const {
+  return x / (2 * mScale * ImageWidth() / Width());
+}
+
+
+float Frame::Ndc2V(float y) const {
+  return y / (2 * mScale * ImageHeight() / Height());
+}
+
+
+// Compute the NDC and UV rectangles needed to render the current
+// frame using mScale and mCenterUV. We compute these on-demand
+// rather than storing them to ensure that they are always valid
+// and we only need to adjust mScale and mCenterUV when moving.
+
+void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
+                               float *u0, float *v0, float *u1, float *v1,
+                               float *theta) const {
+  size_t sw = mScale * ImageWidth();
+  size_t sh = mScale * ImageHeight();
+  float halfWidthUV = std::min(0.5f * Width() / sw, 0.5f);
+  float halfHeightUV = std::min(0.5f * Height() / sh, 0.5f);
+  float padW = (Width() - sw) / float(Width());
+  float padH = (Height() - sh) / float(Height());
+  bool isWider = sw >= Width();
+  bool isTaller = sh >= Height();
+  if (IsOrientationRotated()) {
+    std::swap(isTaller, isWider);
+    std::swap(sw, sh);
+    std::swap(halfWidthUV, halfHeightUV);
+    std::swap(padW, padH);
+  }
+  if (isWider) {                              // Image wider than screen
+    *x0 = -1;                                 // Fill entire screen width
+    *x1 = 1;
+    *u0 = mCenterUV[0] - halfWidthUV;         // Fill the UV rect around center
+    *u1 = mCenterUV[0] + halfWidthUV;
+    if (*u0 < 0) {                            // Adjust NDC if UV out of range
+      const float inset = IsOrientationRotated() ? V2Ndc(-1 * *u0) : U2Ndc(-1 * *u0);
+      if (IsOrientationFlipped())
+        *x1 -= inset;
+      else
+        *x0 += inset;
+      *u0 = 0;
+      if (*u1 < *u0)
+        *u1 = *u0;
+    }
+    if (*u1 > 1) {                            // Adjust NDC if UV out of range
+      const float inset = IsOrientationRotated() ? V2Ndc(*u1 - 1) : U2Ndc(*u1 - 1);
+      if (IsOrientationFlipped())
+        *x0 += inset;
+      else
+        *x1 -= inset;
+      *u1 = 1;
+      if (*u0 > *u1)
+        *u0 = *u1;
+    }
+  } else {                                    // Image narrower than screen
+    float offset = IsOrientationRotated() ? V2Ndc(0.5 - mCenterUV[0]) : U2Ndc(0.5 - mCenterUV[0]);
+    if (IsOrientationFlipped())
+      offset = -offset;
+    *x0 = -1 + padW + offset;                 // Pad left & right edges
+    *x1 = 1 - padW + offset;
+    *u0 = 0;
+    *u1 = 1;
+  }
+  
+  if (isTaller) {                             // Image taller than screen
+    *y0 = -1;                                 // Fill entire screen height
+    *y1 = 1;
+    *v0 = mCenterUV[1] - halfHeightUV;        // Fill the UV rect around center
+    *v1 = mCenterUV[1] + halfHeightUV;
+    if (*v0 < 0) {                            // Adjust NDC if UV out of range
+      const float inset = IsOrientationRotated() ? U2Ndc(-1 * *v0) : V2Ndc(-1 * *v0);
+      *y1 -= inset;
+      *v0 = 0;
+      if (*v1 < *v0)
+        *v1 = *v0;
+    }
+    if (*v1 > 1) {                            // Adjust NDC if UV out of range
+      const float inset = IsOrientationRotated() ? U2Ndc(*v1 - 1) : V2Ndc(*v1 - 1);
+      *y0 += inset;
+      *v1 = 1;
+      if (*v0 > *v1)
+        *v0 = *v1;
+    }
+  } else  {                                    // Image shorter than screen
+    float offset = IsOrientationRotated() ? U2Ndc(0.5 - mCenterUV[1]) : V2Ndc(0.5 - mCenterUV[1]);
+    *y0 = -1 + padH - offset;                  // Pad the top & bottom edges
+    *y1 = 1 - padH - offset;
+    *v0 = 0;
+    *v1 = 1;
+  }
+  
+  // Exif orientations 1 - 8 adjust the rotation and flipping of the image.
+  // Orientations 1-4 are un-rotated, just flips/flops of the original.
+  // Orientations 5-8 are rotated so that horizontal and vertical are swapped.
+  // Orientations 1,8,3,6 are CW from original (1, row & col 0 are top-left).
+  // Orientations 2,7,4,5 are CW from a horizontally flipped original.
+  // See: http://recursive-design.com/blog/2012/07/28/exif-orientation-handling-is-a-ghetto/
+  //      http://www.80sidea.com/archives/2316
+  if (IsOrientationFlipped() && IsOrientationRotated()) {
+    std::swap(*u0, *u1);
+    *u0 = 1 - *u0;
+    *u1 = 1 - *u1;
+    *v0 = 1 - *v0;
+    *v1 = 1 - *v1;
+  } else if (IsOrientationFlipped())
+    std::swap(*u0, *u1);                      // Flip horizontally
+  std::swap(*v0, *v1);                        // OpenGL coordinate flip!
+  
+  static const float T[9] = { 0,0,0, M_PI,M_PI, -M_PI_2,-M_PI_2, M_PI_2,M_PI_2 };
+  *theta = T[ExifOrientation()];              // Rotate
+}
+
+
+// Convert a point in screen NDC space into image UV
+
+void Frame::NDCToUV(float x, float y, float *u, float *v) {
+  // Compute the visible NDC & UV display rectangles of the image
+  float x0, y0, x1, y1, u0, v0, u1, v1, theta;
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1, &theta);
+  
+  if (IsOrientationRotated())
+    std::swap(x, y);
+  float sNDC = (x - x0) / (x1 - x0);
+  float tNDC = (y - y0) / (y1 - y0);
+  *u = u0 + sNDC * (u1 - u0);
+  *v = v0 + tNDC * (v1 - v0);
+  *u = *u < 0 ? 0 : *u > 1 ? 1 : *u;
+  *v = *v < 0 ? 0 : *v > 1 ? 1 : *v;
+  
+  if (IsOrientationFlipped() && IsOrientationRotated()) {
+    *u = 1 - *u;
+    *v = 1 - *v;
+  }
 }
 
 

@@ -763,18 +763,21 @@ namespace tui {
     virtual bool Draw();                      // Render all visible views
     virtual bool Step(float seconds);         // Animate views
     virtual bool Dormant() const;             // True if all views dormant
+    virtual float Scale() const { return mScale; }
     virtual bool OnScale(EventPhase phase, float scale, float x, float y,
                          double timestamp);
     virtual bool OnDrag(EventPhase phase, float x, float y, double timestamp);
     virtual bool SnapToFitFrame();            // Whole image in frame
     virtual bool SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
-    virtual float Scale() const { return mScale; }
     
     // Compute the current display region that would be sent to DrawImage
     virtual void ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
                                     float *u0, float *v0, float *u1, float *v1,
                                     float *theta) const;
     
+    // Compute the UV coordinates of a point in ndc coordinates
+    void NDCToUV(float x, float y, float *u, float *v);
+
     // Convert the region in NDC and UV space provided to Frame::Draw into
     // a 4x4 matrix (really 2D, so it could be 3x3), that transforms points
     // in pixel coordinates in the Frame image into NDC for use as a MVP.
