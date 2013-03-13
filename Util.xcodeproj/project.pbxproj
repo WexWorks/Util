@@ -7,12 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CA38A85016248BC50055AF8E /* TouchUI.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CA38A84E16248BC50055AF8E /* TouchUI.cpp */; };
+		CA38A85116248BC50055AF8E /* TouchUI.h in Headers */ = {isa = PBXBuildFile; fileRef = CA38A84F16248BC50055AF8E /* TouchUI.h */; };
 		CA7C699E155C979800456837 /* Base64.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CA7C699C155C979800456837 /* Base64.cpp */; };
 		CA7C699F155C979800456837 /* Base64.h in Headers */ = {isa = PBXBuildFile; fileRef = CA7C699D155C979800456837 /* Base64.h */; };
 		CA7C69A3155CD9EA00456837 /* lodepng.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CA7C69A1155CD9EA00456837 /* lodepng.cpp */; };
 		CA7C69A4155CD9EA00456837 /* lodepng.h in Headers */ = {isa = PBXBuildFile; fileRef = CA7C69A2155CD9EA00456837 /* lodepng.h */; };
 		CA7EC400152E8A2A00882848 /* Json.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CA7EC3FE152E8A2A00882848 /* Json.cpp */; };
 		CA7EC401152E8A2A00882848 /* Json.h in Headers */ = {isa = PBXBuildFile; fileRef = CA7EC3FF152E8A2A00882848 /* Json.h */; };
+		CA8EF65C1650B5D500805499 /* Filename.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CA8EF65A1650B5D500805499 /* Filename.cpp */; };
+		CA8EF65D1650B5D500805499 /* Filename.h in Headers */ = {isa = PBXBuildFile; fileRef = CA8EF65B1650B5D500805499 /* Filename.h */; };
 		CABCBB7B14D0A21200A735F5 /* GlesUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = CABCBB7914D0A21200A735F5 /* GlesUtil.h */; };
 		CABCBB7F14D0A28700A735F5 /* TriStrip.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */; };
 		CABCBB8014D0A28700A735F5 /* TriStrip.h in Headers */ = {isa = PBXBuildFile; fileRef = CABCBB7E14D0A28700A735F5 /* TriStrip.h */; };
@@ -22,12 +26,18 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		CA38A832162485470055AF8E /* Trackball.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Trackball.h; sourceTree = "<group>"; };
+		CA38A84E16248BC50055AF8E /* TouchUI.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TouchUI.cpp; sourceTree = "<group>"; };
+		CA38A84F16248BC50055AF8E /* TouchUI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TouchUI.h; sourceTree = "<group>"; };
 		CA7C699C155C979800456837 /* Base64.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Base64.cpp; sourceTree = "<group>"; };
 		CA7C699D155C979800456837 /* Base64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Base64.h; sourceTree = "<group>"; };
 		CA7C69A1155CD9EA00456837 /* lodepng.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = lodepng.cpp; sourceTree = "<group>"; };
 		CA7C69A2155CD9EA00456837 /* lodepng.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lodepng.h; sourceTree = "<group>"; };
 		CA7EC3FE152E8A2A00882848 /* Json.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Json.cpp; sourceTree = "<group>"; };
 		CA7EC3FF152E8A2A00882848 /* Json.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Json.h; sourceTree = "<group>"; };
+		CA8EF65A1650B5D500805499 /* Filename.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Filename.cpp; sourceTree = "<group>"; };
+		CA8EF65B1650B5D500805499 /* Filename.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Filename.h; sourceTree = "<group>"; };
+		CAA103A11653A84D00873A46 /* Sys.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Sys.h; sourceTree = "<group>"; };
 		CABCBB6714D07F8D00A735F5 /* libUtil.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libUtil.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		CABCBB7914D0A21200A735F5 /* GlesUtil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GlesUtil.h; sourceTree = "<group>"; };
 		CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TriStrip.cpp; sourceTree = "<group>"; };
@@ -51,18 +61,24 @@
 		CABCBB5C14D07F8D00A735F5 = {
 			isa = PBXGroup;
 			children = (
-				CA7C69A1155CD9EA00456837 /* lodepng.cpp */,
-				CA7C69A2155CD9EA00456837 /* lodepng.h */,
+				CAA103A11653A84D00873A46 /* Sys.h */,
+				CA8EF65A1650B5D500805499 /* Filename.cpp */,
+				CA8EF65B1650B5D500805499 /* Filename.h */,
 				CA7C699C155C979800456837 /* Base64.cpp */,
 				CA7C699D155C979800456837 /* Base64.h */,
-				CA7EC3FE152E8A2A00882848 /* Json.cpp */,
-				CA7EC3FF152E8A2A00882848 /* Json.h */,
-				CAFE51F814EAC06F00C78E0B /* Timer.cpp */,
-				CAFE51F914EAC06F00C78E0B /* Timer.h */,
 				CABCBB7914D0A21200A735F5 /* GlesUtil.h */,
 				CABCBB8C14D0A52C00A735F5 /* GlesUtil.cpp */,
+				CA7EC3FF152E8A2A00882848 /* Json.h */,
+				CA7EC3FE152E8A2A00882848 /* Json.cpp */,
+				CA7C69A2155CD9EA00456837 /* lodepng.h */,
+				CA7C69A1155CD9EA00456837 /* lodepng.cpp */,
+				CAFE51F914EAC06F00C78E0B /* Timer.h */,
+				CAFE51F814EAC06F00C78E0B /* Timer.cpp */,
 				CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */,
 				CABCBB7E14D0A28700A735F5 /* TriStrip.h */,
+				CA38A84F16248BC50055AF8E /* TouchUI.h */,
+				CA38A84E16248BC50055AF8E /* TouchUI.cpp */,
+				CA38A832162485470055AF8E /* Trackball.h */,
 				CABCBB6814D07F8D00A735F5 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -88,6 +104,8 @@
 				CA7EC401152E8A2A00882848 /* Json.h in Headers */,
 				CA7C699F155C979800456837 /* Base64.h in Headers */,
 				CA7C69A4155CD9EA00456837 /* lodepng.h in Headers */,
+				CA38A85116248BC50055AF8E /* TouchUI.h in Headers */,
+				CA8EF65D1650B5D500805499 /* Filename.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -148,6 +166,8 @@
 				CA7EC400152E8A2A00882848 /* Json.cpp in Sources */,
 				CA7C699E155C979800456837 /* Base64.cpp in Sources */,
 				CA7C69A3155CD9EA00456837 /* lodepng.cpp in Sources */,
+				CA38A85016248BC50055AF8E /* TouchUI.cpp in Sources */,
+				CA8EF65C1650B5D500805499 /* Filename.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -197,6 +217,7 @@
 		CABCBB7514D07F8D00A735F5 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LIBRARY = "libstdc++";
 				DSTROOT = /tmp/Util.dst;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = "";
@@ -218,6 +239,7 @@
 		CABCBB7614D07F8D00A735F5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LIBRARY = "libstdc++";
 				DSTROOT = /tmp/Util.dst;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = "";
