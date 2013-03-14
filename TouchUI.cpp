@@ -2249,8 +2249,8 @@ bool Frame::Step(float seconds) {
   // the X & Y NDC values must mirror each other, e.g. |x0| == |x1|.
   // We can also compute the center of each NDC axis and compare that
   // against (0.5, 0.5) to know which direction to move.
-  float x0, y0, x1, y1, u0, v0, u1, v1, theta;
-  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1, &theta);
+  float x0, y0, x1, y1, u0, v0, u1, v1;
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   const float centerNDC[2] = { 0.5 * (x0 + x1), 0.5 * (y0 + y1) };
   const float eps = 0.000001;
   const bool aligned[2] = { fabsf(centerNDC[0])<eps, fabsf(centerNDC[1])<eps };
@@ -2319,8 +2319,6 @@ bool Frame::Step(float seconds) {
         mIsDirty = true;
       }
 
-      if (IsOrientationFlipped())
-        offUV[0] = -offUV[0];
       if (!mIsLocked[0])
         mCenterUV[0] += offUV[0];
       if (!mIsLocked[1])
@@ -2405,19 +2403,6 @@ bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
   float du = (mCenterUV[0] - screenU) * dscale;
   float dv = (mCenterUV[1] - screenV) * dscale;
   
-  switch (mOrientation) {
-    case 0:
-    case 1:
-    case 2:                       break;
-    case 3:
-    case 4: du = -du; dv = -dv;   break;
-    case 5: du = -du;             break;
-    case 6: du = -du;             break;
-    case 7: dv = -dv;             break;
-    case 8: dv = -dv;             break;
-    default:                      break;
-  }
-  
   // Move the center of the image toward the origin to keep
   // that point invariant, scaling by velocity (change in scale).
   // TRICKY! Must use relative changes to mCenterUV both here and in
@@ -2450,10 +2435,8 @@ bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
   // Convert velocity from pixel into image UV coordinates
   float dx = (x - mPrevDragXY[0]) / Width();  // Change within uv-rect from prev
   float dy = (y - mPrevDragXY[1]) / Height();
-  if (IsOrientationRotated())
-    std::swap(dx, dy);
-  float x0, y0, x1, y1, u0, v0, u1, v1, theta;
-  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1, &theta);
+  float x0, y0, x1, y1, u0, v0, u1, v1;
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   float du = -dx * (u1 - u0);
   float dv = -dy * (v1 - v0);
   
@@ -2464,15 +2447,6 @@ bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
       dv *= 0.5;
   }
 
-  switch (mOrientation) {                     // Consider fabsf(u0-u1)?
-    case 3: du = -du; dv = -dv; break;
-    case 4: du = -du; dv = -dv; break;
-    case 5: dv = -dv; break;
-    case 6: du = -du; break;
-    case 7: du = -du; break;
-    case 8: dv = -dv; break;
-  }
-  
   if (phase == TOUCH_MOVED) {                 // Update position on move
     if (!mIsLocked[0])
       mCenterUV[0] += du;
@@ -2537,29 +2511,21 @@ bool Frame::SnapToFitWidth(float v) {
 // Helper functions to convert magnitude in image UV space to/from NDC units.
 
 float Frame::U2Ndc(float u) const {
-  if (IsOrientationRotated())
-    return 2 * u * mScale * ImageHeight() / Height();
   return 2 * u * mScale * ImageWidth() / Width();
 }
 
 
 float Frame::V2Ndc(float v) const {
-  if (IsOrientationRotated())
-    return 2 * v * mScale * ImageWidth() / Width();
   return 2 * v * mScale * ImageHeight() / Height();
 }
 
 
 float Frame::Ndc2U(float x) const {
-  if (IsOrientationRotated())
-    return x / (2 * mScale * ImageHeight() / Height());
   return x / (2 * mScale * ImageWidth() / Width());
 }
 
 
 float Frame::Ndc2V(float y) const {
-  if (IsOrientationRotated())
-    return y / (2 * mScale * ImageWidth() / Width());
   return y / (2 * mScale * ImageHeight() / Height());
 }
 
@@ -2570,8 +2536,7 @@ float Frame::Ndc2V(float y) const {
 // and we only need to adjust mScale and mCenterUV when moving.
 
 void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
-                               float *u0, float *v0, float *u1, float *v1,
-                               float *theta) const {
+                               float *u0, float *v0, float *u1, float *v1) const {
   size_t sw = mScale * ImageWidth();
   size_t sh = mScale * ImageHeight();
   float halfWidthUV = std::min(0.5f * Width() / sw, 0.5f);
@@ -2580,12 +2545,6 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
   float padH = (Height() - sh) / float(Height());
   bool isWider = sw >= Width();
   bool isTaller = sh >= Height();
-  if (IsOrientationRotated()) {
-    std::swap(isTaller, isWider);
-    std::swap(sw, sh);
-    std::swap(halfWidthUV, halfHeightUV);
-    std::swap(padW, padH);
-  }
   if (isWider) {                              // Image wider than screen
     *x0 = -1;                                 // Fill entire screen width
     *x1 = 1;
@@ -2593,28 +2552,20 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
     *u1 = mCenterUV[0] + halfWidthUV;
     if (*u0 < 0) {                            // Adjust NDC if UV out of range
       const float inset = U2Ndc(-1 * *u0);
-      if (IsOrientationFlipped())
-        *x1 -= inset;
-      else
-        *x0 += inset;
+      *x0 += inset;
       *u0 = 0;
       if (*u1 < *u0)
         *u1 = *u0;
     }
     if (*u1 > 1) {                            // Adjust NDC if UV out of range
       const float inset = U2Ndc(*u1 - 1);
-      if (IsOrientationFlipped())
-        *x0 += inset;
-      else
-        *x1 -= inset;
+      *x1 -= inset;
       *u1 = 1;
       if (*u0 > *u1)
         *u0 = *u1;
     }
   } else {                                    // Image narrower than screen
     float offset = U2Ndc(0.5 - mCenterUV[0]);
-    if (IsOrientationFlipped())
-      offset = -offset;
     *x0 = -1 + padW + offset;                 // Pad left & right edges
     *x1 = 1 - padW + offset;
     *u0 = 0;
@@ -2648,25 +2599,7 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
     *v1 = 1;
   }
   
-  // Exif orientations 1 - 8 adjust the rotation and flipping of the image.
-  // Orientations 1-4 are un-rotated, just flips/flops of the original.
-  // Orientations 5-8 are rotated so that horizontal and vertical are swapped.
-  // Orientations 1,8,3,6 are CW from original (1, row & col 0 are top-left).
-  // Orientations 2,7,4,5 are CW from a horizontally flipped original.
-  // See: http://recursive-design.com/blog/2012/07/28/exif-orientation-handling-is-a-ghetto/
-  //      http://www.80sidea.com/archives/2316
-  if (IsOrientationFlipped() && IsOrientationRotated()) {
-    std::swap(*u0, *u1);
-    *u0 = 1 - *u0;
-    *u1 = 1 - *u1;
-    *v0 = 1 - *v0;
-    *v1 = 1 - *v1;
-  } else if (IsOrientationFlipped())
-    std::swap(*u0, *u1);                      // Flip horizontally
   std::swap(*v0, *v1);                        // OpenGL coordinate flip!
-  
-  static const float T[9] = { 0,0,0, M_PI,M_PI, -M_PI_2,-M_PI_2, M_PI_2,M_PI_2 };
-  *theta = T[mOrientation];                   // Rotate
 }
 
 
@@ -2674,22 +2607,15 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
 
 void Frame::NDCToUV(float x, float y, float *u, float *v) {
   // Compute the visible NDC & UV display rectangles of the image
-  float x0, y0, x1, y1, u0, v0, u1, v1, theta;
-  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1, &theta);
+  float x0, y0, x1, y1, u0, v0, u1, v1;
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   
-  if (IsOrientationRotated())
-    std::swap(x, y);
   float sNDC = (x - x0) / (x1 - x0);
   float tNDC = (y - y0) / (y1 - y0);
   *u = u0 + sNDC * (u1 - u0);
   *v = v0 + tNDC * (v1 - v0);
   *u = *u < 0 ? 0 : *u > 1 ? 1 : *u;
   *v = *v < 0 ? 0 : *v > 1 ? 1 : *v;
-  
-  if (IsOrientationFlipped() && IsOrientationRotated()) {
-    *u = 1 - *u;
-    *v = 1 - *v;
-  }
 }
 
 
@@ -2699,8 +2625,7 @@ void Frame::NDCToUV(float x, float y, float *u, float *v) {
 
 void Frame::RegionToM44f(float dst[16], int imageWidth, int imageHeight,
                          float x0, float y0, float x1, float y1,
-                         float u0, float v0, float u1, float v1, float theta) {
-  assert(theta == 0);                                   // FIXME: No rotation!
+                         float u0, float v0, float u1, float v1) {
   Imath::M44f m;
   m.translate(Imath::V3f(-1, -1, 0));                   // -> [-1, 1]
   m.scale(Imath::V3f(2, 2, 1));                         // -> [0, 2]
@@ -2815,11 +2740,11 @@ bool ButtonGridFrame::Touch(const tui::Event &event) {
   if (IsDragging() || IsScaling())
     return false;
   
-  float x0, y0, x1, y1, u0, v0, u1, v1, theta;
-  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1, &theta);
+  float x0, y0, x1, y1, u0, v0, u1, v1;
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   Imath::M44f t;
   const float w = ImageWidth(), h = ImageHeight();
-  RegionToM44f(t.getValue(), w, h, x0, y0, x1, y1, u0, v0, u1, v1, theta);
+  RegionToM44f(t.getValue(), w, h, x0, y0, x1, y1, u0, v0, u1, v1);
   t.invert();
 
   tui::Event e(event);
@@ -2850,22 +2775,21 @@ bool ButtonGridFrame::Draw() {
   glViewport(mViewport[0], mViewport[1], mViewport[2], mViewport[3]);
   
   // Compute the NDC & UV rectangle for the image and draw
-  float x0, y0, x1, y1, u0, v0, u1, v1, theta;
-  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1, &theta);
-  RegionToM44f(mMVPBuf, ImageWidth(), ImageHeight(), x0,y0,x1,y1,
-               u0,v0,u1,v1, theta);
-  assert(theta == 0);
+  float x0, y0, x1, y1, u0, v0, u1, v1;
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+  RegionToM44f(mMVPBuf, ImageWidth(), ImageHeight(), x0,y0,x1,y1, u0,v0,u1,v1);
 
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
     float bu0 = mButtonVec[i]->Left() / float(ImageWidth());
     float bv0 = mButtonVec[i]->Bottom() / float(ImageHeight());
     float bu1 = mButtonVec[i]->Right() / float(ImageWidth());
     float bv1 = mButtonVec[i]->Top() / float(ImageHeight());
-    // FIXME: Restore culling!
-//    if (s0 > u1 || s1 < u0)
-//      continue;
-//    if (t0 > v1 || t1 < v0)
-//      continue;
+    if (bu0 > u1 || bu1 < u0)
+      continue;
+    bv0 = 1 - bv0;                      // OpenGL inversion
+    bv1 = 1 - bv1;
+    if (bv1 > v0 || bv0 < v1)
+      continue;
     if (!mButtonVec[i]->Draw())
       return false;
   }

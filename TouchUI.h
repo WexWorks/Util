@@ -3,6 +3,7 @@
 #ifndef TOUCH_UI_H_
 #define TOUCH_UI_H_
 
+#include <assert.h>
 #include <map>
 #include <math.h>
 #include <vector>
@@ -719,7 +720,6 @@ namespace tui {
   class Frame : public AnimatedViewport {
   public:
     Frame() : mIsScaleLocked(false), mIsSnappingToPixelCenter(false),
-              mOrientation(0),
               mScale(1), mScaleVelocity(0),
               mStartScale(0), mPrevScale(0),
               mPrevScaleTimestamp(0), mPrevDragTimestamp(0),
@@ -740,7 +740,6 @@ namespace tui {
     virtual void SetImageDim(size_t w, size_t h) { mDim[0] = w; mDim[1] = h; }
     virtual size_t ImageWidth() const { return mDim[0]; }
     virtual size_t ImageHeight() const { return mDim[1]; }
-    virtual void Orient(int orientation) { mOrientation = orientation; }
     virtual void Lock(bool horizontal, bool vertical, bool scale) {
       mIsLocked[0] = horizontal; mIsLocked[1] = vertical; mIsScaleLocked =scale;
     }
@@ -764,8 +763,7 @@ namespace tui {
     
     // Compute the current display region that would be sent to DrawImage
     virtual void ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
-                                    float *u0, float *v0, float *u1, float *v1,
-                                    float *theta) const;
+                                    float *u0, float *v0, float *u1, float *v1) const;
     
     // Compute the UV coordinates of a point in ndc coordinates
     void NDCToUV(float x, float y, float *u, float *v);
@@ -775,8 +773,7 @@ namespace tui {
     // in pixel coordinates in the Frame image into NDC for use as a MVP.
     static void RegionToM44f(float dst[16], int imageWidth, int imageHeight,
                              float x0, float y0, float x1, float y1,
-                             float u0, float v0, float u1, float v1,
-                             float theta);
+                             float u0, float v0, float u1, float v1);
     
   private:
     static const float kDragDamping = 0.9;
@@ -793,16 +790,11 @@ namespace tui {
     float V2Ndc(float v) const;
     float Ndc2U(float x) const;
     float Ndc2V(float y) const;
-    bool IsOrientationRotated() const { return mOrientation >= 5; }
-    bool IsOrientationFlipped() const {       // UV horizontally flipped
-      const int e = mOrientation; return e==2 || e==7 || e==4 || e==5;
-    }
     
     size_t mDim[2];                           // Image dimensions
     bool mIsLocked[2];                        // Lock horizontal/vertical move
     bool mIsScaleLocked;                      // Lock scaling
     bool mIsSnappingToPixelCenter;            // Snap pixel in image center
-    int mOrientation;                         // EXIF Orientation
     
     float mScale, mScaleVelocity;             // Image scale, 1 -> 1 pixel
     float mCenterUV[2], mCenterVelocityUV[2]; // Center of screen in UV 0 -> 1
