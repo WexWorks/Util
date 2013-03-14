@@ -72,6 +72,7 @@ namespace tui {
                          double timestamp) { return false; }
     virtual bool OnDrag(EventPhase phase, float x, float y,
                         double timestamp) { return false; }
+    virtual void OnTouchBegan() {}
     virtual bool IsScaling() const { return mIsScaling; }
     virtual bool IsDragging() const { return mIsDragging; }
     virtual bool IsHorizontalDrag() const { return mIsHorizontalDrag; }
@@ -767,6 +768,7 @@ namespace tui {
     virtual bool OnScale(EventPhase phase, float scale, float x, float y,
                          double timestamp);
     virtual bool OnDrag(EventPhase phase, float x, float y, double timestamp);
+    virtual void OnTouchBegan();
     virtual bool SnapToFitFrame();            // Whole image in frame
     virtual bool SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
     

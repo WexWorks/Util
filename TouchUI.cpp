@@ -83,6 +83,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       mTouchStart = event.touchVec;       // Save initial touch down info
       mIsDragging = false;                // Avoid jump due to mPrevPan tracking
       mIsScaling = false;
+      OnTouchBegan();
       break;
     case TOUCH_MOVED:
     case TOUCH_ENDED:     /*FALLTHRU*/
@@ -2426,24 +2427,16 @@ bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
   float dv = (mCenterUV[1] - screenV) * dscale;
   
   switch (ExifOrientation()) {
+    case 0:
+    case 1:
+    case 2:                       break;
     case 3:
-    case 4:
-      du = -du; dv = -dv;
-      break;
-    case 5:
-      du = -du;
-      break;
-    case 6:
-      du = -du;
-      break;
-    case 7:
-      dv = -dv;
-      break;
-    case 8:
-      dv = -dv;
-      break;
-    default:
-      break;
+    case 4: du = -du; dv = -dv;   break;
+    case 5: du = -du;             break;
+    case 6: du = -du;             break;
+    case 7: dv = -dv;             break;
+    case 8: dv = -dv;             break;
+    default:                      break;
   }
   
   // Move the center of the image toward the origin to keep
@@ -2476,31 +2469,29 @@ bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
   }
   
   // Convert velocity from pixel into image UV coordinates
-  float dx = (x - mPrevDragXY[0]) / Width();  // Change in pixels from prev
+  float dx = (x - mPrevDragXY[0]) / Width();  // Change within uv-rect from prev
   float dy = (y - mPrevDragXY[1]) / Height();
+  if (IsOrientationRotated())
+    std::swap(dx, dy);
   float x0, y0, x1, y1, u0, v0, u1, v1, theta;
   ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1, &theta);
-  float invDx = 1.0 / (x1 - x0);
-  float invDy = 1.0 / (y1 - y0);
-  if (IsOrientationRotated())
-    std::swap(invDx, invDy);
-  float du = -2 * (u1 - u0) * dx * invDx;
-  float dv = -2 * (v1 - v0) * dy * invDy;
+  float du = -dx * (u1 - u0);
+  float dv = -dy * (v1 - v0);
   
-  if (!IsSnappingToPixelCenter()) {
+  if (!IsSnappingToPixelCenter()) {           // Center allows partial NDC rect
     if (fabsf(x0) != fabsf(x1))               // Translated off-center
       du *= 0.5;
     if (fabsf(y0) != fabsf(y1))
       dv *= 0.5;
   }
 
-  switch (ExifOrientation()) {
+  switch (ExifOrientation()) {                // Consider fabsf(u0-u1)?
     case 3: du = -du; dv = -dv; break;
     case 4: du = -du; dv = -dv; break;
-    case 5: std::swap(du, dv); dv = -dv; break;
-    case 6: std::swap(du, dv); dv = -dv; break;
-    case 7: std::swap(du, dv); du = -du; break;
-    case 8: std::swap(du, dv); du = -du; break;
+    case 5: dv = -dv; break;
+    case 6: du = -du; break;
+    case 7: du = -du; break;
+    case 8: dv = -dv; break;
   }
   
   if (phase == TOUCH_MOVED) {                 // Update position on move
@@ -2523,6 +2514,13 @@ bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
   }
     
   return true;
+}
+
+
+void Frame::OnTouchBegan() {
+  mCenterVelocityUV[0] = 0;                   // Stop animation
+  mCenterVelocityUV[1] = 0;
+  mScaleVelocity = 0;
 }
 
 
@@ -2560,21 +2558,29 @@ bool Frame::SnapToFitWidth(float v) {
 // Helper functions to convert magnitude in image UV space to/from NDC units.
 
 float Frame::U2Ndc(float u) const {
+  if (IsOrientationRotated())
+    return 2 * u * mScale * ImageHeight() / Height();
   return 2 * u * mScale * ImageWidth() / Width();
 }
 
 
 float Frame::V2Ndc(float v) const {
+  if (IsOrientationRotated())
+    return 2 * v * mScale * ImageWidth() / Width();
   return 2 * v * mScale * ImageHeight() / Height();
 }
 
 
 float Frame::Ndc2U(float x) const {
+  if (IsOrientationRotated())
+    return x / (2 * mScale * ImageHeight() / Height());
   return x / (2 * mScale * ImageWidth() / Width());
 }
 
 
 float Frame::Ndc2V(float y) const {
+  if (IsOrientationRotated())
+    return y / (2 * mScale * ImageWidth() / Width());
   return y / (2 * mScale * ImageHeight() / Height());
 }
 
@@ -2607,7 +2613,7 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
     *u0 = mCenterUV[0] - halfWidthUV;         // Fill the UV rect around center
     *u1 = mCenterUV[0] + halfWidthUV;
     if (*u0 < 0) {                            // Adjust NDC if UV out of range
-      const float inset = IsOrientationRotated() ? V2Ndc(-1 * *u0) : U2Ndc(-1 * *u0);
+      const float inset = U2Ndc(-1 * *u0);
       if (IsOrientationFlipped())
         *x1 -= inset;
       else
@@ -2617,7 +2623,7 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
         *u1 = *u0;
     }
     if (*u1 > 1) {                            // Adjust NDC if UV out of range
-      const float inset = IsOrientationRotated() ? V2Ndc(*u1 - 1) : U2Ndc(*u1 - 1);
+      const float inset = U2Ndc(*u1 - 1);
       if (IsOrientationFlipped())
         *x0 += inset;
       else
@@ -2627,7 +2633,7 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
         *u0 = *u1;
     }
   } else {                                    // Image narrower than screen
-    float offset = IsOrientationRotated() ? V2Ndc(0.5 - mCenterUV[0]) : U2Ndc(0.5 - mCenterUV[0]);
+    float offset = U2Ndc(0.5 - mCenterUV[0]);
     if (IsOrientationFlipped())
       offset = -offset;
     *x0 = -1 + padW + offset;                 // Pad left & right edges
@@ -2642,21 +2648,21 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
     *v0 = mCenterUV[1] - halfHeightUV;        // Fill the UV rect around center
     *v1 = mCenterUV[1] + halfHeightUV;
     if (*v0 < 0) {                            // Adjust NDC if UV out of range
-      const float inset = IsOrientationRotated() ? U2Ndc(-1 * *v0) : V2Ndc(-1 * *v0);
+      const float inset = V2Ndc(-1 * *v0);
       *y1 -= inset;
       *v0 = 0;
       if (*v1 < *v0)
         *v1 = *v0;
     }
     if (*v1 > 1) {                            // Adjust NDC if UV out of range
-      const float inset = IsOrientationRotated() ? U2Ndc(*v1 - 1) : V2Ndc(*v1 - 1);
+      const float inset = V2Ndc(*v1 - 1);
       *y0 += inset;
       *v1 = 1;
       if (*v0 > *v1)
         *v0 = *v1;
     }
   } else  {                                    // Image shorter than screen
-    float offset = IsOrientationRotated() ? U2Ndc(0.5 - mCenterUV[1]) : V2Ndc(0.5 - mCenterUV[1]);
+    float offset = V2Ndc(0.5 - mCenterUV[1]);
     *y0 = -1 + padH - offset;                  // Pad the top & bottom edges
     *y1 = 1 - padH - offset;
     *v0 = 0;
