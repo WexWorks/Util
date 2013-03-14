@@ -1847,7 +1847,7 @@ bool FlinglistImpl::Step(float seconds) {
     } else {
       float drag = seconds / kBounceSec * mScrollBounce;
       mScrollBounce -= drag;
-      if (fabsf(fabsf(mScrollBounce) < 3))
+      if (fabsf(fabsf(mScrollBounce)) < 3)
         mScrollBounce = 0;
     }
   }
@@ -2187,27 +2187,6 @@ bool Frame::SetViewport(int x, int y, int w, int h) {
 }
 
 
-// Origin and pan are specified in pixel coordinates for the frame.
-// The image is rendered in NDC space, which, at scale=1=fit-to-window.
-
-bool Frame::Draw() {
-  if (Hidden())
-    return true;
-  if (!AnimatedViewport::Draw())
-    return false;
-  
-  glViewport(mViewport[0], mViewport[1], mViewport[2], mViewport[3]);
-  
-  // Compute the NDC & UV rectangle for the image and draw
-  float x0, y0, x1, y1, u0, v0, u1, v1, theta;
-  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1, &theta);
-  if (!DrawImage(x0, y0, x1, y1, u0, v0, u1, v1, theta))
-      return false;
-  
-  return true;
-}
-
-
 bool Frame::Step(float seconds) {
   if (seconds == 0)
     return true;
@@ -2219,13 +2198,13 @@ bool Frame::Step(float seconds) {
   seconds = std::min(seconds, 0.1f);          // clamp to avoid debugging issues
   
   // Apply inertial scaling
-  mScaleVelocity *= ScaleDamping();
-  if (IsScaleLocked() || fabsf(mScaleVelocity) < 0.01)
+  mScaleVelocity *= kScaleDamping;
+  if (mIsScaleLocked || fabsf(mScaleVelocity) < 0.01)
     mScaleVelocity = 0;
   else if (!IsScaling() && !mIsTargetScaleActive)
     mScale += mScaleVelocity * seconds;
 
-  if (IsScaleLocked()) {
+  if (mIsScaleLocked) {
     mIsTargetScaleActive = false;
     mTargetScale = 0;
   } else if (mScale > mScaleMax && mScaleVelocity > 0.01) {
@@ -2252,15 +2231,15 @@ bool Frame::Step(float seconds) {
   const int ih = ImageHeight();
 
   // Apply inertial panning
-  mCenterVelocityUV[0] *= DragDamping();
-  mCenterVelocityUV[1] *= DragDamping();
+  mCenterVelocityUV[0] *= kDragDamping;
+  mCenterVelocityUV[1] *= kDragDamping;
   if (fabsf(mCenterVelocityUV[0]) < 1.0 / iw)
     mCenterVelocityUV[0] = 0;
   if (fabsf(mCenterVelocityUV[1]) < 1.0 / ih)
     mCenterVelocityUV[1] = 0;
-  if (!IsDragging() && !IsXLocked() && mCenterVelocityUV[0] != 0)
+  if (!IsDragging() && !mIsLocked[0] && mCenterVelocityUV[0] != 0)
     mCenterUV[0] += mCenterVelocityUV[0] * seconds;
-  if (!IsDragging() && !IsYLocked() && mCenterVelocityUV[1] != 0)
+  if (!IsDragging() && !mIsLocked[1] && mCenterVelocityUV[1] != 0)
     mCenterUV[1] += mCenterVelocityUV[1] * seconds;
 
   // Move the image so that it fits in the "valid" NDC rectangle.
@@ -2275,7 +2254,7 @@ bool Frame::Step(float seconds) {
   const float centerNDC[2] = { 0.5 * (x0 + x1), 0.5 * (y0 + y1) };
   const float eps = 0.000001;
   const bool aligned[2] = { fabsf(centerNDC[0])<eps, fabsf(centerNDC[1])<eps };
-  if (!IsSnappingToPixelCenter() && (!aligned[0] || !aligned[1]))
+  if (!mIsSnappingToPixelCenter && (!aligned[0] || !aligned[1]))
     mIsTargetWindowActive = true;
 
   if (!IsDragging()) {
@@ -2283,7 +2262,7 @@ bool Frame::Step(float seconds) {
     const float pctCloser = 0.75;
     const float screenPixUV[2] = { Ndc2U(2.0f / Width()), Ndc2V(2.0f /Height())};
     
-    if (IsSnappingToPixelCenter()) {
+    if (mIsSnappingToPixelCenter) {
       // Find the pixel to center on, and clamp it to the image boundary
       const float pix[2] = { mCenterUV[0] * iw, mCenterUV[1] * ih };
       float cpix[2] = { floor(pix[0]), floor(pix[1]) };
@@ -2311,9 +2290,9 @@ bool Frame::Step(float seconds) {
           mIsTargetWindowActive = true;       // Continue animating
         }
        
-        if (!IsXLocked())
+        if (!mIsLocked[0])
           mCenterUV[0] += s[0] * fUV[0];
-        if (!IsYLocked())
+        if (!mIsLocked[1])
           mCenterUV[1] += s[1] * fUV[1];
       }
     } else if (mIsTargetWindowActive) {
@@ -2342,9 +2321,9 @@ bool Frame::Step(float seconds) {
 
       if (IsOrientationFlipped())
         offUV[0] = -offUV[0];
-      if (!IsXLocked())
+      if (!mIsLocked[0])
         mCenterUV[0] += offUV[0];
-      if (!IsYLocked())
+      if (!mIsLocked[1])
         mCenterUV[1] += offUV[1];
     }
   }
@@ -2375,7 +2354,7 @@ bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
     return false;
   
   assert(!isnan(scale));
-  if (IsScaleLocked()) {
+  if (mIsScaleLocked) {
     mScaleVelocity = 0;
     mIsTargetScaleActive = false;
     mTargetScale = 0;
@@ -2404,7 +2383,7 @@ bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
       else
         dt = 0;                               // Avoid divide by zero
       if (dt != 0)
-        mScaleVelocity = ScaleFling() * dt * dscale;
+        mScaleVelocity = kScaleFling * dt * dscale;
       mPrevScale = scale;
       mPrevScaleTimestamp = timestamp;
       break;
@@ -2426,7 +2405,7 @@ bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
   float du = (mCenterUV[0] - screenU) * dscale;
   float dv = (mCenterUV[1] - screenV) * dscale;
   
-  switch (ExifOrientation()) {
+  switch (mOrientation) {
     case 0:
     case 1:
     case 2:                       break;
@@ -2443,9 +2422,9 @@ bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
   // that point invariant, scaling by velocity (change in scale).
   // TRICKY! Must use relative changes to mCenterUV both here and in
   //         OnDrag because absolute changes would override each other.
-  if (!IsXLocked())
+  if (!mIsLocked[0])
     mCenterUV[0] -= du;
-  if (!IsYLocked())
+  if (!mIsLocked[1])
     mCenterUV[1] -= dv;
   
   return true;
@@ -2478,14 +2457,14 @@ bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
   float du = -dx * (u1 - u0);
   float dv = -dy * (v1 - v0);
   
-  if (!IsSnappingToPixelCenter()) {           // Center allows partial NDC rect
+  if (!mIsSnappingToPixelCenter) {            // Center allows partial NDC rect
     if (fabsf(x0) != fabsf(x1))               // Translated off-center
       du *= 0.5;
     if (fabsf(y0) != fabsf(y1))
       dv *= 0.5;
   }
 
-  switch (ExifOrientation()) {                // Consider fabsf(u0-u1)?
+  switch (mOrientation) {                     // Consider fabsf(u0-u1)?
     case 3: du = -du; dv = -dv; break;
     case 4: du = -du; dv = -dv; break;
     case 5: dv = -dv; break;
@@ -2495,9 +2474,9 @@ bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
   }
   
   if (phase == TOUCH_MOVED) {                 // Update position on move
-    if (!IsXLocked())
+    if (!mIsLocked[0])
       mCenterUV[0] += du;
-    if (!IsYLocked())
+    if (!mIsLocked[1])
       mCenterUV[1] += dv;
     float dt = timestamp - mPrevDragTimestamp;
     if (dt > 0.00001)
@@ -2505,8 +2484,8 @@ bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
     else
       dt = 0;                                 // Avoid divide by zero
     if (dt != 0) {
-      mCenterVelocityUV[0] = DragFling() * dt * du;
-      mCenterVelocityUV[1] = DragFling() * dt * dv;
+      mCenterVelocityUV[0] = kDragFling * dt * du;
+      mCenterVelocityUV[1] = kDragFling * dt * dv;
     }
     mPrevDragXY[0] = x;
     mPrevDragXY[1] = y;
@@ -2687,7 +2666,7 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
   std::swap(*v0, *v1);                        // OpenGL coordinate flip!
   
   static const float T[9] = { 0,0,0, M_PI,M_PI, -M_PI_2,-M_PI_2, M_PI_2,M_PI_2 };
-  *theta = T[ExifOrientation()];              // Rotate
+  *theta = T[mOrientation];                   // Rotate
 }
 
 
@@ -2761,6 +2740,7 @@ bool ButtonGridFrame::Init(int wideCount, int narrowCount,
 
 void ButtonGridFrame::Add(tui::Button *button) {
   mButtonVec.push_back(button);
+  SetViewport(Left(), Bottom(), Width(), Height());
 }
 
 
@@ -2809,6 +2789,11 @@ bool ButtonGridFrame::SetViewport(int x, int y, int w, int h) {
       px += mButtonDim + mButtonPad;
     }
   }
+  
+  const int vertCount = ceilf(mButtonVec.size() / hc);
+  int bh = vertCount * (mButtonPad + mButtonDim) + mTopPad + mBottomPad;
+  SetImageDim(Width(), bh);
+  
   return true;
 }
 
@@ -2817,13 +2802,6 @@ void ButtonGridFrame::SetMVP(const float *mvp) {
   Frame::SetMVP(mvp);
   for (size_t i = 0; i < mButtonVec.size(); ++i)
     mButtonVec[i]->SetMVP(mvp);
-}
-
-
-size_t ButtonGridFrame::ImageHeight() const {
-  const float hc = mButtonHorizCount[mButtonHorizCountIdx];
-  const int vertCount = ceilf(mButtonVec.size() / hc);
-  return vertCount * (mButtonPad + mButtonDim) + mTopPad + mBottomPad;
 }
 
 
@@ -2863,12 +2841,21 @@ bool ButtonGridFrame::Touch(const tui::Event &event) {
 }
 
 
-bool ButtonGridFrame::DrawImage(float x0, float y0, float x1, float y1,
-                                float u0, float v0, float u1, float v1,
-                                float theta) {
+bool ButtonGridFrame::Draw() {
+  if (Hidden())
+    return true;
+  if (ButtonCount() == 0)
+    return true;
+  
+  glViewport(mViewport[0], mViewport[1], mViewport[2], mViewport[3]);
+  
+  // Compute the NDC & UV rectangle for the image and draw
+  float x0, y0, x1, y1, u0, v0, u1, v1, theta;
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1, &theta);
   RegionToM44f(mMVPBuf, ImageWidth(), ImageHeight(), x0,y0,x1,y1,
                u0,v0,u1,v1, theta);
-  
+  assert(theta == 0);
+
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
     float bu0 = mButtonVec[i]->Left() / float(ImageWidth());
     float bv0 = mButtonVec[i]->Bottom() / float(ImageHeight());

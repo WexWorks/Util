@@ -718,7 +718,9 @@ namespace tui {
   // requires an invserse transformation of the touch event coordinates.
   class Frame : public AnimatedViewport {
   public:
-    Frame() : mScale(1), mScaleVelocity(0),
+    Frame() : mIsScaleLocked(false), mIsSnappingToPixelCenter(false),
+              mOrientation(0),
+              mScale(1), mScaleVelocity(0),
               mStartScale(0), mPrevScale(0),
               mPrevScaleTimestamp(0), mPrevDragTimestamp(0),
               mTargetScale(0),
@@ -726,6 +728,8 @@ namespace tui {
               mIsTargetWindowActive(false),
               mIsDirty(false),
               mScaleMin(0), mScaleMax(0) {
+      memset(mDim, 0, sizeof(mDim));
+      memset(mIsLocked, 0, sizeof(mIsLocked));
       memset(mCenterUV, 0, sizeof(mCenterUV));
       memset(mStartCenterUV, 0, sizeof(mStartCenterUV));
       memset(mPrevDragXY, 0, sizeof(mPrevDragXY));
@@ -733,35 +737,19 @@ namespace tui {
     }
     virtual ~Frame() {}
 
-    // Content Definition -- Override these to define the Frame content
-    virtual size_t ImageWidth() const = 0;    // Width of frame image in pixels
-    virtual size_t ImageHeight() const = 0;   // Height of frame image in pixels
-    
-    // Draw the Frame content within the UV region [u0,v0]x[u1,v1]
-    // into NDC rect [x0,y0]x[x1,y1] with a rotation of theta
-    // into the current viewport.
-    virtual bool DrawImage(float x0, float y0, float x1, float y1,
-                           float u0, float v0, float u1, float v1,
-                           float theta) = 0;
-    
-    // Content manipulation -- Override to define Frame behavior
-    virtual bool IsXLocked() const { return false; }
-    virtual bool IsYLocked() const { return false; }
-    virtual bool IsScaleLocked() const { return false; }
-    virtual bool IsSnappingToPixelCenter() const { return false; }
-    virtual bool IsOrientationRotated() const { return ExifOrientation() >= 5; }
-    virtual bool IsOrientationFlipped() const { // UV horizontally flipped
-      const int e = ExifOrientation(); return e==2 || e==7 || e==4 || e==5;
+    virtual void SetImageDim(size_t w, size_t h) { mDim[0] = w; mDim[1] = h; }
+    virtual size_t ImageWidth() const { return mDim[0]; }
+    virtual size_t ImageHeight() const { return mDim[1]; }
+    virtual void Orient(int orientation) { mOrientation = orientation; }
+    virtual void Lock(bool horizontal, bool vertical, bool scale) {
+      mIsLocked[0] = horizontal; mIsLocked[1] = vertical; mIsScaleLocked =scale;
     }
-    virtual int ExifOrientation() const { return 1; }
-    virtual float DragDamping() const { return 0.9; }
-    virtual float DragFling() const { return 2; }
-    virtual float ScaleDamping() const { return 0.9; }
-    virtual float ScaleFling() const { return 1; }
+    virtual void SnapToPixelCenter(bool status) {
+      mIsSnappingToPixelCenter = status;
+    }
     
     // Widget Methods -- Override if you need custom behavior
     virtual bool SetViewport(int x, int y, int w, int h);
-    virtual bool Draw();                      // Render all visible views
     virtual bool Step(float seconds);         // Animate views
     virtual bool Dormant() const;             // True if all views dormant
     virtual float Scale() const { return mScale; }
@@ -769,6 +757,8 @@ namespace tui {
                          double timestamp);
     virtual bool OnDrag(EventPhase phase, float x, float y, double timestamp);
     virtual void OnTouchBegan();
+    
+    // Frame adjustments
     virtual bool SnapToFitFrame();            // Whole image in frame
     virtual bool SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
     
@@ -789,6 +779,11 @@ namespace tui {
                              float theta);
     
   private:
+    static const float kDragDamping = 0.9;
+    static const float kDragFling = 2;
+    static const float kScaleDamping = 0.9;
+    static const float kScaleFling = 1;
+    
     Frame(const Frame &);                     // Disallow copy ctor
     void operator=(const Frame &);            // Disallow assignment
     
@@ -798,6 +793,16 @@ namespace tui {
     float V2Ndc(float v) const;
     float Ndc2U(float x) const;
     float Ndc2V(float y) const;
+    bool IsOrientationRotated() const { return mOrientation >= 5; }
+    bool IsOrientationFlipped() const {       // UV horizontally flipped
+      const int e = mOrientation; return e==2 || e==7 || e==4 || e==5;
+    }
+    
+    size_t mDim[2];                           // Image dimensions
+    bool mIsLocked[2];                        // Lock horizontal/vertical move
+    bool mIsScaleLocked;                      // Lock scaling
+    bool mIsSnappingToPixelCenter;            // Snap pixel in image center
+    int mOrientation;                         // EXIF Orientation
     
     float mScale, mScaleVelocity;             // Image scale, 1 -> 1 pixel
     float mCenterUV[2], mCenterVelocityUV[2]; // Center of screen in UV 0 -> 1
@@ -843,11 +848,8 @@ namespace tui {
     virtual void Sort(const CompareButton &compare);
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
-    virtual size_t ImageWidth() const { return Width(); }
-    virtual size_t ImageHeight() const;
     virtual bool Touch(const tui::Event &event);
-    virtual bool DrawImage(float x0, float y0, float x1, float y1,
-                           float u0, float v0, float u1, float v1, float theta);
+    virtual bool Draw();
 
   private:
     std::vector<tui::Button *> mButtonVec;    // Button grid
