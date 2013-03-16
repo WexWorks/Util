@@ -18,10 +18,13 @@ namespace GlesUtil {
 bool Error();
 const char *ErrorString();
 
+// Validate FBO for rendering, printing an error in DEBUG mode.
+bool IsFramebufferComplete();
 
 // Drawing functions:
 //   Attributes: aP is used for position, aUV for texture coordinates.
 //   MVP defaults to unit matrix, implying NDC space [-1,-1]x[1,1]
+//   MVP is the "model view projection" matrix from coords -> NDC space.
   
 bool DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
                GLuint aUV, float u0, float v0, float u1, float v1);
@@ -32,9 +35,19 @@ bool DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
 bool DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
                          float w, float h, float r, float g, float b, float a,
                          const float *MVP=0);
+bool DrawGradientBox2f(float x0, float y0, float x1, float y1, bool isVertical,
+                       float r0, float g0, float b0, float r1,float g1,float b1,
+                       const float *MVP=0);
 bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                    float u0, float v0, float u1, float v1,
                    const float *MVP = 0);
+bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
+                   float u0, float v0, float u1, float v1,
+                   float r, float g, float b, float a,
+                   const float *MVP = 0);
+bool DrawTextureStrip2f(GLuint tex, unsigned int vcount, const float *P,
+                        const float *UV, float r, float g, float b, float a,
+                        const float *MVP = 0);
 
 // Bitmapped font drawing functions:
 //   Characters are defined in points and scaled to MVP space using (ptW,ptH),
@@ -54,17 +67,22 @@ struct Font {
   GLuint tex;                                         // 16x16 ASCII char grid
 };
 
-// Return the length, in pts, of a given string
+// Return the length, in pts, of a given string. Pts are an arbitrary
+// unit used for all text drawing. Often pts=pixels, but you can scale
+// pts using ptW,ptH in the drawing functions and the MVP also affects pts.
 unsigned int TextWidth(const char *text, const Font *font, float charPadPt = 0);
 
 // Draw a one-line string of text. Starting location is the lower
 // left corner of the first character in MVP space. Linefeeds are ignored.
 // (ptW, ptH) scale points into MVP (e.g. NDC) space, and are typically set
-// to (0.5 / vpW, 0.5 / vpH) to scale to [-1, -1] x [1, 1]
+// to (2 / vpW, 2 / vpH) to scale to [-1, -1] x [1, 1]
 // Note: we should remove ptW,ptH and put xform into MVP, simpler.
 
 bool DrawText(const char *text, float x, float y, const Font *font,
               float ptW, float ptH, const float *MVP = 0, float charPadPt = 0);
+bool DrawText(const char *text, float x, float y, const Font *font,
+              float ptW, float ptH, float r, float g, float b, float a,
+              const float *MVP = 0, float charPadPt = 0);
 
 // Paragraph rendering with text justification and word wrapping within
 // the specified rectangle. Text is aligned within the specified rectangle,
@@ -78,6 +96,9 @@ enum Align { LeftJustify, CenterJustify, RightJustify, FullJustify };
 bool DrawParagraph(const char *text, float x0, float y0, float x1, float y1,
                    Align align, const Font *font, float ptW, float ptH,
                    const float *MVP = 0);
+bool DrawParagraph(const char *text, float x0, float y0, float x1, float y1,
+                   Align align, const Font *font, float ptW, float ptH,
+                   float r, float g, float b, float a, const float *MVP = 0);
 
 
 // Texture functions:
@@ -90,6 +111,7 @@ bool DrawParagraph(const char *text, float x0, float y0, float x1, float y1,
 //            Note: Rectangular textures require clamp or GL_OES_texture_npot
 //   Format:  GL_RGBA, GL_RGB, GL_LIMINANCE_ALPHA, GL_LUMINANCE, GL_ALPHA
 //   Type:    GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT_4_4_4_4, *_5_5_5_1, *_5_6_5
+//   Name:    Debugging only. Names texture in XCode.
 
 bool StoreTexture(GLuint tex, GLenum target,
                   GLenum minFilter, GLenum magFilter,
@@ -104,18 +126,22 @@ GLint MaxTextureSize();
 
 // Shader functions:
 //   Type: GL_VERTEX_SHADER, GL_FRAGMENT_SHADER
+//   Name:    Debugging only. Names texture in XCode.
 
 GLuint CreateShader(GLenum type, const char *source_code);
 GLuint CreateProgram(GLuint vp, GLuint fp, const char *name=0);
   
 GLuint ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP);
 GLuint VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP);
-GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP, GLuint *uTex);
+GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC, GLuint *uMVP,
+                      GLuint *uTex);
+GLuint ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP, GLuint *uTex);
 
 
 // Buffer functions:
 //   Target: GL_ARRAY_BUFFER, GL_ELEMNT_ARRAY_BUFFER
 //   Usage:  GL_STATIC_DRAW, GL_DYNAMIC_DRAW, GL_STRAM_DRAW
+//   Name:    Debugging only. Names texture in XCode.
 
 GLuint CreateBuffer(GLenum target, GLsizeiptr bytes, void *data,
                     GLenum usage, const char *name=0);
