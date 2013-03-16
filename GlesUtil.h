@@ -45,6 +45,9 @@ bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                    float u0, float v0, float u1, float v1,
                    float r, float g, float b, float a,
                    const float *MVP = 0);
+bool DrawTextureStrip2f(GLuint tex, unsigned int vcount, const float *P,
+                        const float *UV, float r, float g, float b, float a,
+                        const float *MVP = 0);
 
 // Bitmapped font drawing functions:
 //   Characters are defined in points and scaled to MVP space using (ptW,ptH),

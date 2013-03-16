@@ -225,6 +225,33 @@ bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
 }
 
 
+bool GlesUtil::DrawTextureStrip2f(GLuint tex, GLuint vcount, const float *P,
+                                  const float *UV, float r, float g, float b,
+                                  float a, const float *MVP) {
+  GLuint aP, aUV, uC, uMVP, uTex;
+  GLuint program = GlesUtil::TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
+  glUseProgram(program);
+  glUniform4f(uC, r, g, b, a);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, tex);
+  glUniform1i(uTex, 0);
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!MVP)
+    MVP = &I[0];
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+
+  glEnableVertexAttribArray(aUV);
+  glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
+  glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, vcount);
+  glDisableVertexAttribArray(aUV);
+  glDisableVertexAttribArray(aP);
+
+  return true;
+}
+
+
 bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
                             GLenum minFilter, GLenum magFilter,
                             GLenum clampS, GLenum clampT,
