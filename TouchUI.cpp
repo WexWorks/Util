@@ -2148,8 +2148,6 @@ void FilmstripImpl::SnapIdx(size_t idx, float seconds) {
 
 bool Frame::Reset() {
   ComputeScaleRange();
-  if (!Step(0.001))                           // Clamp scale and animate
-    return false;
   return true;
 }
 
@@ -2242,88 +2240,71 @@ bool Frame::Step(float seconds) {
   if (!IsDragging() && !mIsLocked[1] && mCenterVelocityUV[1] != 0)
     mCenterUV[1] += mCenterVelocityUV[1] * seconds;
 
-  // Move the image so that it fits in the "valid" NDC rectangle.
-  // When the image is fit to the display, this will target the center,
-  // but when the image is zoomed in, it merely moves us back such
-  // that the full NDC rectangle is used. The shorthand for this is that
-  // the X & Y NDC values must mirror each other, e.g. |x0| == |x1|.
-  // We can also compute the center of each NDC axis and compare that
-  // against (0.5, 0.5) to know which direction to move.
-  float x0, y0, x1, y1, u0, v0, u1, v1;
-  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
-  const float centerNDC[2] = { 0.5 * (x0 + x1), 0.5 * (y0 + y1) };
-  const float eps = 0.000001;
-  const bool aligned[2] = { fabsf(centerNDC[0])<eps, fabsf(centerNDC[1])<eps };
-  if (!mIsSnappingToPixelCenter && (!aligned[0] || !aligned[1]))
-    mIsTargetWindowActive = true;
+  // Snap the NDC window to specified limit mode.
+  if (!IsDragging() && !IsScaling()) {
+    const int sw = mScale * ImageWidth();
+    const int sh = mScale * ImageHeight();
+    const float padW = std::max((int(Width()) - sw) / float(Width()), 0.0f);
+    const float padH = std::max((int(Height()) - sh) / float(Height()), 0.0f);
+    const float pw = U2Ndc(1.0 / ImageWidth());
+    const float ph = V2Ndc(1.0 / ImageHeight());
 
-  if (!IsDragging()) {
-    const float dUVPixels = 10;
-    const float pctCloser = 0.75;
-    const float screenPixUV[2] = { Ndc2U(2.0f / Width()), Ndc2V(2.0f /Height())};
-    
-    if (mIsSnappingToPixelCenter) {
-      // Find the pixel to center on, and clamp it to the image boundary
-      const float pix[2] = { mCenterUV[0] * iw, mCenterUV[1] * ih };
-      float cpix[2] = { floor(pix[0]), floor(pix[1]) };
-      cpix[0] = cpix[0] < 0 ? 0 : cpix[0] >= iw ? iw - 1 : cpix[0];
-      cpix[1] = cpix[1] < 0 ? 0 : cpix[1] >= ih ? ih - 1 : cpix[1];
- 
-      // If we're at the boundary, or the velocity is below the threshold,
-      // center on the pixel, otherwise, let it slide.
-      if (cpix[0] == 0 || cpix[0] == iw-1 || cpix[1] == 0 || cpix[1] == ih-1 ||
-          (fabsf(mCenterVelocityUV[0]) < dUVPixels / iw &&
-           fabsf(mCenterVelocityUV[1]) < dUVPixels / ih)) {
-        mCenterVelocityUV[0] = mCenterVelocityUV[1] = 0;    // force to zero
-        const float fUV[2] = { (0.5 - (pix[0] - cpix[0])) / iw,
-                               (0.5 - (pix[1] - cpix[1])) / ih };
-        float s[2] = { 1, 1 };
-        mIsDirty = fabsf(fUV[0]) > 0.5 * screenPixUV[0] ||
-                   fabsf(fUV[1]) > 0.5 * screenPixUV[1];
-        mIsTargetWindowActive = false;        // Stop animating?
-        if (fabsf(fUV[0]) > dUVPixels * 0.5 * screenPixUV[0]) {
-          s[0] = pctCloser;
-          mIsTargetWindowActive = true;       // Continue animating
-        }
-        if (fabsf(fUV[1]) > dUVPixels * 0.5 * screenPixUV[1]) {
-          s[1] = pctCloser;
-          mIsTargetWindowActive = true;       // Continue animating
-        }
-       
-        if (!mIsLocked[0])
-          mCenterUV[0] += s[0] * fUV[0];
-        if (!mIsLocked[1])
-          mCenterUV[1] += s[1] * fUV[1];
-      }
-    } else if (mIsTargetWindowActive) {
-      assert(iw && ih && mScale != 0);
-      
-      // Compute a UV offset to move us closer to each edge
-      float offUV[2] = { Ndc2U( pctCloser * centerNDC[0]),
-                         Ndc2V(-pctCloser * centerNDC[1]) };
-      
-      // If we get within a single screen pixel, snap to edge
-      // FIXME: Find a smoother way to snap rather than 10 pixels.
-      bool snap[2] = { false, false };
-      if (!aligned[0] && fabsf(offUV[0]) < dUVPixels * screenPixUV[0]) {
-        offUV[0] = Ndc2U(centerNDC[0]);
-        snap[0] = true;
-      }
-      if (!aligned[1] && fabsf(offUV[1]) < dUVPixels * screenPixUV[1]) {
-        offUV[1] = Ndc2V(-centerNDC[1]);
-        snap[1] = true;
-      }
-      
-      if ((aligned[0] || snap[0]) && (aligned[1] || snap[1])) {
-        mIsTargetWindowActive = false;
-        mIsDirty = true;
-      }
-
-      if (!mIsLocked[0])
-        mCenterUV[0] += offUV[0];
-      if (!mIsLocked[1])
-        mCenterUV[1] += offUV[1];
+    float tx0, ty0, tx1, ty1;     // Target NDC window
+    switch (mSnapMode) {
+      case SNAP_CENTER:
+        tx0 = -1 + padW;
+        ty0 = -1 + padH;
+        tx1 = 1 - padW;
+        ty1 = 1 - padH;
+        break;
+        
+      case SNAP_UPPER_LEFT:
+        tx0 = -1 + 2 * padW;
+        ty0 = -1 + 2 * padH;
+        tx1 = 1;
+        ty1 = 1;
+        break;
+        
+      case SNAP_PIXEL:
+        tx0 = -pw/2;
+        ty0 = -ph/2;
+        tx1 = pw/2;
+        ty1 = ph/2;
+        break;
+        
+      case SNAP_NDC_RECT:
+        tx0 = mSnapNDCRect[0];
+        ty0 = mSnapNDCRect[1];
+        tx1 = mSnapNDCRect[2];
+        ty1 = mSnapNDCRect[3];
+        break;
     }
+
+    // Compute the current window and compare edges to target window
+    float x0, y0, x1, y1, u0, v0, u1, v1;
+    ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+    const float s = 0.75;
+    float du = 0, dv = 0;
+    if (x0 > tx0)
+      du = s * Ndc2U(x0 - tx0);
+    else if (x1 < tx1)
+      du = s * Ndc2U(x1 - tx1);
+    if (y0 > ty0)
+      dv = s * Ndc2V(y0 - ty0);
+    else if (y1 < ty1)
+      dv = s * Ndc2V(y1 - ty1);
+
+    // Adjust the center of the current window by moving toward target
+    assert(du == 0 || !mIsLocked[0]);
+    assert(dv == 0 || !mIsLocked[1]);
+    mCenterUV[0] += du;
+    mCenterUV[1] -= dv;
+    
+    // Determine if we need to continue moving or if we've hit the target
+    if (fabsf(du) > 0.5/ImageWidth() || fabsf(dv) > 0.5/ImageHeight())
+      mIsTargetWindowActive = true;
+    else
+      mIsTargetWindowActive = false;
   }
 
   return true;
@@ -2440,7 +2421,7 @@ bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
   float du = -dx * (u1 - u0);
   float dv = -dy * (v1 - v0);
   
-  if (!mIsSnappingToPixelCenter) {            // Center allows partial NDC rect
+  if (mSnapMode == SNAP_CENTER) {             // FIXME: Handle all modes!
     if (fabsf(x0) != fabsf(x1))               // Translated off-center
       du *= 0.5;
     if (fabsf(y0) != fabsf(y1))
@@ -2537,12 +2518,12 @@ float Frame::Ndc2V(float y) const {
 
 void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
                                float *u0, float *v0, float *u1, float *v1) const {
-  size_t sw = mScale * ImageWidth();
-  size_t sh = mScale * ImageHeight();
+  int sw = mScale * ImageWidth();
+  int sh = mScale * ImageHeight();
   float halfWidthUV = std::min(0.5f * Width() / sw, 0.5f);
   float halfHeightUV = std::min(0.5f * Height() / sh, 0.5f);
-  float padW = (Width() - sw) / float(Width());
-  float padH = (Height() - sh) / float(Height());
+  float padW = (int(Width()) - sw) / float(Width());
+  float padH = (int(Height()) - sh) / float(Height());
   bool isWider = sw >= Width();
   bool isTaller = sh >= Height();
   if (isWider) {                              // Image wider than screen
@@ -2659,6 +2640,7 @@ bool ButtonGridFrame::Init(int wideCount, int narrowCount,
   mTopPad = topPad;
   mBottomPad = bottomPad;
   SetMVP(mMVPBuf);
+  SnapToFitWidth(0);
   return true;
 }
 
@@ -2715,7 +2697,7 @@ bool ButtonGridFrame::SetViewport(int x, int y, int w, int h) {
     }
   }
   
-  const int vertCount = ceilf(mButtonVec.size() / hc);
+  const int vertCount = ceilf(mButtonVec.size() / float(hc));
   int bh = vertCount * (mButtonPad + mButtonDim) + mTopPad + mBottomPad;
   SetImageDim(Width(), bh);
   
