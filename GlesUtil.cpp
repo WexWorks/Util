@@ -16,7 +16,7 @@ static GLint gErrorCode = GL_NO_ERROR;
 
 
 bool GlesUtil::Error() {
-#if 1
+#if DEBUG
   gErrorCode = glGetError();            // Note: GLES only has one active err
   if (gErrorCode != GL_NO_ERROR) {
     printf("GL ERROR: %s\n", ErrorString());
@@ -43,8 +43,40 @@ const char *GlesUtil::ErrorString() {
 }
 
 
+bool GlesUtil::IsFramebufferComplete() {
+  GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (status == GL_FRAMEBUFFER_COMPLETE)
+    return true;
+#if DEBUG
+  const char *errstr = NULL;
+  switch (status) {
+    case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+      errstr = "Incomplete attachment";
+      break;
+    case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+      errstr = "Missing attachment";
+      break;
+    case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS:
+      errstr = "Attachments do not have the same dimensions";
+      break;
+    case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE_APPLE:
+      errstr = "Internal attachment format not renderable";
+      break;
+    case GL_FRAMEBUFFER_UNSUPPORTED:
+      errstr = "Combination of attachment internal formats is not renderable";
+      break;
+    default:
+      errstr = "Unknown framebuffer error";
+      break;
+  }
+  printf("GL FBO ERROR: %s\n", errstr);
+#endif
+  return false;
+}
+
+
 bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
-                          GLuint aUV, float u0, float v0, float u1, float v1) {
+                         GLuint aUV, float u0, float v0, float u1, float v1) {
   const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
   if (aUV != -1) {
     const float UV[8] = { u0, v0,  u0, v1,  u1, v0,  u1, v1 };
@@ -133,12 +165,40 @@ bool GlesUtil::DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
 }
 
 
+bool GlesUtil::DrawGradientBox2f(float x0, float y0, float x1, float y1,
+                                 bool isVertical, float r0, float g0, float b0,
+                                 float r1,float g1,float b1, const float *MVP) {
+  GLuint aP, aC, uMVP;
+  GLuint program = GlesUtil::VertexColorProgram(&aP, &aC, &uMVP);
+  if (!program)
+    return false;
+  glUseProgram(program);
+  const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
+  const float vC[4*4] = { r0,g0,b0,1,  r1,g1,b1,1, r0,g0,b0,1,  r1,g1,b1,1 };
+  const float hC[4*4] = { r0,g0,b0,1,  r0,g0,b0,1, r1,g1,b1,1,  r1,g1,b1,1 };
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP ? MVP : I);
+  glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
+  glEnableVertexAttribArray(aC);
+  glVertexAttribPointer(aC, 4, GL_FLOAT, GL_FALSE, 0, isVertical ? vC : hC);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  glDisableVertexAttribArray(aP);
+  glDisableVertexAttribArray(aC);
+  if (GlesUtil::Error())
+    return false;
+  return true;
+}
+
+
 bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                              float u0, float v0, float u1, float v1,
+                             float r, float g, float b, float a,
                              const float *MVP) {
-  GLuint aP, aUV, uMVP, uTex;
-  GLuint program = TextureProgram(&aP, &aUV, &uMVP, &uTex);
+  GLuint aP, aUV, uC, uMVP, uTex;
+  GLuint program = TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
   glUseProgram(program);
+  glUniform4f(uC, r, g, b, a);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, tex);
   glUniform1i(uTex, 0);
@@ -154,6 +214,40 @@ bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
   if (Error())
     return false;
   
+  return true;
+}
+
+
+bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
+                             float u0, float v0, float u1, float v1,
+                             const float *MVP) {
+  return DrawTexture2f(tex, x0, y0, x1, y1, u0, v0, u1, v1, 1, 1, 1, 1, MVP);
+}
+
+
+bool GlesUtil::DrawTextureStrip2f(GLuint tex, GLuint vcount, const float *P,
+                                  const float *UV, float r, float g, float b,
+                                  float a, const float *MVP) {
+  GLuint aP, aUV, uC, uMVP, uTex;
+  GLuint program = GlesUtil::TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
+  glUseProgram(program);
+  glUniform4f(uC, r, g, b, a);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, tex);
+  glUniform1i(uTex, 0);
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!MVP)
+    MVP = &I[0];
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+
+  glEnableVertexAttribArray(aUV);
+  glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
+  glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, vcount);
+  glDisableVertexAttribArray(aUV);
+  glDisableVertexAttribArray(aP);
+
   return true;
 }
 
@@ -396,11 +490,11 @@ GLuint GlesUtil::VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP) {
 }
 
 
-GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
-                                GLuint *uTex) {
+GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
+                                GLuint *uMVP, GLuint *uTex) {
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
-  static GLuint gAP = 0, gAUV = 0, gUMVP = 0, gUCTex = 0;
+  static GLuint gAP = 0, gAUV = 0, gUC = 0, gUMVP = 0, gUCTex = 0;
   if (!gInitialized) {
     gInitialized = true;
     
@@ -418,8 +512,9 @@ GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
     "precision mediump float;\n"
     "varying vec2 vUV;\n"
     "uniform sampler2D uCTex;\n"
+    "uniform vec4 uC;\n"
     "void main() {\n"
-    "  gl_FragColor = texture2D(uCTex, vUV);\n"
+    "  gl_FragColor = uC * texture2D(uCTex, vUV);\n"
     "}\n";
     GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
     if (!vp)
@@ -435,6 +530,7 @@ GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
     glUseProgram(gProgram);
     gAUV = glGetAttribLocation(gProgram, "aUV");
     gAP = glGetAttribLocation(gProgram, "aP");
+    gUC = glGetUniformLocation(gProgram, "uC");
     gUMVP = glGetUniformLocation(gProgram, "uMVP");
     gUCTex = glGetUniformLocation(gProgram, "uCTex");
     if (Error())
@@ -443,6 +539,58 @@ GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
   
   *aP = gAP;
   *aUV = gAUV;
+  *uC = gUC;
+  *uMVP = gUMVP;
+  *uTex = gUCTex;
+  return gProgram;
+}
+
+
+GLuint GlesUtil::ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP,
+                                      GLuint *uTex) {
+  static bool gInitialized = false;             // WARNING: Static variables!
+  static GLuint gProgram = 0;
+  static GLuint gAP = 0, gUC = 0, gUMVP = 0, gUCTex = 0;
+  if (!gInitialized) {
+    gInitialized = true;
+    
+    // Note: the program below is leaked and should be destroyed in _atexit()
+    static const char *vpCode =
+    "attribute vec4 aP;\n"
+    "uniform mat4 uMVP;\n"
+    "varying vec2 vUV;\n"
+    "void main() {\n"
+    "  gl_Position = uMVP * aP;\n"
+    "}\n";
+    static const char *fpCode =
+    "precision mediump float;\n"
+    "uniform sampler2D uCTex;\n"
+    "uniform vec4 uC;\n"
+    "void main() {\n"
+    "  gl_FragColor = uC * texture2D(uCTex, gl_FragCoord.xy);\n"
+    "}\n";
+    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
+    if (!vp)
+      return false;
+    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    if (!fp)
+      return false;
+    gProgram = GlesUtil::CreateProgram(vp, fp, "Texture");
+    if (!gProgram)
+      return false;
+    glDeleteShader(vp);
+    glDeleteShader(fp);
+    glUseProgram(gProgram);
+    gAP = glGetAttribLocation(gProgram, "aP");
+    gUC = glGetUniformLocation(gProgram, "uC");
+    gUMVP = glGetUniformLocation(gProgram, "uMVP");
+    gUCTex = glGetUniformLocation(gProgram, "uCTex");
+    if (Error())
+      return false;
+  }
+  
+  *aP = gAP;
+  *uC = gUC;
   *uMVP = gUMVP;
   *uTex = gUCTex;
   return gProgram;
@@ -505,7 +653,8 @@ unsigned int GlesUtil::TextWidth(const char *text, const Font *font,
 struct V2f { float x, y; };                           // 2D Position & UV
 
 bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
-                        float ptW, float ptH, const float *MVP,float charPadPt){
+                        float ptW, float ptH, float r, float g, float b,float a,
+                        const float *MVP,float charPadPt) {
   if (text == NULL)
     return false;
   if (font == NULL)
@@ -570,15 +719,17 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   }
   
   // Set up the texture shader
-  GLuint program, aP, aUV, uMVP, uTex;
-  program = GlesUtil::TextureProgram(&aP, &aUV, &uMVP, &uTex);
+  GLuint program, aP, aUV, uC, uMVP, uTex;
+  program = GlesUtil::TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
   glUseProgram(program);                              // Setup program
+  glUniform4f(uC, r, g, b, a);
   glEnableVertexAttribArray(aUV);                     // Vertex arrays
   glEnableVertexAttribArray(aP);
   glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, &UV[0].x);
   glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, &P[0].x);
   glActiveTexture(GL_TEXTURE0);                       // Setup texture
   glBindTexture(GL_TEXTURE_2D, font->tex);
+  glUniform1i(uTex, 0);
   static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
   if (!MVP)
     MVP = &I[0];  
@@ -595,10 +746,17 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
 }
 
 
+bool GlesUtil::DrawText(const char *text, float x, float y,
+                        const GlesUtil::Font *font, float ptW, float ptH,
+                        const float *MVP, float charPadPt) {
+  return DrawText(text, x, y, font, ptW, ptH, 1, 1, 1, 1, MVP, charPadPt);
+}
+
+
 static bool DrawJustified(const char *text, float x0, float x1,
                           float y, float textW, GlesUtil::Align align,
                           const GlesUtil::Font *font, float ptW, float ptH,
-                          const float *MVP) {
+                          float r, float g, float b, float a, const float *MVP){
   const float w = x1 - x0;
   float x, pad = 0;
   switch (align) {
@@ -614,7 +772,7 @@ static bool DrawJustified(const char *text, float x0, float x1,
       }
       break;
   }
-  if (!GlesUtil::DrawText(text, x + x0, y, font, ptW, ptH, MVP, pad))
+  if (!GlesUtil::DrawText(text, x + x0, y, font, ptW, ptH, r,g,b,a, MVP, pad))
     return false;
   return true;
 }
@@ -622,7 +780,8 @@ static bool DrawJustified(const char *text, float x0, float x1,
 
 bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
                              float x1, float y1, Align align, const Font *font,
-                             float ptW, float ptH, const float *MVP) {
+                             float ptW, float ptH, float r, float g, float b,
+                             float a, const float *MVP) {
   const float wrapW = x1 - x0;
   if (wrapW <= 0)
     return false;
@@ -656,7 +815,7 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
     
     // Draw the current line. We either hit a return, the end of the string,
     // or went past the width of the rectangle and moved back to last separator
-    if (!DrawJustified(&str[0], x0, x1, y, w, align, font, ptW, ptH, MVP))
+    if (!DrawJustified(&str[0], x0,x1, y, w, align, font, ptW,ptH, r,g,b,a,MVP))
       return false;
     
     w = 0;
@@ -665,3 +824,11 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
   }
   return true;
 }
+
+
+bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
+                             float x1, float y1, Align align, const Font *font,
+                             float ptW, float ptH,  const float *MVP) {
+  return DrawParagraph(text, x0, y0, x1, y1, align, font, ptW,ptH, 1,1,1,1,MVP);
+}
+

@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		CA38A85016248BC50055AF8E /* TouchUI.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CA38A84E16248BC50055AF8E /* TouchUI.cpp */; };
 		CA38A85116248BC50055AF8E /* TouchUI.h in Headers */ = {isa = PBXBuildFile; fileRef = CA38A84F16248BC50055AF8E /* TouchUI.h */; };
+		CA45B75B16D82582006B2B84 /* Thread.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CA45B75916D82582006B2B84 /* Thread.cpp */; };
+		CA45B75C16D82582006B2B84 /* Thread.h in Headers */ = {isa = PBXBuildFile; fileRef = CA45B75A16D82582006B2B84 /* Thread.h */; };
 		CA7C699E155C979800456837 /* Base64.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CA7C699C155C979800456837 /* Base64.cpp */; };
 		CA7C699F155C979800456837 /* Base64.h in Headers */ = {isa = PBXBuildFile; fileRef = CA7C699D155C979800456837 /* Base64.h */; };
 		CA7C69A3155CD9EA00456837 /* lodepng.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CA7C69A1155CD9EA00456837 /* lodepng.cpp */; };
@@ -29,6 +31,9 @@
 		CA38A832162485470055AF8E /* Trackball.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Trackball.h; sourceTree = "<group>"; };
 		CA38A84E16248BC50055AF8E /* TouchUI.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TouchUI.cpp; sourceTree = "<group>"; };
 		CA38A84F16248BC50055AF8E /* TouchUI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TouchUI.h; sourceTree = "<group>"; };
+		CA45B75916D82582006B2B84 /* Thread.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Thread.cpp; sourceTree = "<group>"; };
+		CA45B75A16D82582006B2B84 /* Thread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Thread.h; sourceTree = "<group>"; };
+		CA4D2B1516C02A7B00E0F1BA /* Curve.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Curve.h; sourceTree = "<group>"; };
 		CA7C699C155C979800456837 /* Base64.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Base64.cpp; sourceTree = "<group>"; };
 		CA7C699D155C979800456837 /* Base64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Base64.h; sourceTree = "<group>"; };
 		CA7C69A1155CD9EA00456837 /* lodepng.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = lodepng.cpp; sourceTree = "<group>"; };
@@ -61,6 +66,7 @@
 		CABCBB5C14D07F8D00A735F5 = {
 			isa = PBXGroup;
 			children = (
+				CA4D2B1516C02A7B00E0F1BA /* Curve.h */,
 				CAA103A11653A84D00873A46 /* Sys.h */,
 				CA8EF65A1650B5D500805499 /* Filename.cpp */,
 				CA8EF65B1650B5D500805499 /* Filename.h */,
@@ -72,6 +78,8 @@
 				CA7EC3FE152E8A2A00882848 /* Json.cpp */,
 				CA7C69A2155CD9EA00456837 /* lodepng.h */,
 				CA7C69A1155CD9EA00456837 /* lodepng.cpp */,
+				CA45B75A16D82582006B2B84 /* Thread.h */,
+				CA45B75916D82582006B2B84 /* Thread.cpp */,
 				CAFE51F914EAC06F00C78E0B /* Timer.h */,
 				CAFE51F814EAC06F00C78E0B /* Timer.cpp */,
 				CABCBB7D14D0A28700A735F5 /* TriStrip.cpp */,
@@ -106,6 +114,7 @@
 				CA7C69A4155CD9EA00456837 /* lodepng.h in Headers */,
 				CA38A85116248BC50055AF8E /* TouchUI.h in Headers */,
 				CA8EF65D1650B5D500805499 /* Filename.h in Headers */,
+				CA45B75C16D82582006B2B84 /* Thread.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -168,6 +177,7 @@
 				CA7C69A3155CD9EA00456837 /* lodepng.cpp in Sources */,
 				CA38A85016248BC50055AF8E /* TouchUI.cpp in Sources */,
 				CA8EF65C1650B5D500805499 /* Filename.cpp in Sources */,
+				CA45B75B16D82582006B2B84 /* Thread.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
