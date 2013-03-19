@@ -56,6 +56,8 @@ bool Widget::ProcessGestures(const tui::Event &event) {
   size_t idx[mTouchStart.size()];         // Vector indices of start touches
   if (mTouchStart.size() != event.touchVec.size()) {
     trackingPhase = TOUCH_BEGAN;          // Restart when # touches changes
+    if (event.touchVec.size() > mTouchStart.size())
+      OnTouchBegan();                     // Stop momentum on single touch
   } else {
     for (size_t i = 0; i < mTouchStart.size(); ++i) {
       size_t j = 0;
@@ -83,7 +85,6 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       mTouchStart = event.touchVec;       // Save initial touch down info
       mIsDragging = false;                // Avoid jump due to mPrevPan tracking
       mIsScaling = false;
-      OnTouchBegan();
       break;
     case TOUCH_MOVED:
     case TOUCH_ENDED:     /*FALLTHRU*/
@@ -142,7 +143,6 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       }
       
       if (trackingPhase != TOUCH_MOVED) {
-        mTouchStart.clear();
         mIsDragging = false;
         mIsScaling = false;
       }
@@ -2242,69 +2242,72 @@ bool Frame::Step(float seconds) {
 
   // Snap the NDC window to specified limit mode.
   if (!IsDragging() && !IsScaling()) {
-    const int sw = mScale * ImageWidth();
-    const int sh = mScale * ImageHeight();
+    const int sw = mScale * iw;                           // Screen pixel dim
+    const int sh = mScale * ih;
     const float padW = std::max((int(Width()) - sw) / float(Width()), 0.0f);
     const float padH = std::max((int(Height()) - sh) / float(Height()), 0.0f);
-    const float pw = U2Ndc(1.0 / ImageWidth());
-    const float ph = V2Ndc(1.0 / ImageHeight());
+    const float pw = U2Ndc(1.0 / iw);                     // One pixel in NDC
+    const float ph = V2Ndc(1.0 / ih);
 
-    float tx0, ty0, tx1, ty1;     // Target NDC window
+    float tx0, ty0, tx1, ty1;                             // Target NDC window
     switch (mSnapMode) {
-      case SNAP_CENTER:
-        tx0 = -1 + padW;
-        ty0 = -1 + padH;
-        tx1 = 1 - padW;
-        ty1 = 1 - padH;
-        break;
-        
-      case SNAP_UPPER_LEFT:
-        tx0 = -1 + 2 * padW;
-        ty0 = -1 + 2 * padH;
-        tx1 = 1;
-        ty1 = 1;
-        break;
-        
-      case SNAP_PIXEL:
-        tx0 = -pw/2;
-        ty0 = -ph/2;
-        tx1 = pw/2;
-        ty1 = ph/2;
-        break;
-        
-      case SNAP_NDC_RECT:
-        tx0 = mSnapNDCRect[0];
-        ty0 = mSnapNDCRect[1];
-        tx1 = mSnapNDCRect[2];
-        ty1 = mSnapNDCRect[3];
-        break;
+      case SNAP_CENTER:     tx0 = -1 + padW;        ty0 = -1 + padH;
+                            tx1 = 1 - padW;         ty1 = 1 - padH;       break;
+      case SNAP_UPPER_LEFT: tx0 = -1 + 2 * padW;    ty0 = -1 + 2 * padH;
+                            tx1 = 1;                ty1 = 1;              break;
+      case SNAP_PIXEL:      tx0 = -pw/2;            ty0 = -ph/2;
+                            tx1 = pw/2;             ty1 = ph/2;           break;
+      case SNAP_NDC_RECT:   tx0 = mSnapNDCRect[0];  ty0 = mSnapNDCRect[1];
+                            tx1 = mSnapNDCRect[2];  ty1 = mSnapNDCRect[3];break;
     }
 
     // Compute the current window and compare edges to target window
+    // converting the distance from the edges in NDC into UV coords.
     float x0, y0, x1, y1, u0, v0, u1, v1;
     ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
-    const float s = 0.75;
-    float du = 0, dv = 0;
+    float su = 0.75, sv = 0.75;                           // UV Scaling
+    float du = 0, dv = 0;                                 // Change in UV
     if (x0 > tx0)
-      du = s * Ndc2U(x0 - tx0);
+      du = Ndc2U(x0 - tx0);
     else if (x1 < tx1)
-      du = s * Ndc2U(x1 - tx1);
+      du = Ndc2U(x1 - tx1);
     if (y0 > ty0)
-      dv = s * Ndc2V(y0 - ty0);
+      dv = Ndc2V(y0 - ty0);
     else if (y1 < ty1)
-      dv = s * Ndc2V(y1 - ty1);
+      dv = Ndc2V(y1 - ty1);
+
+    // Snap the central pixel when the velocity falls below a threshold
+    const float dUVPixels = 5;                            // pixel threshold
+    const float spu = Ndc2U(2.0f / Width()), spv = Ndc2V(2.0f /Height());
+    if (mSnapMode == SNAP_PIXEL && du == 0 && dv == 0 &&  // No motion
+        fabsf(mCenterVelocityUV[0]) < dUVPixels / iw &&   // No momentum
+        fabsf(mCenterVelocityUV[1]) < dUVPixels / ih) {
+      const float pix[2] = { mCenterUV[0] * iw, mCenterUV[1] * ih };
+      float cpix[2] = { floor(pix[0]), floor(pix[1]) };   // Center pixel
+      assert(cpix[0] >= 0 && cpix[0] < iw);               // du == dv == 0
+      assert(cpix[1] >= 0 && cpix[1] < ih);
+      mCenterVelocityUV[0] = mCenterVelocityUV[1] = 0;    // Force to zero
+      du = (0.5 - (pix[0] - cpix[0])) / iw;               // Move to pix center
+      dv = -(0.5 -(pix[1] - cpix[1])) / ih;
+    }
+
+    if (fabsf(du) < dUVPixels * 0.5 * spu)                // Final movement
+      su = 1;
+    if (fabsf(dv) < dUVPixels * 0.5 * spv)
+      sv = 1;
 
     // Adjust the center of the current window by moving toward target
     assert(du == 0 || !mIsLocked[0]);
     assert(dv == 0 || !mIsLocked[1]);
-    mCenterUV[0] += du;
-    mCenterUV[1] -= dv;
+    mCenterUV[0] += su * du;
+    mCenterUV[1] -= sv * dv;
     
     // Determine if we need to continue moving or if we've hit the target
-    if (fabsf(du) > 0.5/ImageWidth() || fabsf(dv) > 0.5/ImageHeight())
+    if (su < 1 || sv < 1)
       mIsTargetWindowActive = true;
     else
       mIsTargetWindowActive = false;
+    mIsDirty = fabsf(du) > 0.5 * spu || fabsf(dv) > 0.5 * spv;
   }
 
   return true;
