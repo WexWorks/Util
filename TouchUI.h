@@ -719,7 +719,7 @@ namespace tui {
   // requires an invserse transformation of the touch event coordinates.
   class Frame : public AnimatedViewport {
   public:
-    Frame() : mIsScaleLocked(false), mIsSnappingToPixelCenter(false),
+    Frame() : mIsScaleLocked(false), mSnapMode(SNAP_CENTER),
               mScale(1), mScaleVelocity(0),
               mStartScale(0), mPrevScale(0),
               mPrevScaleTimestamp(0), mPrevDragTimestamp(0),
@@ -734,6 +734,7 @@ namespace tui {
       memset(mStartCenterUV, 0, sizeof(mStartCenterUV));
       memset(mPrevDragXY, 0, sizeof(mPrevDragXY));
       memset(mCenterVelocityUV, 0, sizeof(mCenterVelocityUV));
+      mSnapNDCRect[0]=mSnapNDCRect[1] = -1; mSnapNDCRect[2]=mSnapNDCRect[3] = 1;
     }
     virtual ~Frame() {}
 
@@ -743,8 +744,12 @@ namespace tui {
     virtual void Lock(bool horizontal, bool vertical, bool scale) {
       mIsLocked[0] = horizontal; mIsLocked[1] = vertical; mIsScaleLocked =scale;
     }
-    virtual void SnapToPixelCenter(bool status) {
-      mIsSnappingToPixelCenter = status;
+    virtual void SnapToScreenCenter() { mSnapMode = SNAP_CENTER; }
+    virtual void SnapToUpperLeft() { mSnapMode = SNAP_UPPER_LEFT; }
+    virtual void SnapToPixelCenter() { mSnapMode = SNAP_PIXEL; }
+    virtual void SnapToNDCRect(float u0, float v0, float u1, float v1) {
+      mSnapMode = SNAP_NDC_RECT; mSnapNDCRect[0] = u0; mSnapNDCRect[1] = v0;
+      mSnapNDCRect[2] = u1; mSnapNDCRect[3] = v1;
     }
     
     // Widget Methods -- Override if you need custom behavior
@@ -791,10 +796,13 @@ namespace tui {
     float Ndc2U(float x) const;
     float Ndc2V(float y) const;
     
+    enum SnapMode { SNAP_CENTER, SNAP_UPPER_LEFT, SNAP_PIXEL, SNAP_NDC_RECT };
+    
     size_t mDim[2];                           // Image dimensions
     bool mIsLocked[2];                        // Lock horizontal/vertical move
     bool mIsScaleLocked;                      // Lock scaling
-    bool mIsSnappingToPixelCenter;            // Snap pixel in image center
+    SnapMode mSnapMode;                       // Limit NDC rect
+    float mSnapNDCRect[4];                    // [u0, v0, u1, v1] SNAP_NDC_RECT
     
     float mScale, mScaleVelocity;             // Image scale, 1 -> 1 pixel
     float mCenterUV[2], mCenterVelocityUV[2]; // Center of screen in UV 0 -> 1
