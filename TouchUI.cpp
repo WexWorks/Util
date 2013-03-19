@@ -2680,6 +2680,17 @@ void ButtonGridFrame::Sort(const CompareButton &compare) {
 }
 
 
+bool ButtonGridFrame::Snap(size_t i) {
+  if (i >= ButtonCount())
+    return false;
+  const int hc = mButtonHorizCount[mButtonHorizCountIdx];
+  int row = i / hc;
+  float v = row * (mButtonDim + mButtonPad) / float(ImageHeight());
+  SnapToFitWidth(v);
+  return true;
+}
+
+
 bool ButtonGridFrame::SetViewport(int x, int y, int w, int h) {
   if (!Frame::SetViewport(x, y, w, h))
     return false;
