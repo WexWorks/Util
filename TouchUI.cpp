@@ -2263,19 +2263,37 @@ bool Frame::Step(float seconds) {
 
     // Compute the current window and compare edges to target window
     // converting the distance from the edges in NDC into UV coords.
+    // When the crop window is smaller than the image, we keep it inside,
+    // and when the crop window is larger, we keep the image inside the crop.
     float x0, y0, x1, y1, u0, v0, u1, v1;
     ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
     float su = 0.75, sv = 0.75;                           // UV Scaling
     float du = 0, dv = 0;                                 // Change in UV
-    if (x0 > tx0)
-      du = Ndc2U(x0 - tx0);
-    else if (x1 < tx1)
-      du = Ndc2U(x1 - tx1);
-    if (y0 > ty0)
-      dv = Ndc2V(y0 - ty0);
-    else if (y1 < ty1)
-      dv = Ndc2V(y1 - ty1);
-
+    const bool isWider = tx1 - tx0 > x1 - x0;             // Crop wider image?
+    if (isWider) {                                        // Image inside crop
+      if (x0 < tx0)                                       // Left
+        du = Ndc2U(x0 - tx0);
+      else if (x1 > tx1)                                  // Right
+        du = Ndc2U(x1 - tx1);
+    } else {                                              // Crop inside image
+      if (x0 > tx0)                                       // Left
+        du = Ndc2U(x0 - tx0);
+      else if (x1 < tx1)                                  // Right
+        du = Ndc2U(x1 - tx1);
+    }
+    const bool isTaller = ty1 - ty0 > y1 - y0;            // Crop taller image?
+    if (isTaller) {                                       // Image inside crop
+      if (y0 < ty0)                                       // Bottom
+        dv = Ndc2V(y0 - ty0);
+      else if (y1 > ty1)                                  // Top
+        dv = Ndc2V(y1 - ty1);
+    } else {                                              // Crop inside image
+      if (y0 > ty0)                                       // Bottom
+        dv = Ndc2V(y0 - ty0);
+      else if (y1 < ty1)                                  // Top
+        dv = Ndc2V(y1 - ty1);
+    }
+    
     // Snap the central pixel when the velocity falls below a threshold
     const float dUVPixels = 5;                            // pixel threshold
     const float spu = Ndc2U(2.0f / Width()), spv = Ndc2V(2.0f /Height());
