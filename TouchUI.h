@@ -846,6 +846,7 @@ namespace tui {
     virtual size_t ButtonCount() const { return mButtonVec.size(); }
     virtual Button *Button(size_t i) { return mButtonVec[i]; }
     virtual void Sort(const CompareButton &compare);
+    virtual bool Snap(size_t i);              // Ensure button #i is visible
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual bool Touch(const tui::Event &event);
