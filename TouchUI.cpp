@@ -2270,7 +2270,7 @@ bool Frame::Step(float seconds) {
     float su = 0.75, sv = 0.75;                           // UV Scaling
     float du = 0, dv = 0;                                 // Change in UV
     const bool isWider = tx1 - tx0 > x1 - x0;             // Crop wider image?
-    if (isWider) {                                        // Image inside crop
+    if (mSnapMode == SNAP_NDC_RECT && isWider) {          // Image inside crop
       if (x0 < tx0)                                       // Left
         du = Ndc2U(x0 - tx0);
       else if (x1 > tx1)                                  // Right
@@ -2282,7 +2282,7 @@ bool Frame::Step(float seconds) {
         du = Ndc2U(x1 - tx1);
     }
     const bool isTaller = ty1 - ty0 > y1 - y0;            // Crop taller image?
-    if (isTaller) {                                       // Image inside crop
+    if (mSnapMode == SNAP_NDC_RECT && isTaller) {         // Image inside crop
       if (y0 < ty0)                                       // Bottom
         dv = Ndc2V(y0 - ty0);
       else if (y1 > ty1)                                  // Top
