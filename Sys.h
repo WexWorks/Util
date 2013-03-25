@@ -67,6 +67,8 @@ struct SetAlertText {
 };
   
 struct RenderImageToFile {
+  // Passing w != 0 && h == 0 uses w as a max dimension.
+  // Passing w == h == 0 uses source image resolution.
   virtual bool operator()(const char *url, const char *file, size_t w, size_t h,
                           size_t channelCount, size_t bytesPerChannel) = 0;
 };
