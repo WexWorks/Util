@@ -551,6 +551,8 @@ namespace tui {
                       mLongPressSeconds(0), mSingleFrameFling(false) {
       mTouchStart[0] = mTouchStart[1] = 0;
       mOverpullDim[0] = mOverpullDim[1] = 0;
+      mOverpullColor[0] = 0; mOverpullColor[1] = 0.75;
+      mOverpullColor[3] = 1; mOverpullColor[3] = 0.25;
       mDragHandleDim[0] = mDragHandleDim[1] = 0;
     }
     virtual ~FlinglistImpl() {}
@@ -562,6 +564,10 @@ namespace tui {
     virtual bool SetDragHandle(unsigned int texture, size_t w, size_t h);
     virtual bool SetOverpull(unsigned int offTex, unsigned int onTex,
                              size_t w, size_t h);
+    virtual void SetOverpullColor(float r, float g, float b, float a) {
+      mOverpullColor[0] = r; mOverpullColor[1] = g;
+      mOverpullColor[2] = b; mOverpullColor[3] = a;
+    }
     virtual void SetScrollableDim(int dim) { mScrollableDim = dim; }
     virtual void GlowDragHandle(bool status) { mGlowDragHandle = status; }
     virtual bool Clear();
@@ -636,6 +642,7 @@ namespace tui {
     float mSnapOriginalOffset;                // Offset at start of snap
     float mSnapTargetOffset;                  // Offset at end of snap
     float mSnapLocationOffset;                // Offset to snap location
+    float mOverpullColor[4];                  // Defaults to transparent blue
     size_t mOverpullDim[2];                   // Size of overpull texture
     unsigned int mOverpullOffTex;             // Overpull inactive texture
     unsigned int mOverpullOnTex;              // Overpull active texture
