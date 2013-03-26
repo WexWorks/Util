@@ -65,6 +65,13 @@ struct SetImagePixels {
 struct SetAlertText {
   virtual bool operator()(const char *inputText) = 0;
 };
+  
+struct RenderImageToFile {
+  // Passing w != 0 && h == 0 uses w as a max dimension.
+  // Passing w == h == 0 uses source image resolution.
+  virtual bool operator()(const char *url, const char *file, size_t w, size_t h,
+                          size_t channelCount, size_t bytesPerChannel) = 0;
+};
 
 
 // Derive a custom Callback class that implements the interface using OS-side
@@ -114,6 +121,11 @@ public:
   // Display an alert box with optional text input and button names
   virtual void AlertBox(const char *title, const char *msg, const char *ok,
                         const char *cancel,bool secure,SetAlertText *setText)=0;
+  
+  // Share the images in the file list to the named service
+  virtual bool ShareImageFiles(const char *service, const int widgetRect[4],
+                               const std::vector<std::string> &url,
+                               RenderImageToFile *render) = 0;
 };
 
 
