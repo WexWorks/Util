@@ -552,7 +552,7 @@ namespace tui {
       mTouchStart[0] = mTouchStart[1] = 0;
       mOverpullDim[0] = mOverpullDim[1] = 0;
       mOverpullColor[0] = 0; mOverpullColor[1] = 0.75;
-      mOverpullColor[3] = 1; mOverpullColor[3] = 0.25;
+      mOverpullColor[2] = 1; mOverpullColor[3] = 0.25;
       mDragHandleDim[0] = mDragHandleDim[1] = 0;
     }
     virtual ~FlinglistImpl() {}
