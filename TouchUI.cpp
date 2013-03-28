@@ -1375,7 +1375,11 @@ bool FlinglistImpl::SetViewport(int x, int y, int w, int h) {
   if (mScrollableDim)
     mScrollableDim = std::max(mScrollableDim, mFrameDim);
   else
-    mScrollableDim = std::min(mFrameDim, h);
+    mScrollableDim = mFrameDim;
+  if (mVertical)
+    mScrollableDim = std::min(mScrollableDim, h);
+  else
+    mScrollableDim = std::min(mScrollableDim, w);
   return true;
 }
 
