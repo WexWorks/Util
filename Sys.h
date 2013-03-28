@@ -65,18 +65,19 @@ struct SetImagePixels {
 struct SetAlertText {
   virtual bool operator()(const char *inputText) = 0;
 };
-  
-struct RenderImageToFile {
+
+struct SetShareOptions {
   // Passing w != 0 && h == 0 uses w as a max dimension.
   // Passing w == h == 0 uses source image resolution.
-  virtual bool operator()(const char *url, const char *file, size_t w, size_t h,
-                          size_t channelCount, size_t bytesPerChannel) = 0;
-  virtual void Saved(const char *url) {}
+  // Passing -100 <= w,h < 0 uses w & h as percentage of source resolution.
+  virtual bool operator()(const char *service, int w, int h) = 0;
 };
 
-
+  
 // Derive a custom Callback class that implements the interface using OS-side
 // code, e.g. Obj-C or Java, to provide system resources to the C++ code.
+// Most of these functions may be asynchronous, providing a callback which
+// is invoked once the operation is completed on the OS-side.
 
 class Callbacks {
 public:
@@ -123,10 +124,17 @@ public:
   virtual void AlertBox(const char *title, const char *msg, const char *ok,
                         const char *cancel,bool secure,SetAlertText *setText)=0;
   
-  // Share the images in the file list to the named service
-  virtual bool ShareImageFiles(const char *service, const int widgetRect[4],
-                               const std::vector<std::string> &url,
-                               RenderImageToFile *render) = 0;
+  // Open a sharing option dialog and return the options via callback
+  virtual bool GetShareOptions(const char *service, const int fromRect[4],
+                               SetShareOptions *setOptions) = 0;
+  
+  // Share the named file in the background without opening any dialogs
+  virtual bool ShareImage(const char *service, const char *file) = 0;
+
+  // Open a sharing dialog to gather comments and post the files
+  virtual bool ShareImageFiles(const char *service,
+                               const std::vector<std::string> &file,
+                               const int fromRect[4]) = 0;
 };
 
 

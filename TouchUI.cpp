@@ -609,7 +609,9 @@ bool CheckboxImageButton::Draw() {
   GetNDCRect(&x0, &y0, &x1, &y1);
   unsigned int texture = Pressed() ? mPressedTex : Selected() ?
                                     mSelectedTex : mDeselectedTex;
-  if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0, MVP()))
+  float g = Enabled() ? 1 : 0.5;
+  if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0,
+                               g, g, g, 1, MVP()))
     return false;
   
   glDisable(GL_BLEND);
