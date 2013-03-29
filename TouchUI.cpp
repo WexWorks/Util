@@ -800,7 +800,7 @@ void RadioButton::SetSelected(CheckboxButton *button) {
       cb->SetSelected(false);
   }
   
-  if (!button->Selected())
+  if (button && !button->Selected())
     button->SetSelected(true);
   
   if (Selected() == NULL && wasSelected)
@@ -1370,14 +1370,24 @@ bool FlinglistImpl::Init(int frameDim, bool vertical, float pixelsPerCm) {
 bool FlinglistImpl::SetViewport(int x, int y, int w, int h) {
   if (!AnimatedViewport::SetViewport(x, y, w, h))
     return false;
-  mScrollableDim = std::min(mFrameDim, h);
+  if (mScrollableDim)
+    mScrollableDim = std::max(mScrollableDim, mFrameDim);
+  else
+    mScrollableDim = mFrameDim;
+  if (mVertical)
+    mScrollableDim = std::min(mScrollableDim, h);
+  else
+    mScrollableDim = std::min(mScrollableDim, w);
   return true;
 }
 
 
 void FlinglistImpl::SetFrameDim(int dim) {
   mFrameDim = dim;
-  mScrollableDim = std::min(mFrameDim, Height());
+  if (mScrollableDim)
+    mScrollableDim = std::max(mScrollableDim, mFrameDim);
+  else
+    mScrollableDim = std::min(mFrameDim, Height());
 }
 
 
@@ -1598,7 +1608,7 @@ bool FlinglistImpl::Draw() {
     glBlendEquation(GL_FUNC_ADD);
     glUseProgram(mFlingProgram);
     int uC = glGetUniformLocation(mFlingProgram, "uC");
-    glUniform4f(uC, 0, 0.75, 1, 0.25);
+    glUniform4fv(uC, 1, mOverpullColor);
     int aP = glGetAttribLocation(mFlingProgram, "aP");
     glEnableVertexAttribArray(aP);
     float v[8] = { -1, -1,   -1, 1,   1, -1,   1, 1 };
