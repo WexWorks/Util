@@ -135,6 +135,8 @@ public:
   virtual bool ShareImageFiles(const char *service,
                                const std::vector<std::string> &file,
                                const int fromRect[4]) = 0;
+  
+  virtual void ForceRedraw() = 0;
 };
 
 

@@ -197,6 +197,20 @@ namespace tui {
   };
   
   
+  // Progress bar
+  class ProgressBar : public ViewportWidget {
+  public:
+    ProgressBar() : mValue(0) { mRange[0] = 0; mRange[1] = 100; }
+    virtual bool SetRange(float min, float max);
+    virtual void SetValue(float value) { mValue = value; }
+    virtual bool Draw();
+    
+  private:
+    float mRange[2];                          // [min, max] value
+    float mValue;                             // Current value
+  };
+  
+  
   // Base class for any animated widgets
   class AnimatedViewport : public ViewportWidget {
   public:
@@ -508,9 +522,8 @@ namespace tui {
   public:
     static const size_t kStdHeight = 44;
     
-    Toolbar() : mEdgeTex(0), mCenterTex(0), mEdgeDim(0) {}
-    virtual bool Init(unsigned int centerTex);
-    virtual bool SetEdge(unsigned int edgeTex, unsigned int edgeDim);
+    Toolbar() : mBackgroundTex(0) {}
+    virtual void SetBackgroundTex(unsigned int tex) { mBackgroundTex = tex; }
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual void Add(ViewportWidget *widget) { mWidgetVec.push_back(widget); }
@@ -521,8 +534,7 @@ namespace tui {
     virtual bool Draw();
     
   private:
-    unsigned int mEdgeTex, mCenterTex;
-    unsigned int mEdgeDim;
+    unsigned int mBackgroundTex;
     std::vector<ViewportWidget *> mWidgetVec;
   };
   

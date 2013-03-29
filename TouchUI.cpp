@@ -304,6 +304,36 @@ float Label::TopLineOffset() const {
 
 
 //
+// ProgressBar
+//
+
+bool ProgressBar::SetRange(float min, float max) {
+  if (max <= min)
+    return false;
+  mRange[0] = min; mRange[1] = max; return true;
+  return true;
+}
+
+
+bool ProgressBar::Draw() {
+  if (Hidden())
+    return true;
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
+  if (!GlesUtil::DrawColorBox2f(x0, y0, x1, y1, 0.8, 0.8, 0.8, 1))
+    return false;
+  float t = (mValue - mRange[0]) / (mRange[1] - mRange[0]);
+  t = std::max(std::min(t, 1.0f), 0.0f);
+  float x = x0 + t * (x1 - x0);
+  if (!GlesUtil::DrawColorBox2f(x0, y0, x, y1, 0.3, 0.7, 1, 1))
+    return false;
+  return true;
+}
+
+
+//
 // Sprite
 //
 
@@ -1184,20 +1214,6 @@ void Group::SetMVP(const float *mvp) {
 // Toolbar
 //
 
-bool Toolbar::Init(unsigned int centerTex) {
-  mCenterTex = centerTex;
-  return true;
-}
-
-
-bool Toolbar::SetEdge(unsigned int edgeTex, unsigned int edgeDim) {
-  abort();
-  mEdgeTex = edgeTex;
-  mEdgeDim = edgeDim;
-  return true;
-}
-
-
 bool Toolbar::SetViewport(int x, int y, int w, int h) {
   if (!ViewportWidget::SetViewport(x, y, w, h))
     return false;
@@ -1217,7 +1233,7 @@ bool Toolbar::SetViewport(int x, int y, int w, int h) {
   int flexibleSpacing = (Width() - totalWidth) / flexibleCount;
   
   // Now set the viewport for all widgets (except flexible spacers)
-  int wx = 0;
+  int wx = x;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
     ViewportWidget *widget = mWidgetVec[i];
     if (widget->Width() > 0) {
@@ -1272,17 +1288,18 @@ bool Toolbar::Touch(const tui::Event &event) {
 bool Toolbar::Draw() {
   if (Hidden())
     return true;
-  assert(!mEdgeDim && !mEdgeTex);
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glBlendEquation(GL_FUNC_ADD);
   if (!MVP())
     glViewport(Left(), Bottom(), Width(), Height());
-  float x0, y0, x1, y1;
-  GetNDCRect(&x0, &y0, &x1, &y1);
-  if (!GlesUtil::DrawTexture2f(mCenterTex, x0, y0, x1, y1, 0, 1, 1, 0, MVP()))
-    return false;
-  glDisable(GL_BLEND);
+  if (mBackgroundTex) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
+    float x0, y0, x1, y1;
+    GetNDCRect(&x0, &y0, &x1, &y1);
+    if (!GlesUtil::DrawTexture2f(mBackgroundTex, x0,y0,x1,y1, 0,1,1,0, MVP()))
+      return false;
+    glDisable(GL_BLEND);
+  }
   
   bool status = true;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
