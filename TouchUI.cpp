@@ -1950,7 +1950,7 @@ bool FlinglistImpl::Jiggle() {
 // to support dragging of the list and manage the overdraw and thumb animations.
 
 bool FlinglistImpl::Touch(const Event &event) {
-  if (!Enabled() || Size() == 0)
+  if (Hidden() || !Enabled() || Size() == 0)
     return false;
   
   for (size_t t = 0; t < event.touchVec.size(); ++t) {
