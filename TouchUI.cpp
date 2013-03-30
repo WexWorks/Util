@@ -88,7 +88,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       break;
     case TOUCH_MOVED:
     case TOUCH_ENDED:     /*FALLTHRU*/
-      if (mTouchStart.size() > 1) {       // Multitouch processing
+      if (mTouchStart.size() > 1 && !event.touchVec.empty()) {  // Multitouch
         // Compute the pan based on the distance between the segment midpoints
         const float mid0[2] = { 0.5 * (mTouchStart[0].x + mTouchStart[1].x),
                                 0.5 * (mTouchStart[0].y + mTouchStart[1].y) };
@@ -122,7 +122,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         if (mIsScaling &&
             OnScale(gesturePhase, scale, mid[0], mid[1], t0.timestamp))
             consumed = true;
-      } else {                              // Single-touch processing
+      } else if (!event.touchVec.empty()) {                     // Single-touch
         
         // Translate by the difference between the previous and
         // the current touch locations, accounting for scale.
@@ -1230,7 +1230,7 @@ bool Toolbar::SetViewport(int x, int y, int w, int h) {
       totalWidth += w;
   }
   
-  int flexibleSpacing = (Width() - totalWidth) / flexibleCount;
+  int flexibleSpacing = flexibleCount ? (Width() - totalWidth) / flexibleCount : 0;
   
   // Now set the viewport for all widgets (except flexible spacers)
   int wx = x;

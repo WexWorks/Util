@@ -70,7 +70,8 @@ struct SetShareOptions {
   // Passing w != 0 && h == 0 uses w as a max dimension.
   // Passing w == h == 0 uses source image resolution.
   // Passing -100 <= w,h < 0 uses w & h as percentage of source resolution.
-  virtual bool operator()(const char *service, int w, int h) = 0;
+  virtual bool operator()(const char *service, const char *comment,
+                          int w, int h) = 0;
 };
 
   
@@ -129,12 +130,13 @@ public:
                                SetShareOptions *setOptions) = 0;
   
   // Share the named file in the background without opening any dialogs
-  virtual bool ShareImage(const char *service, const char *file) = 0;
+  virtual bool ShareImage(const char *service, const char *file,
+                          const char *comment) = 0;
 
   // Open a sharing dialog to gather comments and post the files
   virtual bool ShareImageFiles(const char *service,
                                const std::vector<std::string> &file,
-                               const int fromRect[4]) = 0;
+                               const char *comment, const int fromRect[4]) = 0;
   
   virtual void ForceRedraw() = 0;
 };
