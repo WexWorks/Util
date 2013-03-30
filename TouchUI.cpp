@@ -2742,9 +2742,15 @@ bool ButtonGridFrame::SetViewport(int x, int y, int w, int h) {
   if (!Frame::SetViewport(x, y, w, h))
     return false;
   
+  // Calculate the new layout and set the image size
   mButtonHorizCountIdx = w > h ? 0 : 1;
   const int hc = mButtonHorizCount[mButtonHorizCountIdx];
   mButtonDim = (w - mButtonPad * (hc + 1)) / hc;
+  const int vertCount = ceilf(mButtonVec.size() / float(hc));
+  int bh = vertCount * (mButtonPad + mButtonDim) + mTopPad + mBottomPad;
+  SetImageDim(Width(), bh);
+
+  // Layout the individual buttons using the new image size
   int px = mButtonPad;
   int py = ImageHeight() - mTopPad - mButtonDim;
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
@@ -2758,9 +2764,6 @@ bool ButtonGridFrame::SetViewport(int x, int y, int w, int h) {
     }
   }
   
-  const int vertCount = ceilf(mButtonVec.size() / float(hc));
-  int bh = vertCount * (mButtonPad + mButtonDim) + mTopPad + mBottomPad;
-  SetImageDim(Width(), bh);
   
   return true;
 }
