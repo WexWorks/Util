@@ -287,7 +287,7 @@ bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
     return false;
   
 #if DEBUG
-  bool isPow2 = false;
+  bool isPow2 = w == 1;
   for (size_t i = 1; i < 16; ++i) {
     if (w == (1L << i)) {
       isPow2 = true;
