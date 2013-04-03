@@ -477,8 +477,7 @@ int Button::FindPress(size_t id) const {
 
 
 bool Button::Touch(const Event &event) {
-  // Don't process events when disabled
-  if (!Enabled())
+  if (!Enabled() || Hidden())
     return false;
   
   // Check each touch, add to PressedIdVector if inside on begin,
@@ -863,6 +862,8 @@ void RadioButton::SetMVP(const float *mvp) {
 
 
 bool RadioButton::Touch(const Event &event) {
+  if (!Enabled() || Hidden())
+    return false;
   bool wasSelected = Selected() != NULL;
   bool consumed = false;
   
@@ -941,7 +942,7 @@ static void ClosestPoint(double ax, double ay, double bx, double by, bool clamp,
 
 
 bool Handle::Touch(const Event &event) {
-  if (!Enabled())
+  if (!Enabled() || Hidden())
     return false;
   bool consumed = Button::Touch(event);
   bool drag = Pressed() || (Constrained() && !mPressVec.empty());
@@ -1076,7 +1077,7 @@ bool Slider::SetValue(float value) {
 
 
 bool Slider::Touch(const Event &event) {
-  if (!Enabled())
+  if (!Enabled() || Hidden())
     return false;
   float oldVal = Value();
   bool consumed = mHandle->Touch(event);
@@ -1274,7 +1275,7 @@ bool Toolbar::AddFlexibleSpacer() {
 
 
 bool Toolbar::Touch(const tui::Event &event) {
-  if (!Enabled())
+  if (!Enabled() || Hidden())
     return false;
   bool consumed = false;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
@@ -1969,7 +1970,7 @@ bool FlinglistImpl::Jiggle() {
 // to support dragging of the list and manage the overdraw and thumb animations.
 
 bool FlinglistImpl::Touch(const Event &event) {
-  if (!Enabled() || Size() == 0)
+  if (!Enabled() || Hidden() || Size() == 0)
     return false;
   
   for (size_t t = 0; t < event.touchVec.size(); ++t) {
@@ -2777,7 +2778,7 @@ void ButtonGridFrame::SetMVP(const float *mvp) {
 
 
 bool ButtonGridFrame::Touch(const tui::Event &event) {
-  if (!Enabled())
+  if (!Enabled() || Hidden())
     return false;
   
   if (Frame::Touch(event))
