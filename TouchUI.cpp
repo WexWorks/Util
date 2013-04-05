@@ -88,7 +88,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       break;
     case TOUCH_MOVED:
     case TOUCH_ENDED:     /*FALLTHRU*/
-      if (mTouchStart.size() > 1) {       // Multitouch processing
+      if (mTouchStart.size() > 1 && !event.touchVec.empty()) {  // Multitouch
         // Compute the pan based on the distance between the segment midpoints
         const float mid0[2] = { 0.5 * (mTouchStart[0].x + mTouchStart[1].x),
                                 0.5 * (mTouchStart[0].y + mTouchStart[1].y) };
@@ -122,7 +122,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         if (mIsScaling &&
             OnScale(gesturePhase, scale, mid[0], mid[1], t0.timestamp))
             consumed = true;
-      } else {                              // Single-touch processing
+      } else if (!event.touchVec.empty()) {                     // Single-touch
         
         // Translate by the difference between the previous and
         // the current touch locations, accounting for scale.
@@ -304,6 +304,36 @@ float Label::TopLineOffset() const {
 
 
 //
+// ProgressBar
+//
+
+bool ProgressBar::SetRange(float min, float max) {
+  if (max <= min)
+    return false;
+  mRange[0] = min; mRange[1] = max; return true;
+  return true;
+}
+
+
+bool ProgressBar::Draw() {
+  if (Hidden())
+    return true;
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
+  if (!GlesUtil::DrawColorBox2f(x0, y0, x1, y1, 0.8, 0.8, 0.8, 1))
+    return false;
+  float t = (mValue - mRange[0]) / (mRange[1] - mRange[0]);
+  t = std::max(std::min(t, 1.0f), 0.0f);
+  float x = x0 + t * (x1 - x0);
+  if (!GlesUtil::DrawColorBox2f(x0, y0, x, y1, 0.3, 0.7, 1, 1))
+    return false;
+  return true;
+}
+
+
+//
 // Sprite
 //
 
@@ -447,8 +477,7 @@ int Button::FindPress(size_t id) const {
 
 
 bool Button::Touch(const Event &event) {
-  // Don't process events when disabled
-  if (!Enabled())
+  if (!Enabled() || Hidden())
     return false;
   
   // Check each touch, add to PressedIdVector if inside on begin,
@@ -609,7 +638,9 @@ bool CheckboxImageButton::Draw() {
   GetNDCRect(&x0, &y0, &x1, &y1);
   unsigned int texture = Pressed() ? mPressedTex : Selected() ?
                                     mSelectedTex : mDeselectedTex;
-  if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0, MVP()))
+  float g = Enabled() ? 1 : 0.5;
+  if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0,
+                               g, g, g, 1, MVP()))
     return false;
   
   glDisable(GL_BLEND);
@@ -831,6 +862,8 @@ void RadioButton::SetMVP(const float *mvp) {
 
 
 bool RadioButton::Touch(const Event &event) {
+  if (!Enabled() || Hidden())
+    return false;
   bool wasSelected = Selected() != NULL;
   bool consumed = false;
   
@@ -909,7 +942,7 @@ static void ClosestPoint(double ax, double ay, double bx, double by, bool clamp,
 
 
 bool Handle::Touch(const Event &event) {
-  if (!Enabled())
+  if (!Enabled() || Hidden())
     return false;
   bool consumed = Button::Touch(event);
   bool drag = Pressed() || (Constrained() && !mPressVec.empty());
@@ -1044,7 +1077,7 @@ bool Slider::SetValue(float value) {
 
 
 bool Slider::Touch(const Event &event) {
-  if (!Enabled())
+  if (!Enabled() || Hidden())
     return false;
   float oldVal = Value();
   bool consumed = mHandle->Touch(event);
@@ -1182,20 +1215,6 @@ void Group::SetMVP(const float *mvp) {
 // Toolbar
 //
 
-bool Toolbar::Init(unsigned int centerTex) {
-  mCenterTex = centerTex;
-  return true;
-}
-
-
-bool Toolbar::SetEdge(unsigned int edgeTex, unsigned int edgeDim) {
-  abort();
-  mEdgeTex = edgeTex;
-  mEdgeDim = edgeDim;
-  return true;
-}
-
-
 bool Toolbar::SetViewport(int x, int y, int w, int h) {
   if (!ViewportWidget::SetViewport(x, y, w, h))
     return false;
@@ -1212,10 +1231,10 @@ bool Toolbar::SetViewport(int x, int y, int w, int h) {
       totalWidth += w;
   }
   
-  int flexibleSpacing = (Width() - totalWidth) / flexibleCount;
+  int flexibleSpacing = flexibleCount ? (Width() - totalWidth) / flexibleCount : 0;
   
   // Now set the viewport for all widgets (except flexible spacers)
-  int wx = 0;
+  int wx = x;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
     ViewportWidget *widget = mWidgetVec[i];
     if (widget->Width() > 0) {
@@ -1256,7 +1275,7 @@ bool Toolbar::AddFlexibleSpacer() {
 
 
 bool Toolbar::Touch(const tui::Event &event) {
-  if (!Enabled())
+  if (!Enabled() || Hidden())
     return false;
   bool consumed = false;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
@@ -1270,17 +1289,18 @@ bool Toolbar::Touch(const tui::Event &event) {
 bool Toolbar::Draw() {
   if (Hidden())
     return true;
-  assert(!mEdgeDim && !mEdgeTex);
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glBlendEquation(GL_FUNC_ADD);
   if (!MVP())
     glViewport(Left(), Bottom(), Width(), Height());
-  float x0, y0, x1, y1;
-  GetNDCRect(&x0, &y0, &x1, &y1);
-  if (!GlesUtil::DrawTexture2f(mCenterTex, x0, y0, x1, y1, 0, 1, 1, 0, MVP()))
-    return false;
-  glDisable(GL_BLEND);
+  if (mBackgroundTex) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
+    float x0, y0, x1, y1;
+    GetNDCRect(&x0, &y0, &x1, &y1);
+    if (!GlesUtil::DrawTexture2f(mBackgroundTex, x0,y0,x1,y1, 0,1,1,0, MVP()))
+      return false;
+    glDisable(GL_BLEND);
+  }
   
   bool status = true;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
@@ -1950,7 +1970,7 @@ bool FlinglistImpl::Jiggle() {
 // to support dragging of the list and manage the overdraw and thumb animations.
 
 bool FlinglistImpl::Touch(const Event &event) {
-  if (!Enabled() || Size() == 0)
+  if (!Enabled() || Hidden() || Size() == 0)
     return false;
   
   for (size_t t = 0; t < event.touchVec.size(); ++t) {
@@ -2723,9 +2743,15 @@ bool ButtonGridFrame::SetViewport(int x, int y, int w, int h) {
   if (!Frame::SetViewport(x, y, w, h))
     return false;
   
+  // Calculate the new layout and set the image size
   mButtonHorizCountIdx = w > h ? 0 : 1;
   const int hc = mButtonHorizCount[mButtonHorizCountIdx];
   mButtonDim = (w - mButtonPad * (hc + 1)) / hc;
+  const int vertCount = ceilf(mButtonVec.size() / float(hc));
+  int bh = vertCount * (mButtonPad + mButtonDim) + mTopPad + mBottomPad;
+  SetImageDim(Width(), bh);
+
+  // Layout the individual buttons using the new image size
   int px = mButtonPad;
   int py = ImageHeight() - mTopPad - mButtonDim;
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
@@ -2739,9 +2765,6 @@ bool ButtonGridFrame::SetViewport(int x, int y, int w, int h) {
     }
   }
   
-  const int vertCount = ceilf(mButtonVec.size() / float(hc));
-  int bh = vertCount * (mButtonPad + mButtonDim) + mTopPad + mBottomPad;
-  SetImageDim(Width(), bh);
   
   return true;
 }
@@ -2755,7 +2778,7 @@ void ButtonGridFrame::SetMVP(const float *mvp) {
 
 
 bool ButtonGridFrame::Touch(const tui::Event &event) {
-  if (!Enabled())
+  if (!Enabled() || Hidden())
     return false;
   
   if (Frame::Touch(event))
