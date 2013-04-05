@@ -176,6 +176,7 @@ namespace tui {
     virtual void SetBackgroundTex(int w, int h, unsigned long tex, float pad) {
       mTexDim[0] = w; mTexDim[1] = h; mTex = tex; mTexPad = pad;
     }
+    virtual const char *Text() const { return mText; }
     virtual bool Draw();
     
     // Initialize the font used to draw all labels
@@ -362,6 +363,7 @@ namespace tui {
     virtual void SetLabelColor(float r, float g, float b, float a) {
       mLabel->SetTextColor(r, g, b, a);
     }
+    virtual const char *Text() const { return mLabel->Text(); }
     virtual bool Draw();
     
   protected:
@@ -385,6 +387,7 @@ namespace tui {
     virtual void SetLabelColor(float r, float g, float b, float a) {
       mLabel->SetTextColor(r, g, b, a);
     }
+    virtual const char *Text() const { return mLabel->Text(); }
     virtual bool Draw();
     
   protected:
@@ -856,20 +859,22 @@ namespace tui {
   // Buttons are clipped prior to drawing to 
   class ButtonGridFrame : public Frame {
   public:
-    ButtonGridFrame();
+    ButtonGridFrame();                        // count<0 -> fixed # row/col
     virtual bool Init(int wideCount, int narrowCount,
                       int buttonPad, int topPad, int bottomPad);
     virtual void Add(Button *button);
     virtual bool Delete(Button *button);
     virtual void Clear();                     // Delete all buttons and clear
     virtual size_t ButtonCount() const { return mButtonVec.size(); }
-    virtual Button *Button(size_t i) { return mButtonVec[i]; }
+    virtual class Button *Button(size_t i) { return mButtonVec[i]; }
+    virtual const class Button *Button(size_t i) const { return mButtonVec[i]; }
     virtual void Sort(const CompareButton &compare);
     virtual bool Snap(size_t i);              // Ensure button #i is visible
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual bool Touch(const tui::Event &event);
     virtual bool Draw();
+    virtual bool Step(float seconds);
 
   private:
     std::vector<tui::Button *> mButtonVec;    // Button grid

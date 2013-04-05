@@ -2283,8 +2283,9 @@ bool Frame::Step(float seconds) {
     switch (mSnapMode) {
       case SNAP_CENTER:     tx0 = -1 + padW;        ty0 = -1 + padH;
                             tx1 = 1 - padW;         ty1 = 1 - padH;       break;
-      case SNAP_UPPER_LEFT: tx0 = -1 + 2 * padW;    ty0 = -1 + 2 * padH;
-                            tx1 = 1;                ty1 = 1;              break;
+      case SNAP_UPPER_LEFT: tx0 = -1;               ty0 = std::max(V2Ndc(0)-1, -1.0f);
+                            tx1 = std::min(U2Ndc(1)-1, 1.0f);
+                                                    ty1 = 1;              break;
       case SNAP_PIXEL:      tx0 = -pw/2;            ty0 = -ph/2;
                             tx1 = pw/2;             ty1 = ph/2;           break;
       case SNAP_NDC_RECT:   tx0 = mSnapNDCRect[0];  ty0 = mSnapNDCRect[1];
@@ -2516,7 +2517,7 @@ bool Frame::SnapToFitFrame() {
   mCenterUV[0] = 0.5;                         // Center image
   mCenterUV[1] = 0.5;
   ComputeScaleRange();                        // Recompute if needed
-  mScale = mScaleMin;                         // Fit image to screen
+  mScale = mScaleMin == 0 ? 1 : mScaleMin;    // Fit image to screen
   mScaleVelocity = 0;
   mCenterVelocityUV[0] = 0;
   mCenterVelocityUV[1] = 0;
@@ -2532,7 +2533,8 @@ bool Frame::SnapToFitFrame() {
 
 bool Frame::SnapToFitWidth(float v) {
   SnapToFitFrame();
-  mScale = Width() / float(ImageWidth());
+  if (ImageWidth() != 0)
+    mScale = Width() / float(ImageWidth());
   float v2 = Height() / (mScale * ImageHeight());
   if (v2 < 1)
     mCenterUV[1] = v * (1 - v2) + v2 / 2;
@@ -2596,6 +2598,11 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
       if (*u0 > *u1)
         *u0 = *u1;
     }
+  } else if (mSnapMode == SNAP_UPPER_LEFT) {
+    *x0 = -1;
+    *x1 = std::min(U2Ndc(1) - 1, 1.0f);
+    *u0 = 0;
+    *u1 = 1;
   } else {                                    // Image narrower than screen
     float offset = U2Ndc(0.5 - mCenterUV[0]);
     *x0 = -1 + padW + offset;                 // Pad left & right edges
@@ -2623,6 +2630,11 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
       if (*v0 > *v1)
         *v0 = *v1;
     }
+  } else if (mSnapMode == SNAP_UPPER_LEFT) {
+    *y0 = std::max(V2Ndc(0) - 1, -1.0f);
+    *y1 = 1;
+    *v0 = 0;
+    *v1 = 1;
   } else  {                                    // Image shorter than screen
     float offset = V2Ndc(0.5 - mCenterUV[1]);
     *y0 = -1 + padH - offset;                  // Pad the top & bottom edges
@@ -2732,7 +2744,7 @@ bool ButtonGridFrame::Snap(size_t i) {
   if (i >= ButtonCount())
     return false;
   const int hc = mButtonHorizCount[mButtonHorizCountIdx];
-  int row = i / hc;
+  int row = hc > 0 ? i / hc : -hc;
   float v = row * (mButtonDim + mButtonPad) / float(ImageHeight());
   SnapToFitWidth(v);
   return true;
@@ -2777,7 +2789,7 @@ void ButtonGridFrame::SetMVP(const float *mvp) {
 }
 
 
-bool ButtonGridFrame::Touch(const tui::Event &event) {
+bool ButtonGridFrame::Touch(const Event &event) {
   if (!Enabled() || Hidden())
     return false;
   
@@ -2810,6 +2822,13 @@ bool ButtonGridFrame::Touch(const tui::Event &event) {
   }
   
   return false;
+}
+
+
+bool ButtonGridFrame::Step(float seconds) {
+  if (!ButtonCount())
+    return true;
+  return tui::Frame::Step(seconds);
 }
 
 
