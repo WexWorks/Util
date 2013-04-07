@@ -160,7 +160,8 @@ namespace tui {
   public:
     Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0), mAlign(1),
               mLineCount(0), mTex(0), mTexPad(0) {
-      mColor[0] = mColor[1] = mColor[2] = mColor[3] = 1;
+      mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 1;
+      mBkgTexColor[0] = mBkgTexColor[1] = mBkgTexColor[2] = mBkgTexColor[3] = 1;
       mTexDim[0] = mTexDim[1] = 0;
     }
     virtual ~Label();
@@ -171,7 +172,10 @@ namespace tui {
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual void SetTextColor(float r, float g, float b, float a) {
-      mColor[0] = r; mColor[1] = g; mColor[2] = b; mColor[3] = a;
+      mTextColor[0] = r; mTextColor[1] = g; mTextColor[2] = b; mTextColor[3] =a;
+    }
+    virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
+      mBkgTexColor[0]=r; mBkgTexColor[1]=g; mBkgTexColor[2]=b;mBkgTexColor[3]=a;
     }
     virtual void SetBackgroundTex(int w, int h, unsigned long tex, float pad) {
       mTexDim[0] = w; mTexDim[1] = h; mTex = tex; mTexPad = pad;
@@ -189,7 +193,7 @@ namespace tui {
     
     const char *mText;
     float mPts, mPtW, mPtH;
-    float mColor[4];
+    float mTextColor[4], mBkgTexColor[4];
     int mAlign;
     float mLineCount;
     unsigned long mTex;
@@ -360,6 +364,9 @@ namespace tui {
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
+    virtual void Enable(bool status) {
+      Button::Enable(status); mLabel->Enable(status);
+    }
     virtual void SetLabelColor(float r, float g, float b, float a) {
       mLabel->SetTextColor(r, g, b, a);
     }
@@ -384,6 +391,9 @@ namespace tui {
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
+    virtual void Enable(bool status) {
+      CheckboxButton::Enable(status); mLabel->Enable(status);
+    }
     virtual void SetLabelColor(float r, float g, float b, float a) {
       mLabel->SetTextColor(r, g, b, a);
     }

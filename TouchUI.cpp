@@ -274,22 +274,27 @@ bool Label::Draw() {
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
   
+  float r, g, b, a;
+  const float k = Enabled() ? 1 : 0.5;
   if (mTex) {
+    r = k * mBkgTexColor[0]; g = k * mBkgTexColor[1];
+    b = k * mBkgTexColor[2]; a = k * mBkgTexColor[3];
     const int edgeDim = Height() * mTexDim[0] / (2 * mTexDim[1]);
     float ew = edgeDim / float(MVP() ? 1 : 0.5 * Width());
-    if (!GlesUtil::DrawTexture2f(mTex, x0, y0, x0+ew, y1, 0, 1, 0.5, 0, MVP()))
+    if (!GlesUtil::DrawTexture2f(mTex,x0,y0,x0+ew,y1, 0,1,0.5,0, r,g,b,a,MVP()))
       return false;
-    if (!GlesUtil::DrawTexture2f(mTex, x0+ew, y0, x1-ew, y1, 0.5, 1, 0.5, 0,MVP()))
+    if (!GlesUtil::DrawTexture2f(mTex,x0+ew,y0,x1-ew,y1,0.5,1,0.5,0,r,g,b,a,MVP()))
       return false;
-    if (!GlesUtil::DrawTexture2f(mTex, x1-ew, y0, x1, y1, 0.5, 1, 1, 0, MVP()))
+    if (!GlesUtil::DrawTexture2f(mTex,x1-ew,y0,x1,y1, 0.5,1,1,0, r,g,b,a,MVP()))
       return false;
   }
   
   GlesUtil::Align align = (GlesUtil::Align)mAlign;
   float y = y1 - TopLineOffset();
+  r = k * mTextColor[0]; g = k * mTextColor[1];
+  b = k * mTextColor[2]; a = k * mTextColor[3];
   if (!GlesUtil::DrawParagraph(mText, x0, y0, x1, y, align,
-                               font, mPtW, mPtH, mColor[0], mColor[1],
-                               mColor[2], mColor[3], MVP()))
+                               font, mPtW, mPtH, r, g, b, a, MVP()))
     return false;
   glDisable(GL_BLEND);
   return true;
@@ -593,7 +598,9 @@ bool ImageButton::Draw() {
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
   unsigned int texture = Pressed() ? mPressedTex : mDefaultTex;
-  if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0, MVP()))
+  const float g = Enabled() ? 1 : 0.5;
+  if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0,
+                               g, g, g, 1, MVP()))
     return false;
   
   return true;
@@ -638,7 +645,7 @@ bool CheckboxImageButton::Draw() {
   GetNDCRect(&x0, &y0, &x1, &y1);
   unsigned int texture = Pressed() ? mPressedTex : Selected() ?
                                     mSelectedTex : mDeselectedTex;
-  float g = Enabled() ? 1 : 0.5;
+  const float g = Enabled() ? 1 : 0.5;
   if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0,
                                g, g, g, 1, MVP()))
     return false;
@@ -773,12 +780,13 @@ bool TextCheckbox::Draw() {
   const int edgeDim = Height() * mDim[0] / (2 * mDim[1]);
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
+  const float g = Enabled() ? 1 : 0.5;
   float ew = edgeDim / float(MVP() ? 1 : 0.5 * Width());
-  if (!GlesUtil::DrawTexture2f(tex, x0, y0, x0+ew, y1, 0, 1, 0.5, 0, MVP()))
+  if (!GlesUtil::DrawTexture2f(tex, x0,y0,x0+ew,y1, 0,1,0.5,0, g,g,g,1, MVP()))
     return false;
-  if (!GlesUtil::DrawTexture2f(tex, x0+ew, y0, x1-ew, y1, 0.5, 1, 0.5, 0, MVP()))
+  if (!GlesUtil::DrawTexture2f(tex,x0+ew,y0,x1-ew,y1,0.5,1,0.5,0,g,g,g,1,MVP()))
     return false;
-  if (!GlesUtil::DrawTexture2f(tex, x1-ew, y0, x1, y1, 0.5, 1, 1, 0, MVP()))
+  if (!GlesUtil::DrawTexture2f(tex, x1-ew,y0,x1,y1, 0.5,1,1,0, g,g,g,1, MVP()))
     return false;
   
   if (!mLabel->Draw())
