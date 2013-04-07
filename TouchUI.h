@@ -521,7 +521,7 @@ namespace tui {
   // widgets will be automatically adjusted on rotation. Use ViewportWidget
   // for fixed spacing (flexible spacer is a ViewportWidget with negative size).
   // Set the size of each widget for spacing, but the (x,y) is ignored.
-  class Toolbar : public ViewportWidget {
+  class Toolbar : public AnimatedViewport {
   public:
     static const size_t kStdHeight = 44;
     
@@ -534,6 +534,8 @@ namespace tui {
     virtual bool AddFlexibleSpacer();
     virtual void Clear() { mWidgetVec.clear(); }
     virtual bool Touch(const Event &event);
+    virtual bool Step(float seconds);
+    virtual bool Dormant() const;
     virtual bool Draw();
     
   private:
@@ -766,6 +768,8 @@ namespace tui {
     virtual void Lock(bool horizontal, bool vertical, bool scale) {
       mIsLocked[0] = horizontal; mIsLocked[1] = vertical; mIsScaleLocked =scale;
     }
+    virtual bool IsXLocked() const { return mIsLocked[0]; }
+    virtual bool IsYLocked() const { return mIsLocked[1]; }
     virtual void SnapToScreenCenter() { mSnapMode = SNAP_CENTER; }
     virtual void SnapToUpperLeft() { mSnapMode = SNAP_UPPER_LEFT; }
     virtual void SnapToPixelCenter() { mSnapMode = SNAP_PIXEL; }
@@ -787,6 +791,7 @@ namespace tui {
     // Frame adjustments
     virtual bool SnapToFitFrame();            // Whole image in frame
     virtual bool SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
+    virtual bool SnapToFitHeight(float u);    // u in [0, 1] [left, right]
     
     // Compute the current display region that would be sent to DrawImage
     virtual void ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
@@ -864,7 +869,8 @@ namespace tui {
                       int buttonPad, int topPad, int bottomPad);
     virtual void Add(Button *button);
     virtual bool Delete(Button *button);
-    virtual void Clear();                     // Delete all buttons and clear
+    virtual void Destroy();                   // Delete all buttons and clear
+    virtual void Clear();                     // Clear list, but don't delete
     virtual size_t ButtonCount() const { return mButtonVec.size(); }
     virtual class Button *Button(size_t i) { return mButtonVec[i]; }
     virtual const class Button *Button(size_t i) const { return mButtonVec[i]; }

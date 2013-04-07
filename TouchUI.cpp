@@ -1286,6 +1286,32 @@ bool Toolbar::Touch(const tui::Event &event) {
 }
 
 
+bool Toolbar::Step(float seconds) {
+  bool status = true;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    AnimatedViewport *av = dynamic_cast<AnimatedViewport *>(mWidgetVec[i]);
+    if (!av)
+      continue;
+    if (!av->Step(seconds))
+      status = false;
+  }
+  return status;
+}
+
+
+bool Toolbar::Dormant() const {
+  bool status = true;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    AnimatedViewport *av = dynamic_cast<AnimatedViewport *>(mWidgetVec[i]);
+    if (!av)
+      continue;
+    if (!av->Dormant())
+      status = false;
+  }
+  return status;
+}
+
+
 bool Toolbar::Draw() {
   if (Hidden())
     return true;
@@ -2283,9 +2309,8 @@ bool Frame::Step(float seconds) {
     switch (mSnapMode) {
       case SNAP_CENTER:     tx0 = -1 + padW;        ty0 = -1 + padH;
                             tx1 = 1 - padW;         ty1 = 1 - padH;       break;
-      case SNAP_UPPER_LEFT: tx0 = -1;               ty0 = std::max(V2Ndc(0)-1, -1.0f);
-                            tx1 = std::min(U2Ndc(1)-1, 1.0f);
-                                                    ty1 = 1;              break;
+      case SNAP_UPPER_LEFT: tx0 = -1;               ty0 = -1 + 2 * padH;
+                            tx1 = 1 - 2 * padW;     ty1 = 1;              break;
       case SNAP_PIXEL:      tx0 = -pw/2;            ty0 = -ph/2;
                             tx1 = pw/2;             ty1 = ph/2;           break;
       case SNAP_NDC_RECT:   tx0 = mSnapNDCRect[0];  ty0 = mSnapNDCRect[1];
@@ -2348,6 +2373,7 @@ bool Frame::Step(float seconds) {
     // Adjust the center of the current window by moving toward target
     assert(du == 0 || !mIsLocked[0]);
     assert(dv == 0 || !mIsLocked[1]);
+    assert(!isinf(du) && !isinf(dv) && !isinf(su) && !isinf(sv));
     mCenterUV[0] += su * du;
     mCenterUV[1] -= sv * dv;
     
@@ -2542,6 +2568,17 @@ bool Frame::SnapToFitWidth(float v) {
 }
 
 
+bool Frame::SnapToFitHeight(float u) {
+  SnapToFitFrame();
+  if (ImageHeight() != 0)
+    mScale = Height() / float(ImageHeight());
+  float u2 = Width() / (mScale * ImageWidth());
+  if (u2 < 1)
+    mCenterUV[0] = u * (1 - u2) + u2 / 2;
+  return true;
+}
+
+
 // Helper functions to convert magnitude in image UV space to/from NDC units.
 
 float Frame::U2Ndc(float u) const {
@@ -2571,6 +2608,12 @@ float Frame::Ndc2V(float y) const {
 
 void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
                                float *u0, float *v0, float *u1, float *v1) const {
+  if (Width() == 0 || Height() == 0) {        // Avoid inf
+    *x0 = *y0 = *x1 = *y1 = 0;
+    *u0 = *v0 = *u1 = *v1 = 0;
+    return;
+  }
+  
   int sw = mScale * ImageWidth();
   int sh = mScale * ImageHeight();
   float halfWidthUV = std::min(0.5f * Width() / sw, 0.5f);
@@ -2598,13 +2641,15 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
       if (*u0 > *u1)
         *u0 = *u1;
     }
-  } else if (mSnapMode == SNAP_UPPER_LEFT) {
-    *x0 = -1;
-    *x1 = std::min(U2Ndc(1) - 1, 1.0f);
+  } else if (mSnapMode == SNAP_UPPER_LEFT) {  // Image narrower, snap to corner
+    float offset = U2Ndc(0.5 - mCenterUV[0]); // Off-center adjustment
+    *x0 = -1 + offset;
+    *x1 = 1 - 2 * padW + offset;
     *u0 = 0;
     *u1 = 1;
   } else {                                    // Image narrower than screen
-    float offset = U2Ndc(0.5 - mCenterUV[0]);
+    float offset = U2Ndc(0.5 - mCenterUV[0]); // Off-center adjustment
+    assert(!isinf(offset) && !isnan(offset));
     *x0 = -1 + padW + offset;                 // Pad left & right edges
     *x1 = 1 - padW + offset;
     *u0 = 0;
@@ -2630,13 +2675,14 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
       if (*v0 > *v1)
         *v0 = *v1;
     }
-  } else if (mSnapMode == SNAP_UPPER_LEFT) {
-    *y0 = std::max(V2Ndc(0) - 1, -1.0f);
-    *y1 = 1;
+  } else if (mSnapMode == SNAP_UPPER_LEFT) {  // Image narrower, snap to corner
+    float offset = V2Ndc(0.5 - mCenterUV[1]); // Off-center adjustment
+    *y0 = -1 + 2 * padH - offset;
+    *y1 = 1 - offset;
     *v0 = 0;
     *v1 = 1;
   } else  {                                    // Image shorter than screen
-    float offset = V2Ndc(0.5 - mCenterUV[1]);
+    float offset = V2Ndc(0.5 - mCenterUV[1]);  // Off-center adjustment
     *y0 = -1 + padH - offset;                  // Pad the top & bottom edges
     *y1 = 1 - padH - offset;
     *v0 = 0;
@@ -2728,9 +2774,14 @@ bool ButtonGridFrame::Delete(tui::Button *button) {
 }
 
 
-void ButtonGridFrame::Clear() {
+void ButtonGridFrame::Destroy() {
   for (size_t i = 0; i < mButtonVec.size(); ++i)
     delete mButtonVec[i];
+  Clear();
+}
+
+
+void ButtonGridFrame::Clear() {
   mButtonVec.clear();
 }
 
@@ -2741,12 +2792,16 @@ void ButtonGridFrame::Sort(const CompareButton &compare) {
 
 
 bool ButtonGridFrame::Snap(size_t i) {
-  if (i >= ButtonCount())
+  tui::Button *b = Button(i);
+  if (!b)
     return false;
-  const int hc = mButtonHorizCount[mButtonHorizCountIdx];
-  int row = hc > 0 ? i / hc : -hc;
-  float v = row * (mButtonDim + mButtonPad) / float(ImageHeight());
-  SnapToFitWidth(v);
+  if (IsXLocked()) {
+    float v = b->Top() / float(ImageHeight());
+    SnapToFitWidth(v);
+  } else if (IsYLocked()) {
+    float u = b->Left() / float(ImageWidth());
+    SnapToFitHeight(u);
+  }
   return true;
 }
 
@@ -2793,8 +2848,11 @@ bool ButtonGridFrame::Touch(const Event &event) {
   if (!Enabled() || Hidden())
     return false;
   
-  if (Frame::Touch(event))
+  if (Frame::Touch(event)) {
+    for (size_t i = 0; i < mButtonVec.size(); ++i)        // Cancel checkboxes
+      mButtonVec[i]->Touch(tui::Event(tui::TOUCH_CANCELLED));
     return true;
+  }
   
   if (IsDragging() || IsScaling())
     return false;
