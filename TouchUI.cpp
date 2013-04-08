@@ -728,6 +728,7 @@ bool TextCheckbox::Init(const char *text, float pts, size_t w, size_t h,
   mDeselectedTex = deselectedTex;
   mPressedTex = pressedTex;
   mSelectedTex = selectedTex;
+  mLabel->SetBackgroundTex(mDim[0], mDim[1], mDeselectedTex, 2);
   return true;
 }
 
@@ -735,14 +736,8 @@ bool TextCheckbox::Init(const char *text, float pts, size_t w, size_t h,
 bool TextCheckbox::FitViewport() {
   if (!mLabel->FitViewport())
     return false;
-  const int padH = 0.5 * mLabel->Height();
-  const int h = mLabel->Height() + 2 * padH;
-  const int padW = h * mDim[0] / (2 * mDim[1]);
-  const int w = mLabel->Width() + 2 * padW;
-  if (!mLabel->SetViewport(Left() + padW, Bottom() + padH,
+  if (!Button::SetViewport(mLabel->Left(), mLabel->Bottom(),
                            mLabel->Width(), mLabel->Height()))
-    return false;
-  if (!Button::SetViewport(Left(), Bottom(), w, h))
     return false;
   return true;
 }
@@ -751,9 +746,7 @@ bool TextCheckbox::FitViewport() {
 bool TextCheckbox::SetViewport(int x, int y, int w, int h) {
   if (!Button::SetViewport(x, y, w, h))
     return false;
-  const int padH = 0.5 * mLabel->Height();
-  const int padW = h * mDim[0] / (2 * mDim[1]);
-  if (!mLabel->SetViewport(x + padW, y + padH, w - 2 * padW, h - 2 * padH))
+  if (!mLabel->SetViewport(x, y, w, h))
     return false;
   return true;
 }
@@ -768,30 +761,13 @@ void TextCheckbox::SetMVP(const float *mvp) {
 bool TextCheckbox::Draw() {
   if (Hidden())
     return true;
-  
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glBlendEquation(GL_FUNC_ADD);
-  if (!MVP())
-    glViewport(Left(), Bottom(), Width(), Height());
-  
+
   const GLuint tex = Pressed() ? mPressedTex : Selected() ?
-                                mSelectedTex : mDeselectedTex;
-  const int edgeDim = Height() * mDim[0] / (2 * mDim[1]);
-  float x0, y0, x1, y1;
-  GetNDCRect(&x0, &y0, &x1, &y1);
-  const float g = Enabled() ? 1 : 0.5;
-  float ew = edgeDim / float(MVP() ? 1 : 0.5 * Width());
-  if (!GlesUtil::DrawTexture2f(tex, x0,y0,x0+ew,y1, 0,1,0.5,0, g,g,g,1, MVP()))
-    return false;
-  if (!GlesUtil::DrawTexture2f(tex,x0+ew,y0,x1-ew,y1,0.5,1,0.5,0,g,g,g,1,MVP()))
-    return false;
-  if (!GlesUtil::DrawTexture2f(tex, x1-ew,y0,x1,y1, 0.5,1,1,0, g,g,g,1, MVP()))
-    return false;
+                       mSelectedTex : mDeselectedTex;
+  mLabel->SetBackgroundTex(mDim[0], mDim[1], tex, 2);
   
   if (!mLabel->Draw())
     return false;
-  glDisable(GL_BLEND);
   
   return true;
 }

@@ -370,6 +370,9 @@ namespace tui {
     virtual void SetLabelColor(float r, float g, float b, float a) {
       mLabel->SetTextColor(r, g, b, a);
     }
+    virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
+      mLabel->SetBackgroundTexColor(r, g, b, a);
+    }
     virtual const char *Text() const { return mLabel->Text(); }
     virtual bool Draw();
     
@@ -396,6 +399,9 @@ namespace tui {
     }
     virtual void SetLabelColor(float r, float g, float b, float a) {
       mLabel->SetTextColor(r, g, b, a);
+    }
+    virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
+      mLabel->SetBackgroundTexColor(r, g, b, a);
     }
     virtual const char *Text() const { return mLabel->Text(); }
     virtual bool Draw();
