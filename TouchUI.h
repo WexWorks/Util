@@ -786,6 +786,8 @@ namespace tui {
     }
     virtual bool IsXLocked() const { return mIsLocked[0]; }
     virtual bool IsYLocked() const { return mIsLocked[1]; }
+    virtual float UCenter() const { return mCenterUV[0]; }
+    virtual float VCenter() const { return mCenterUV[1]; }
     virtual void SnapToScreenCenter() { mSnapMode = SNAP_CENTER; }
     virtual void SnapToUpperLeft() { mSnapMode = SNAP_UPPER_LEFT; }
     virtual void SnapToPixelCenter() { mSnapMode = SNAP_PIXEL; }
@@ -805,9 +807,10 @@ namespace tui {
     virtual void OnTouchBegan();
     
     // Frame adjustments
-    virtual bool SnapToFitFrame();            // Whole image in frame
-    virtual bool SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
-    virtual bool SnapToFitHeight(float u);    // u in [0, 1] [left, right]
+    virtual void SnapToFitFrame();            // Whole image in frame
+    virtual void SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
+    virtual void SnapToFitHeight(float u);    // u in [0, 1] [left, right]
+    virtual void SnapToUVCenter(float u, float v);
     
     // Compute the current display region that would be sent to DrawImage
     virtual void ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,

@@ -2523,7 +2523,7 @@ void Frame::OnTouchBegan() {
 // Center the image and compute the scaling required to fit the image
 // within the current frame.
 
-bool Frame::SnapToFitFrame() {
+void Frame::SnapToFitFrame() {
   mCenterUV[0] = 0.5;                         // Center image
   mCenterUV[1] = 0.5;
   ComputeScaleRange();                        // Recompute if needed
@@ -2534,32 +2534,35 @@ bool Frame::SnapToFitFrame() {
   mTargetScale = 0;
   mIsTargetWindowActive = false;
   mIsTargetScaleActive = false;
-  return true;
 }
 
 
 // Center the image and compute the scaling required to fit the image
 // across the current frame, offsetting the y location using v=[0,1]
 
-bool Frame::SnapToFitWidth(float v) {
+void Frame::SnapToFitWidth(float v) {
   SnapToFitFrame();
   if (ImageWidth() != 0)
     mScale = Width() / float(ImageWidth());
   float v2 = Height() / (mScale * ImageHeight());
   if (v2 < 1)
     mCenterUV[1] = v * (1 - v2) + v2 / 2;
-  return true;
 }
 
 
-bool Frame::SnapToFitHeight(float u) {
+void Frame::SnapToFitHeight(float u) {
   SnapToFitFrame();
   if (ImageHeight() != 0)
     mScale = Height() / float(ImageHeight());
   float u2 = Width() / (mScale * ImageWidth());
   if (u2 < 1)
     mCenterUV[0] = u * (1 - u2) + u2 / 2;
-  return true;
+}
+
+
+void Frame::SnapToUVCenter(float u, float v) {
+  mCenterUV[0] = u;
+  mCenterUV[1] = v;
 }
 
 
@@ -2783,7 +2786,7 @@ bool ButtonGridFrame::Snap(size_t i) {
     float v = b->Top() / float(ImageHeight());
     SnapToFitWidth(v);
   } else if (IsYLocked()) {
-    float u = b->Left() / float(ImageWidth());
+    float u = b->Right() / float(ImageWidth());
     SnapToFitHeight(u);
   }
   return true;
