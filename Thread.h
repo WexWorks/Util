@@ -3,6 +3,9 @@
 #ifndef THREAD_H_
 #define THREAD_H_
 
+#include <string.h>
+
+
 /*
    Cross-platform thread, mutex, condition variables and atomic operations
    that work on Android, iOS, Linux, Windows and OSX.
@@ -73,7 +76,10 @@ public:
     if (threadId)
       SetThreadName(GetThreadId(thread_), name);
 #else
-    pthread_setname_np(name);
+    char buf[16];                               // 16-character limit!
+    strncpy(buf, name, 15);                     // Take first 16
+    buf[15] = '\0';                             // Terminate
+    pthread_setname_np(buf);                    // Set debugging name
 #endif
   }
   virtual void Run() = 0;                       // Override with main

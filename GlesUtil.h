@@ -65,6 +65,7 @@ struct Font {
   int charDimPt[2];                                   // Point size of character
   unsigned char charWidthPt[256];                     // Kerning offset in pts
   GLuint tex;                                         // 16x16 ASCII char grid
+  enum { MagGlassChar=16, StarChar=17, FlagChar=18, InfoChar=19 };
 };
 
 // Return the length, in pts, of a given string. Pts are an arbitrary
