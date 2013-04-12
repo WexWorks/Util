@@ -32,6 +32,30 @@ struct Metadata {
   
   std::vector<const MetadataSection *> sectionVec;
 };
+  
+
+// Save the image data in file with the metadata copied from url
+// but with the fields below modified (i.e. replace keywords in url)
+struct ShareImage {
+  ShareImage(const char *url, const char *file, int w, int h,
+             const std::vector<std::string> &keywords, bool isFlagged,
+             bool stripLocationInfo, bool stripCameraInfo, int orientation,
+             int starRating, const char *author, const char *copyright,
+             const char *comment)
+  : url(url), file(file), width(w), height(h),
+    keywords(keywords), isFlagged(isFlagged),
+    stripLocationInfo(stripLocationInfo), stripCameraInfo(stripCameraInfo),
+    orientation(orientation), starRating(starRating), author(author),
+    copyright(copyright), comment(comment) {}
+  
+  std::string url;                                    // Original metadata
+  std::string file;                                   // New pixel data
+  int width, height;                                  // New image size
+  std::vector<std::string> keywords;                  // New kewords
+  bool isFlagged, stripLocationInfo, stripCameraInfo; // New bool metadata
+  int orientation, starRating;                        // New int metadata
+  std::string author, copyright, comment;             // New string metadata
+};
 
 
 // Callback functors, executed asynchronously, e.g. from system blocks
@@ -67,11 +91,12 @@ struct SetAlertText {
 };
 
 struct SetShareOptions {
-  // Passing w != 0 && h == 0 uses w as a max dimension.
-  // Passing w == h == 0 uses source image resolution.
-  // Passing -100 <= w,h < 0 uses w & h as percentage of source resolution.
+  enum ResMode { Source, Fixed, Percent };
   virtual bool operator()(const char *service, const char *comment,
-                          int w, int h) = 0;
+                          ResMode resMode, int w, int h,
+                          const char *nameRegex, const char *album,
+                          const char *author, const char *copyright,
+                          bool setKeywords, bool stripLocation, bool stripCamera) = 0;
 };
 
   
@@ -130,14 +155,13 @@ public:
                                SetShareOptions *setOptions) = 0;
   
   // Share the named file in the background without opening any dialogs
-  virtual bool ShareImage(const char *service, const char *file,
-                          const char *comment) = 0;
+  virtual bool ShareImage(const char *service, const ShareImage &image) = 0;
 
   // Open a sharing dialog to gather comments and post the files
-  virtual bool ShareImageFiles(const char *service,
-                               const std::vector<std::string> &file,
-                               const char *comment, const int fromRect[4]) = 0;
+  virtual bool ShareImageFiles(const char *service, const int fromRect[4],
+                               const std::vector<struct ShareImage> &image) = 0;
   
+  // Bring the app out of paused mode, if enabled, and force at least one redraw
   virtual void ForceRedraw() = 0;
 };
 
