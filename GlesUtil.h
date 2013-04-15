@@ -18,9 +18,13 @@ namespace GlesUtil {
 bool Error();
 const char *ErrorString();
 
-// Validate FBO for rendering, printing an error in DEBUG mode.
-bool IsFramebufferComplete();
+  
+// Global queries:
+bool IsFramebufferComplete();                         // Validate FBO
+bool IsExtensionEnabled(const char *extension);       // Check for extension
+bool IsMSAAResolutionSupported(GLuint w, GLuint h);   // Test MSAA res
 
+  
 // Drawing functions:
 //   Attributes: aP is used for position, aUV for texture coordinates.
 //   MVP defaults to unit matrix, implying NDC space [-1,-1]x[1,1]
@@ -28,6 +32,9 @@ bool IsFramebufferComplete();
   
 bool DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
                GLuint aUV, float u0, float v0, float u1, float v1);
+bool DrawBox2fuvst(GLuint aP, float x0, float y0, float x1, float y1,
+                   GLuint aUVST, float u0, float v0, float u1, float v1,
+                   float s0, float t0, float s1, float t1);
 bool DrawColorBox2f(float x0, float y0, float x1, float y1,
                     float r, float g, float b, float a, const float *MVP = 0);
 bool DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
@@ -45,6 +52,12 @@ bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                    float u0, float v0, float u1, float v1,
                    float r, float g, float b, float a,
                    const float *MVP = 0);
+bool DrawTwoTexture2f(GLuint uvTex, float stTex,
+                      float x0, float y0, float x1, float y1,
+                      float u0, float v0, float u1, float v1,
+                      float s0, float t0, float s1, float t1,
+                      float r, float g, float b, float a,
+                      const float *MVP = 0);
 bool DrawTextureStrip2f(GLuint tex, unsigned int vcount, const float *P,
                         const float *UV, float r, float g, float b, float a,
                         const float *MVP = 0);
@@ -137,7 +150,8 @@ GLuint VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP);
 GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC, GLuint *uMVP,
                       GLuint *uTex);
 GLuint ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP, GLuint *uTex);
-
+GLuint TwoTextureProgram(GLuint *aP, GLuint *aUVST, GLuint *uC, GLuint *uMVP,
+                         GLuint *uUVTex, GLuint *uSTTex);
 
 // Buffer functions:
 //   Target: GL_ARRAY_BUFFER, GL_ELEMNT_ARRAY_BUFFER
@@ -148,13 +162,6 @@ GLuint CreateBuffer(GLenum target, GLsizeiptr bytes, void *data,
                     GLenum usage, const char *name=0);
 bool StoreSubBuffer(GLuint id, GLenum target, GLintptr offset,
                     GLsizeiptr size, void *data);
-
-
-// Check for a named extension:
-
-bool IsExtensionEnabled(const char *extension);
-bool IsMSAAResolutionSupported(GLuint w, GLuint h);
-
 
 };      // namespace GlesUtil
 

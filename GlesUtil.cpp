@@ -95,6 +95,28 @@ bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
 }
 
 
+bool GlesUtil::DrawBox2fuvst(GLuint aP, float x0, float y0, float x1, float y1,
+                             GLuint aUVST, float u0, float v0, float u1, float v1,
+                             float s0, float t0, float s1, float t1) {
+  const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
+  if (aUVST != -1) {
+    const float UVST[16] = { u0,v0,s0,t0, u0,v1,s0,t1, u1,v0,s1,t0, u1,v1,s1,t1 };
+    glEnableVertexAttribArray(aUVST);
+    glVertexAttribPointer(aUVST, 4, GL_FLOAT, GL_FALSE, 0, UVST);
+  }
+  glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  if (aUVST != -1)
+    glDisableVertexAttribArray(aUVST);
+  glDisableVertexAttribArray(aP);
+  if (Error())
+    return false;
+  return true;
+}
+
+
+
 bool GlesUtil::DrawColorBox2f(float x0, float y0, float x1, float y1,
                               float r, float g, float b, float a,
                               const float *MVP) {
@@ -222,6 +244,41 @@ bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                              float u0, float v0, float u1, float v1,
                              const float *MVP) {
   return DrawTexture2f(tex, x0, y0, x1, y1, u0, v0, u1, v1, 1, 1, 1, 1, MVP);
+}
+
+
+bool GlesUtil::DrawTwoTexture2f(GLuint uvTex, float stTex,
+                                float x0, float y0, float x1, float y1,
+                                float u0, float v0, float u1, float v1,
+                                float s0, float t0, float s1, float t1,
+                                float r, float g, float b, float a,
+                                const float *MVP) {
+  GLuint aP, aUVST, uC, uMVP, uUVTex, uSTTex;
+  GLuint program = TwoTextureProgram(&aP, &aUVST, &uC, &uMVP, &uUVTex, &uSTTex);
+  glUseProgram(program);
+  glUniform4f(uC, r, g, b, a);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, uvTex);
+  glUniform1i(uUVTex, 0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, stTex);
+  glUniform1i(uSTTex, 1);
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!MVP)
+    MVP = &I[0];
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+  
+  if (!DrawBox2fuvst(aP, x0, y0, x1, y1, aUVST, u0, v0, u1, v1, s0, t0, s1, t1))
+    return false;
+  
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  if (Error())
+    return false;
+  
+  return true;
 }
 
 
@@ -558,7 +615,6 @@ GLuint GlesUtil::ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP,
     static const char *vpCode =
     "attribute vec4 aP;\n"
     "uniform mat4 uMVP;\n"
-    "varying vec2 vUV;\n"
     "void main() {\n"
     "  gl_Position = uMVP * aP;\n"
     "}\n";
@@ -593,6 +649,69 @@ GLuint GlesUtil::ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP,
   *uC = gUC;
   *uMVP = gUMVP;
   *uTex = gUCTex;
+  return gProgram;
+}
+
+
+GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUVST, GLuint *uC,
+                                   GLuint *uMVP, GLuint *uUVTex,GLuint *uSTTex){
+  static bool gInitialized = false;             // WARNING: Static variables!
+  static GLuint gProgram = 0;
+  static GLuint gAP=0, gAUVST=0, gUC=0, gUMVP=0, gUUVTex=0, gUSTTex=0;
+  if (!gInitialized) {
+    gInitialized = true;
+    
+    // Note: the program below is leaked and should be destroyed in _atexit()
+    static const char *vpCode =
+    "attribute vec4 aP;\n"
+    "attribute vec4 aUVST;\n"
+    "uniform mat4 uMVP;\n"
+    "varying vec4 vUVST;\n"
+    "void main() {\n"
+    "  vUVST = aUVST;\n"
+    "  gl_Position = uMVP * aP;\n"
+    "}\n";
+    static const char *fpCode =
+    "precision mediump float;\n"
+    "uniform sampler2D uUVTex;\n"
+    "uniform sampler2D uSTTex;\n"
+    "uniform vec4 uC;\n"
+    "varying vec4 vUVST;\n"
+    "void main() {\n"
+    "  vec4 cUV = texture2D(uUVTex, vUVST.xy);\n"
+    "  vec4 cST = texture2D(uSTTex, vUVST.zw);\n"
+    "  vec4 C = cUV + (1.0 - cUV.a) * cST;\n"
+    "  gl_FragColor = uC * C;\n"
+    "}\n";
+    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
+    if (!vp)
+      return false;
+    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    if (!fp)
+      return false;
+    gProgram = GlesUtil::CreateProgram(vp, fp, "Texture");
+    if (!gProgram)
+      return false;
+    glDeleteShader(vp);
+    glDeleteShader(fp);
+    glUseProgram(gProgram);
+    gAP = glGetAttribLocation(gProgram, "aP");
+    gAUVST = glGetAttribLocation(gProgram, "aUVST");
+    gUC = glGetUniformLocation(gProgram, "uC");
+    gUMVP = glGetUniformLocation(gProgram, "uMVP");
+    gUUVTex = glGetUniformLocation(gProgram, "uUVTex");
+    gUSTTex = glGetUniformLocation(gProgram, "uSTTex");
+    if (Error())
+      return false;
+  }
+  
+  *aP = gAP;
+  *aUVST = gAUVST;
+  *uC = gUC;
+  *uMVP = gUMVP;
+  *uUVTex = gUUVTex;
+  *uSTTex = gUSTTex;
+  
   return gProgram;
 }
 
