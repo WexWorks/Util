@@ -34,15 +34,15 @@ struct Metadata {
 };
   
 
-// Save the image data in file with the metadata copied from url
-// but with the fields below modified (i.e. replace keywords in url)
+// Save the image data in file with the metadata copied from url but with
+// the fields below modified (i.e. replace keywords in original url metadata)
 struct ShareImage {
-  ShareImage(const char *url, const char *file, int w, int h,
-             const std::vector<std::string> &keywords, bool isFlagged,
-             bool stripLocationInfo, bool stripCameraInfo, int orientation,
-             int starRating, const char *author, const char *copyright,
-             const char *comment)
-  : url(url), file(file), width(w), height(h),
+  ShareImage(const char *url, const char *file, const char *album,
+             int w, int h, const std::vector<std::string> &keywords,
+             bool isFlagged, bool stripLocationInfo, bool stripCameraInfo,
+             int orientation, int starRating, const char *author,
+             const char *copyright, const char *comment)
+  : url(url), file(file), album(album), width(w), height(h),
     keywords(keywords), isFlagged(isFlagged),
     stripLocationInfo(stripLocationInfo), stripCameraInfo(stripCameraInfo),
     orientation(orientation), starRating(starRating), author(author),
@@ -50,6 +50,7 @@ struct ShareImage {
   
   std::string url;                                    // Original metadata
   std::string file;                                   // New pixel data
+  std::string album;                                  // Path to directory
   int width, height;                                  // New image size
   std::vector<std::string> keywords;                  // New kewords
   bool isFlagged, stripLocationInfo, stripCameraInfo; // New bool metadata
@@ -127,6 +128,9 @@ public:
   // Load all image albums in the system
   virtual bool LoadSystemAlbums(AddAlbum *addAlbum) = 0;
   
+  // Load the named album
+  virtual bool LoadAlbum(const char *url, AddAlbum *addAlbum) = 0;
+  
   // Load a all the image names in an album
   virtual bool LoadAlbumImageNames(const char *url, AddImage *addImage) = 0;
   
@@ -171,6 +175,12 @@ public:
 
 class App {
 public:
+  enum NotifyMessage { ImageUpdated,                  // URLs in data
+                       AlbumInserted,                 // URLs in data
+                       AlbumUpdated,                  // URLs in data
+                       AlbumDeleted,                  // URLs in data
+                       ReloadAll };                   // Data is empty
+  
   virtual ~App() {}
   
   static App *Create();                               // Factory
@@ -181,6 +191,7 @@ public:
   virtual bool Dormant() = 0;                         // True = no refresh
   virtual bool Draw() = 0;                            // Draw UI & images
   virtual bool SetDeviceResolution(int w, int h) = 0; // Startup & orientation
+  virtual bool Notify(NotifyMessage msg, const std::vector<std::string> &data)=0;
   
 protected:
   App() {}                                            // Derived class factory
