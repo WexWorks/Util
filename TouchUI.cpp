@@ -2561,6 +2561,9 @@ void Frame::SnapToFitHeight(float u) {
 
 
 void Frame::SnapToUVCenter(float u, float v) {
+  float scale = mScale;
+  SnapToFitFrame();
+  mScale = scale;
   mCenterUV[0] = u;
   mCenterUV[1] = v;
 }
