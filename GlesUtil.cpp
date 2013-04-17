@@ -816,7 +816,7 @@ GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
     "uniform vec4 uC;\n"
     "varying vec4 vUV;\n"
     "void main() {\n"
-    "  vec4 cUV = 0.1 * texture2D(uUVTex, vUV.xy);\n"
+    "  vec4 cUV = texture2D(uUVTex, vUV.xy);\n"
     "  vec4 cST = texture2D(uSTTex, vUV.zw);\n"
     "  vec4 C = cUV + (1.0 - cUV.a) * cST;\n"
     "  gl_FragColor = uC * C;\n"
