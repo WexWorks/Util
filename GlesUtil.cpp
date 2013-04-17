@@ -75,6 +75,28 @@ bool GlesUtil::IsFramebufferComplete() {
 }
 
 
+bool GlesUtil::DrawColorLines2f(unsigned int count, const float *P,
+                                float r, float g, float b, float a,
+                                const float *MVP) {
+  GLuint aP, uC, uMVP;
+  GLuint program = GlesUtil::ConstantProgram(&aP, &uC, &uMVP);
+  if (!program)
+    return false;
+  glUseProgram(program);
+  glUniform4f(uC, r, g, b, a);
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!MVP)
+    MVP = &I[0];
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+  
+  glEnableVertexAttribArray(aP);
+  glDrawArrays(GL_LINES, 0, count);
+  if (Error())
+    return false;
+  return true;
+}
+
+
 bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
                          GLuint aUV, float u0, float v0, float u1, float v1) {
   const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
@@ -95,26 +117,25 @@ bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
 }
 
 
-bool GlesUtil::DrawBox2fuvst(GLuint aP, float x0, float y0, float x1, float y1,
-                             GLuint aUVST, float u0, float v0, float u1, float v1,
-                             float s0, float t0, float s1, float t1) {
+bool GlesUtil::DrawBox2f4uv(GLuint aP,  float x0, float y0, float x1, float y1,
+                            GLuint aUV, float u0, float v0, float u1, float v1,
+                                        float s0, float t0, float s1, float t1){
   const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
-  if (aUVST != -1) {
-    const float UVST[16] = { u0,v0,s0,t0, u0,v1,s0,t1, u1,v0,s1,t0, u1,v1,s1,t1 };
-    glEnableVertexAttribArray(aUVST);
-    glVertexAttribPointer(aUVST, 4, GL_FLOAT, GL_FALSE, 0, UVST);
+  if (aUV != -1) {
+    const float UV[16] = { u0,v0,s0,t0, u0,v1,s0,t1, u1,v0,s1,t0, u1,v1,s1,t1 };
+    glEnableVertexAttribArray(aUV);
+    glVertexAttribPointer(aUV, 4, GL_FLOAT, GL_FALSE, 0, UV);
   }
   glEnableVertexAttribArray(aP);
   glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-  if (aUVST != -1)
-    glDisableVertexAttribArray(aUVST);
+  if (aUV != -1)
+    glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
   if (Error())
     return false;
   return true;
 }
-
 
 
 bool GlesUtil::DrawColorBox2f(float x0, float y0, float x1, float y1,
@@ -169,7 +190,7 @@ bool GlesUtil::DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
                                    float w, float h, float r, float g, float b,
                                    float a, const float *MVP) {
   GLuint aP, uC, uMVP;
-  GLuint program = GlesUtil::ConstantProgram(&aP, &uC, &uMVP);
+  GLuint program = ConstantProgram(&aP, &uC, &uMVP);
   if (!program)
     return false;
   glUseProgram(program);
@@ -179,10 +200,9 @@ bool GlesUtil::DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
     MVP = &I[0];
   glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
   
-  if (!GlesUtil::DrawBoxFrame2f(aP, x0, y0, x1, y1, w, h, -1))
+  if (!DrawBoxFrame2f(aP, x0, y0, x1, y1, w, h, -1))
     return false;
-  if (GlesUtil::Error())
-    return false;
+
   return true;
 }
 
@@ -191,7 +211,7 @@ bool GlesUtil::DrawGradientBox2f(float x0, float y0, float x1, float y1,
                                  bool isVertical, float r0, float g0, float b0,
                                  float r1,float g1,float b1, const float *MVP) {
   GLuint aP, aC, uMVP;
-  GLuint program = GlesUtil::VertexColorProgram(&aP, &aC, &uMVP);
+  GLuint program = VertexColorProgram(&aP, &aC, &uMVP);
   if (!program)
     return false;
   glUseProgram(program);
@@ -207,7 +227,7 @@ bool GlesUtil::DrawGradientBox2f(float x0, float y0, float x1, float y1,
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   glDisableVertexAttribArray(aP);
   glDisableVertexAttribArray(aC);
-  if (GlesUtil::Error())
+  if (Error())
     return false;
   return true;
 }
@@ -253,8 +273,8 @@ bool GlesUtil::DrawTwoTexture2f(GLuint uvTex, float stTex,
                                 float s0, float t0, float s1, float t1,
                                 float r, float g, float b, float a,
                                 const float *MVP) {
-  GLuint aP, aUVST, uC, uMVP, uUVTex, uSTTex;
-  GLuint program = TwoTextureProgram(&aP, &aUVST, &uC, &uMVP, &uUVTex, &uSTTex);
+  GLuint aP, aUV, uC, uMVP, uUVTex, uSTTex;
+  GLuint program = TwoTextureProgram(&aP, &aUV, &uC, &uMVP, &uUVTex, &uSTTex);
   glUseProgram(program);
   glUniform4f(uC, r, g, b, a);
   glActiveTexture(GL_TEXTURE0);
@@ -268,7 +288,7 @@ bool GlesUtil::DrawTwoTexture2f(GLuint uvTex, float stTex,
     MVP = &I[0];
   glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
   
-  if (!DrawBox2fuvst(aP, x0, y0, x1, y1, aUVST, u0, v0, u1, v1, s0, t0, s1, t1))
+  if (!DrawBox2f4uv(aP, x0, y0, x1, y1, aUV, u0, v0, u1, v1, s0, t0, s1, t1))
     return false;
   
   glActiveTexture(GL_TEXTURE0);
@@ -286,7 +306,7 @@ bool GlesUtil::DrawTextureStrip2f(GLuint tex, GLuint vcount, const float *P,
                                   const float *UV, float r, float g, float b,
                                   float a, const float *MVP) {
   GLuint aP, aUV, uC, uMVP, uTex;
-  GLuint program = GlesUtil::TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
+  GLuint program = TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
   glUseProgram(program);
   glUniform4f(uC, r, g, b, a);
   glActiveTexture(GL_TEXTURE0);
@@ -305,6 +325,35 @@ bool GlesUtil::DrawTextureStrip2f(GLuint tex, GLuint vcount, const float *P,
   glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
 
+  return true;
+}
+
+
+bool GlesUtil::DrawTextureStrip2fi(GLuint tex, unsigned short vcount,
+                                   unsigned short icount, const float *P,
+                                   const float *UV, const unsigned short *idx,
+                                   float r, float g, float b, float a,
+                                   const float *MVP) {
+  GLuint aP, aUV, uC, uMVP, uTex;
+  GLuint program = TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
+  glUseProgram(program);
+  glUniform4f(uC, r, g, b, a);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, tex);
+  glUniform1i(uTex, 0);
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!MVP)
+    MVP = &I[0];
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+  
+  glEnableVertexAttribArray(aUV);
+  glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
+  glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
+  glDrawElements(GL_TRIANGLE_STRIP, icount, GL_UNSIGNED_SHORT, idx);
+  glDisableVertexAttribArray(aUV);
+  glDisableVertexAttribArray(aP);
+  
   return true;
 }
 
@@ -387,12 +436,12 @@ bool GlesUtil::IsMSAAResolutionSupported(GLuint w, GLuint h) {
 }
 
 
-GLuint GlesUtil::CreateShader(GLenum type, const char *source_code) {
+GLuint GlesUtil::CreateShader(GLenum type, const char *source) {
   GLuint shader = glCreateShader(type);
   if (!shader)
     return 0;
   
-  glShaderSource(shader, 1, &source_code, NULL);
+  glShaderSource(shader, 1, &source, NULL);
   glCompileShader(shader);
   GLint compiled = 0;
   glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
@@ -472,13 +521,13 @@ GLuint GlesUtil::ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP) {
     "void main() {\n"
     "  gl_FragColor = uC;\n"
     "}\n";
-    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
+    GLuint vp = CreateShader(GL_VERTEX_SHADER, vpCode);
     if (!vp)
       return false;
-    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    GLuint fp = CreateShader(GL_FRAGMENT_SHADER, fpCode);
     if (!fp)
       return false;
-    gProgram = GlesUtil::CreateProgram(vp, fp, "Constant");
+    gProgram = CreateProgram(vp, fp, "Constant");
     if (!gProgram)
       return false;
     glDeleteShader(vp);
@@ -521,13 +570,13 @@ GLuint GlesUtil::VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP) {
     "void main() {\n"
     "  gl_FragColor = vC;\n"
     "}\n";
-    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
+    GLuint vp = CreateShader(GL_VERTEX_SHADER, vpCode);
     if (!vp)
       return false;
-    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    GLuint fp = CreateShader(GL_FRAGMENT_SHADER, fpCode);
     if (!fp)
       return false;
-    gProgram = GlesUtil::CreateProgram(vp, fp, "Constant");
+    gProgram = CreateProgram(vp, fp, "Constant");
     if (!gProgram)
       return false;
     glDeleteShader(vp);
@@ -545,6 +594,61 @@ GLuint GlesUtil::VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP) {
   *uMVP = gUMVP;
   return gProgram;
 }
+
+
+GLuint GlesUtil::DropshadowFrameProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
+                                        GLuint *uMVP) {
+  static bool gInitialized = false;             // WARNING: Static variables!
+  static GLuint gProgram = 0;
+  static GLuint gAP = 0, gAUV = 0, gUC = 0, gUMVP = 0;
+  if (!gInitialized) {
+    gInitialized = true;
+    
+    // Note: the program below is leaked and should be destroyed in _atexit()
+    static const char *vpCode =
+    "attribute vec4 aP;\n"
+    "attribute vec2 aUV;\n"
+    "uniform mat4 uMVP;\n"
+    "varying vec2 vUV;\n"
+    "void main() {\n"
+    "  vUV = aUV;\n"
+    "  gl_Position = uMVP * aP;\n"
+    "}\n";
+    static const char *fpCode =
+    "precision mediump float;\n"
+    "uniform vec4 uC;\n"
+    "varying vec2 vUV;\n"
+    "void main() {\n"
+    "  float v = vUV.y * vUV.y * (3.0 - 2.0 * vUV.y);"
+    "  gl_FragColor = v * uC;\n"
+    "}\n";
+    GLuint vp = CreateShader(GL_VERTEX_SHADER, vpCode);
+    if (!vp)
+      return false;
+    GLuint fp = CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    if (!fp)
+      return false;
+    gProgram = CreateProgram(vp, fp, "Dropshadow");
+    if (!gProgram)
+      return false;
+    glDeleteShader(vp);
+    glDeleteShader(fp);
+    glUseProgram(gProgram);
+    gAP = glGetAttribLocation(gProgram, "aP");
+    gAUV = glGetAttribLocation(gProgram, "aUV");
+    gUC = glGetUniformLocation(gProgram, "uC");
+    gUMVP = glGetUniformLocation(gProgram, "uMVP");
+    if (Error())
+      return false;
+  }
+  
+  *aP = gAP;
+  *aUV = gAUV;
+  *uC = gUC;
+  *uMVP = gUMVP;
+  return gProgram;
+}
+
 
 
 GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
@@ -573,13 +677,13 @@ GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
     "void main() {\n"
     "  gl_FragColor = uC * texture2D(uCTex, vUV);\n"
     "}\n";
-    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
+    GLuint vp = CreateShader(GL_VERTEX_SHADER, vpCode);
     if (!vp)
       return false;
-    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    GLuint fp = CreateShader(GL_FRAGMENT_SHADER, fpCode);
     if (!fp)
       return false;
-    gProgram = GlesUtil::CreateProgram(vp, fp, "Texture");
+    gProgram = CreateProgram(vp, fp, "Texture");
     if (!gProgram)
       return false;
     glDeleteShader(vp);
@@ -625,13 +729,13 @@ GLuint GlesUtil::ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP,
     "void main() {\n"
     "  gl_FragColor = uC * texture2D(uCTex, gl_FragCoord.xy);\n"
     "}\n";
-    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
+    GLuint vp = CreateShader(GL_VERTEX_SHADER, vpCode);
     if (!vp)
       return false;
-    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    GLuint fp = CreateShader(GL_FRAGMENT_SHADER, fpCode);
     if (!fp)
       return false;
-    gProgram = GlesUtil::CreateProgram(vp, fp, "Texture");
+    gProgram = CreateProgram(vp, fp, "TwoTexture");
     if (!gProgram)
       return false;
     glDeleteShader(vp);
@@ -653,22 +757,22 @@ GLuint GlesUtil::ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP,
 }
 
 
-GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUVST, GLuint *uC,
+GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
                                    GLuint *uMVP, GLuint *uUVTex,GLuint *uSTTex){
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
-  static GLuint gAP=0, gAUVST=0, gUC=0, gUMVP=0, gUUVTex=0, gUSTTex=0;
+  static GLuint gAP=0, gAUV=0, gUC=0, gUMVP=0, gUUVTex=0, gUSTTex=0;
   if (!gInitialized) {
     gInitialized = true;
     
     // Note: the program below is leaked and should be destroyed in _atexit()
     static const char *vpCode =
     "attribute vec4 aP;\n"
-    "attribute vec4 aUVST;\n"
+    "attribute vec4 aUV;\n"
     "uniform mat4 uMVP;\n"
-    "varying vec4 vUVST;\n"
+    "varying vec4 vUV;\n"
     "void main() {\n"
-    "  vUVST = aUVST;\n"
+    "  vUV = aUV;\n"
     "  gl_Position = uMVP * aP;\n"
     "}\n";
     static const char *fpCode =
@@ -676,27 +780,27 @@ GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUVST, GLuint *uC,
     "uniform sampler2D uUVTex;\n"
     "uniform sampler2D uSTTex;\n"
     "uniform vec4 uC;\n"
-    "varying vec4 vUVST;\n"
+    "varying vec4 vUV;\n"
     "void main() {\n"
-    "  vec4 cUV = texture2D(uUVTex, vUVST.xy);\n"
-    "  vec4 cST = texture2D(uSTTex, vUVST.zw);\n"
+    "  vec4 cUV = 0.1 * texture2D(uUVTex, vUV.xy);\n"
+    "  vec4 cST = texture2D(uSTTex, vUV.zw);\n"
     "  vec4 C = cUV + (1.0 - cUV.a) * cST;\n"
     "  gl_FragColor = uC * C;\n"
     "}\n";
-    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
+    GLuint vp = CreateShader(GL_VERTEX_SHADER, vpCode);
     if (!vp)
       return false;
-    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    GLuint fp = CreateShader(GL_FRAGMENT_SHADER, fpCode);
     if (!fp)
       return false;
-    gProgram = GlesUtil::CreateProgram(vp, fp, "Texture");
+    gProgram = CreateProgram(vp, fp, "Texture");
     if (!gProgram)
       return false;
     glDeleteShader(vp);
     glDeleteShader(fp);
     glUseProgram(gProgram);
     gAP = glGetAttribLocation(gProgram, "aP");
-    gAUVST = glGetAttribLocation(gProgram, "aUVST");
+    gAUV = glGetAttribLocation(gProgram, "aUV");
     gUC = glGetUniformLocation(gProgram, "uC");
     gUMVP = glGetUniformLocation(gProgram, "uMVP");
     gUUVTex = glGetUniformLocation(gProgram, "uUVTex");
@@ -706,7 +810,7 @@ GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUVST, GLuint *uC,
   }
   
   *aP = gAP;
-  *aUVST = gAUVST;
+  *aUV = gAUV;
   *uC = gUC;
   *uMVP = gUMVP;
   *uUVTex = gUUVTex;
@@ -839,7 +943,7 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   
   // Set up the texture shader
   GLuint program, aP, aUV, uC, uMVP, uTex;
-  program = GlesUtil::TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
+  program = TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
   glUseProgram(program);                              // Setup program
   glUniform4f(uC, r, g, b, a);
   glEnableVertexAttribArray(aUV);                     // Vertex arrays
@@ -866,7 +970,7 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
 
 
 bool GlesUtil::DrawText(const char *text, float x, float y,
-                        const GlesUtil::Font *font, float ptW, float ptH,
+                        const Font *font, float ptW, float ptH,
                         const float *MVP, float charPadPt) {
   return DrawText(text, x, y, font, ptW, ptH, 1, 1, 1, 1, MVP, charPadPt);
 }
@@ -891,7 +995,7 @@ static bool DrawJustified(const char *text, float x0, float x1,
       }
       break;
   }
-  if (!GlesUtil::DrawText(text, x + x0, y, font, ptW, ptH, r,g,b,a, MVP, pad))
+  if (!DrawText(text, x + x0, y, font, ptW, ptH, r,g,b,a, MVP, pad))
     return false;
   return true;
 }
@@ -949,5 +1053,228 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
                              float x1, float y1, Align align, const Font *font,
                              float ptW, float ptH,  const float *MVP) {
   return DrawParagraph(text, x0, y0, x1, y1, align, font, ptW,ptH, 1,1,1,1,MVP);
+}
+
+
+void GlesUtil::RoundedRectSize2fi(int segments, unsigned short *vertexCount,
+                                  unsigned short *idxCount) {
+  *vertexCount = 4 * (segments + 1 /*inset corner*/);
+  *idxCount = 3*5 /*rects*/ + 4 /*fans*/ * 4 /*pts/tri*/ * (segments - 1);
+}
+
+
+void GlesUtil::BuildRoundedRect2fi(float x0, float y0, float x1, float y1,
+                                   float u0, float v0, float u1, float v1,
+                                   float radiusX, float radiusY, int segments,
+                                   float *P, float *UV, unsigned short *idx) {
+  // Compute the inset corners and put them into the vertex array
+  P[0*2+0] = x0 + radiusX;  P[0*2+1] = y0 + radiusY;
+  P[1*2+0] = x0 + radiusX;  P[1*2+1] = y1 - radiusY;
+  P[2*2+0] = x1 - radiusX;  P[2*2+1] = y0 + radiusY;
+  P[3*2+0] = x1 - radiusX;  P[3*2+1] = y1 - radiusY;
+  
+  const float du = (u1 - u0) * radiusX / (x1 - x0);
+  const float dv = (v1 - v0) * radiusY / (y1 - y0);
+  UV[0*2+0] = u0 + du; UV[0*2+1] = v0 + dv;
+  UV[1*2+0] = u0 + du; UV[1*2+1] = v1 - dv;
+  UV[2*2+0] = u1 - du; UV[2*2+1] = v0 + dv;
+  UV[3*2+0] = u1 - du; UV[3*2+1] = v1 - dv;
+  
+  // Compute the rounded corner vertices by computing a quarter circle
+  // and mirroring and translating it to each corner
+  const float k = 1.0 / (segments - 1);
+  for (int i = 0; i < segments; ++i) {
+    const float theta = i * k * M_PI_2;
+    const float s = sinf(theta);
+    const float c = cosf(theta);
+    const float x = radiusX * s;                    // Up-right quadrant
+    const float y = radiusY * c;
+    P[(4 + (0*segments + i))*2 + 0] = P[0*2+0] - x; // x0, y0
+    P[(4 + (0*segments + i))*2 + 1] = P[0*2+1] - y;
+    P[(4 + (1*segments + i))*2 + 0] = P[1*2+0] - x; // x0, y1
+    P[(4 + (1*segments + i))*2 + 1] = P[1*2+1] + y;
+    P[(4 + (2*segments + i))*2 + 0] = P[2*2+0] + x; // x1, y0
+    P[(4 + (2*segments + i))*2 + 1] = P[2*2+1] - y;
+    P[(4 + (3*segments + i))*2 + 0] = P[3*2+0] + x; // x1, y1
+    P[(4 + (3*segments + i))*2 + 1] = P[3*2+1] + y;
+    
+    const float us = du * s;
+    const float vc = dv * c;
+    UV[(4 + (0*segments + i))*2 + 0] = UV[0*2+0] - us;
+    UV[(4 + (0*segments + i))*2 + 1] = UV[0*2+1] - vc;
+    UV[(4 + (1*segments + i))*2 + 0] = UV[1*2+0] - us;
+    UV[(4 + (1*segments + i))*2 + 1] = UV[1*2+1] + vc;
+    UV[(4 + (2*segments + i))*2 + 0] = UV[2*2+0] + us;
+    UV[(4 + (2*segments + i))*2 + 1] = UV[2*2+1] - vc;
+    UV[(4 + (3*segments + i))*2 + 0] = UV[3*2+0] + us;
+    UV[(4 + (3*segments + i))*2 + 1] = UV[3*2+1] + vc;
+  }
+  
+  int j = 0;
+  idx[j++] = 4 + 0 * segments;                      // top -> bot rect
+  idx[j++] = 4 + 1 * segments;
+  idx[j++] = 4 + 2 * segments;
+  idx[j++] = 4 + 3 * segments;
+  idx[j++] = idx[3];                                // degen connector
+  
+  for (int i = 0; i < segments - 1; ++i) {          // x0, y0
+    idx[j++] = 0;
+    idx[j++] = 4 + i;
+    idx[j++] = 4 + i + 1;
+    idx[j++] = 4 + i + 1;                           // degen connector
+  }
+  
+  idx[j++] = 0;                                     // left rect filler
+  idx[j++] = 4 + segments - 1;
+  idx[j++] = 1;
+  idx[j++] = 4 + 2 * segments - 1;
+  idx[j++] = 4 + 2 * segments - 1;
+  
+  for (int i = segments - 1; i > 0; --i) {         // x0, y1
+    idx[j++] = 1;
+    idx[j++] = 4 + segments + i;
+    idx[j++] = 4 + segments + i - 1;
+    idx[j++] = 4 + segments + i - 1;                // degen connector
+  }
+  
+  
+  for (int i = 0; i < segments - 1; ++i) {          // x1, y0
+    idx[j++] = 2;
+    idx[j++] = 4 + 2 * segments + i + 1;
+    idx[j++] = 4 + 2 * segments + i;
+    idx[j++] = 4 + 2 * segments + i;                // degen connector
+  }
+  
+  idx[j++] = 2;                                     // right rect filler
+  idx[j++] = 3;
+  idx[j++] = 4 + 3 * segments - 1;
+  idx[j++] = 4 + 4 * segments - 1;
+  idx[j++] = 4 + 4 * segments - 1;
+  
+  for (int i = 0; i < segments - 1; ++i) {          // x1, y1
+    idx[j++] = 3;
+    idx[j++] = 4 + 3 * segments + i;
+    idx[j++] = 4 + 3 * segments + i + 1;
+    idx[j++] = 4 + 3 * segments + i + 1;            // degen connector
+  }
+  
+#if DEBUG
+  unsigned short nv, ni;
+  RoundedRectSize2fi(segments, &nv, &ni);
+  assert(ni == j);
+  assert(4 + 3 * segments + segments - 1 == nv - 1);
+#endif
+}
+
+
+void GlesUtil::RoundedFrameSize2fi(int segments, unsigned short *vertexCount,
+                                   unsigned short *idxCount) {
+  *vertexCount = 4 * (segments + 1 /*inset corner*/);
+  *idxCount = 4*5 /*rects*/ + 4 /*fans*/ * 4 /*pts/tri*/ * (segments - 1) + 7;
+}
+
+
+void GlesUtil::BuildRoundedFrame2fi(float x0, float y0, float x1, float y1,
+                                    float radiusX, float radiusY, int segments,
+                                    float *P, float *UV, unsigned short *idx) {
+  // Compute the inset corners and put them into the vertex array
+  P[0*2+0] = x0 + radiusX;  P[0*2+1] = y0 + radiusY;
+  P[1*2+0] = x0 + radiusX;  P[1*2+1] = y1 - radiusY;
+  P[2*2+0] = x1 - radiusX;  P[2*2+1] = y0 + radiusY;
+  P[3*2+0] = x1 - radiusX;  P[3*2+1] = y1 - radiusY;
+  
+  UV[0*2+0] = 0;    UV[0*2+1] = 1;
+  UV[1*2+0] = 0.25; UV[1*2+1] = 1;
+  UV[2*2+0] = 1;    UV[2*2+1] = 1;
+  UV[3*2+0] = 0.75; UV[3*2+1] = 1;
+  
+  // Compute the rounded corner vertices by computing a quarter circle
+  // and mirroring and translating it to each corner
+  const float k = 1.0 / (segments - 1);
+  for (int i = 0; i < segments; ++i) {
+    const float theta = i * k * M_PI_2;
+    const float s = sinf(theta);
+    const float c = cosf(theta);
+    const float x = radiusX * s;                    // Up-right quadrant
+    const float y = radiusY * c;
+    P[(4 + (0*segments + i))*2 + 0] = P[0*2+0] - x; // x0, y0
+    P[(4 + (0*segments + i))*2 + 1] = P[0*2+1] - y;
+    P[(4 + (1*segments + i))*2 + 0] = P[1*2+0] - x; // x0, y1
+    P[(4 + (1*segments + i))*2 + 1] = P[1*2+1] + y;
+    P[(4 + (2*segments + i))*2 + 0] = P[2*2+0] + x; // x1, y0
+    P[(4 + (2*segments + i))*2 + 1] = P[2*2+1] - y;
+    P[(4 + (3*segments + i))*2 + 0] = P[3*2+0] + x; // x1, y1
+    P[(4 + (3*segments + i))*2 + 1] = P[3*2+1] + y;
+    
+    UV[(4 + (0*segments + i))*2 + 0] = 0;
+    UV[(4 + (0*segments + i))*2 + 1] = 0;
+    UV[(4 + (1*segments + i))*2 + 0] = 0.25;
+    UV[(4 + (1*segments + i))*2 + 1] = 0;
+    UV[(4 + (2*segments + i))*2 + 0] = 0.75;
+    UV[(4 + (2*segments + i))*2 + 1] = 0;
+    UV[(4 + (3*segments + i))*2 + 0] = 1;
+    UV[(4 + (3*segments + i))*2 + 1] = 0;
+  }
+  
+  int j = 0;
+
+  idx[j++] = 0;                                     // left
+  idx[j++] = 4 + segments - 1;
+  idx[j++] = 1;
+  idx[j++] = 4 + 2 * segments - 1;
+  idx[j++] = 4 + 2 * segments - 1;
+
+  idx[j++] = 1;                                     // top
+  idx[j++] = 1;                                     // top
+  idx[j++] = 4 + segments;
+  idx[j++] = 3;
+  idx[j++] = 4 + 3 * segments;
+  idx[j++] = 4 + 3 * segments;
+
+  idx[j++] = 2;                                     // right
+  idx[j++] = 2;                                     // right
+  idx[j++] = 3;
+  idx[j++] = 4 + 3 * segments - 1;
+  idx[j++] = 4 + 4 * segments - 1;
+  idx[j++] = 4 + 4 * segments - 1;
+
+  idx[j++] = 4;                                     // bottom
+  idx[j++] = 4;                                     // bottom
+  idx[j++] = 0;
+  idx[j++] = 4 + 2 * segments;
+  idx[j++] = 2;
+  idx[j++] = 2;
+
+  idx[j++] = 0;
+  for (int i = 0; i < segments - 1; ++i) {          // x0, y0
+    idx[j++] = 0;
+    idx[j++] = 4 + i;
+    idx[j++] = 4 + i + 1;
+    idx[j++] = 4 + i + 1;                           // degen connector
+  }
+  
+  idx[j++] = 1;
+  for (int i = segments - 1; i > 0; --i) {          // x0, y1
+    idx[j++] = 1;
+    idx[j++] = 4 + segments + i;
+    idx[j++] = 4 + segments + i - 1;
+    idx[j++] = 4 + segments + i - 1;                // degen connector
+  }
+  
+  idx[j++] = 2;
+  for (int i = segments - 1; i > 0; --i) {          // x1, y0
+    idx[j++] = 2;
+    idx[j++] = 4 + 2 * segments + i;
+    idx[j++] = 4 + 2 * segments + i - 1;
+    idx[j++] = 4 + 2 * segments + i - 1;            // degen connector
+  }
+  
+  idx[j++] = 3;
+  for (int i = 0; i < segments - 1; ++i) {          // x1, y1
+    idx[j++] = 3;
+    idx[j++] = 4 + 3 * segments + i;
+    idx[j++] = 4 + 3 * segments + i + 1;
+    idx[j++] = 4 + 3 * segments + i + 1;            // degen connector
+  }
 }
 
