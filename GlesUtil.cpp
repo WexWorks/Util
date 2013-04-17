@@ -324,16 +324,17 @@ bool GlesUtil::DrawTextureStrip2f(GLuint tex, GLuint vcount, const float *P,
   glDrawArrays(GL_TRIANGLE_STRIP, 0, vcount);
   glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
+  if (Error())
+    return false;
 
   return true;
 }
 
 
-bool GlesUtil::DrawTextureStrip2fi(GLuint tex, unsigned short vcount,
-                                   unsigned short icount, const float *P,
-                                   const float *UV, const unsigned short *idx,
-                                   float r, float g, float b, float a,
-                                   const float *MVP) {
+bool GlesUtil::DrawTextureStrip2fi(GLuint tex, unsigned short icount,
+                                   const float *P, const float *UV,
+                                   const unsigned short *idx, float r, float g,
+                                   float b, float a, const float *MVP) {
   GLuint aP, aUV, uC, uMVP, uTex;
   GLuint program = TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
   glUseProgram(program);
@@ -353,7 +354,40 @@ bool GlesUtil::DrawTextureStrip2fi(GLuint tex, unsigned short vcount,
   glDrawElements(GL_TRIANGLE_STRIP, icount, GL_UNSIGNED_SHORT, idx);
   glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
+  if (Error())
+    return false;
   
+  return true;
+}
+
+
+bool GlesUtil::DrawDropshadowStrip2fi(unsigned short icount, const float *P,
+                                      const float *UV, const unsigned short *idx,
+                                      float r, float g, float b, float a,
+                                      const float *MVP) {
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  GLuint aP, aUV, uC, uMVP;
+  GLuint program = GlesUtil::DropshadowFrameProgram(&aP, &aUV, &uC, &uMVP);
+  if (!program)
+    return false;
+  glUseProgram(program);
+  glUniform4f(uC, r, g, b, a);
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!MVP)
+    MVP = &I[0];
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+  glEnableVertexAttribArray(aUV);
+  glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
+  glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
+  glDrawElements(GL_TRIANGLE_STRIP, icount, GL_UNSIGNED_SHORT, idx);
+  glDisableVertexAttribArray(aUV);
+  glDisableVertexAttribArray(aP);
+  glDisable(GL_BLEND);
+  if (Error())
+    return false;
+
   return true;
 }
 

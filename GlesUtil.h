@@ -63,9 +63,12 @@ bool DrawTwoTexture2f(GLuint uvTex, float stTex,
 bool DrawTextureStrip2f(GLuint tex, unsigned int vcount, const float *P,
                         const float *UV, float r, float g, float b, float a,
                         const float *MVP = 0);
-bool DrawTextureStrip2fi(GLuint tex, unsigned short vcount, unsigned short icount,
-                         const float *P, const float *UV, const unsigned short *idx,
-                         float r, float g, float b, float a, const float *MVP=0);
+bool DrawTextureStrip2fi(GLuint tex, unsigned short icount, const float *P,
+                         const float *UV, const unsigned short *idx,
+                         float r, float g, float b, float a,const float *MVP=0);
+bool DrawDropshadowStrip2fi(unsigned short icount,const float *P,const float *UV,
+                            const unsigned short *idx, float r, float g,float b,
+                            float a, const float *MVP = 0);
 
 // Bitmapped font drawing functions:
 //   Characters are defined in points and scaled to MVP space using (ptW,ptH),
