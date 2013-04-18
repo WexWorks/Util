@@ -1215,7 +1215,9 @@ bool Toolbar::SetViewport(int x, int y, int w, int h) {
       totalWidth += w;
   }
   
-  int flexibleSpacing = flexibleCount ? (Width() - totalWidth) / flexibleCount : 0;
+  int flexibleSpacing = flexibleCount ? (Width()-totalWidth)/flexibleCount : 0;
+  if (flexibleSpacing < 0)
+    flexibleSpacing = 0;
   
   // Now set the viewport for all widgets (except flexible spacers)
   int wx = x;
