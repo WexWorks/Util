@@ -18,16 +18,25 @@ namespace GlesUtil {
 bool Error();
 const char *ErrorString();
 
-// Validate FBO for rendering, printing an error in DEBUG mode.
-bool IsFramebufferComplete();
+  
+// Global queries:
+bool IsFramebufferComplete();                         // Validate FBO
+bool IsExtensionEnabled(const char *extension);       // Check for extension
+bool IsMSAAResolutionSupported(GLuint w, GLuint h);   // Test MSAA res
 
+  
 // Drawing functions:
 //   Attributes: aP is used for position, aUV for texture coordinates.
 //   MVP defaults to unit matrix, implying NDC space [-1,-1]x[1,1]
 //   MVP is the "model view projection" matrix from coords -> NDC space.
   
+bool DrawColorLines2f(unsigned int count, const float *P,
+                      float r, float g, float b, float a, const float *MVP = 0);
 bool DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
                GLuint aUV, float u0, float v0, float u1, float v1);
+bool DrawBox2f4uv(GLuint aP, float x0, float y0, float x1, float y1,
+                 GLuint aUVST, float u0, float v0, float u1, float v1,
+                               float s0, float t0, float s1, float t1);
 bool DrawColorBox2f(float x0, float y0, float x1, float y1,
                     float r, float g, float b, float a, const float *MVP = 0);
 bool DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
@@ -45,9 +54,21 @@ bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                    float u0, float v0, float u1, float v1,
                    float r, float g, float b, float a,
                    const float *MVP = 0);
+bool DrawTwoTexture2f(GLuint uvTex, float stTex,
+                      float x0, float y0, float x1, float y1,
+                      float u0, float v0, float u1, float v1,
+                      float s0, float t0, float s1, float t1,
+                      float r, float g, float b, float a,
+                      const float *MVP = 0);
 bool DrawTextureStrip2f(GLuint tex, unsigned int vcount, const float *P,
                         const float *UV, float r, float g, float b, float a,
                         const float *MVP = 0);
+bool DrawTextureStrip2fi(GLuint tex, unsigned short icount, const float *P,
+                         const float *UV, const unsigned short *idx,
+                         float r, float g, float b, float a,const float *MVP=0);
+bool DrawDropshadowStrip2fi(unsigned short icount,const float *P,const float *UV,
+                            const unsigned short *idx, float r, float g,float b,
+                            float a, const float *MVP = 0);
 
 // Bitmapped font drawing functions:
 //   Characters are defined in points and scaled to MVP space using (ptW,ptH),
@@ -129,15 +150,18 @@ GLint MaxTextureSize();
 //   Type: GL_VERTEX_SHADER, GL_FRAGMENT_SHADER
 //   Name:    Debugging only. Names texture in XCode.
 
-GLuint CreateShader(GLenum type, const char *source_code);
+GLuint CreateShader(GLenum type, const char *source);
 GLuint CreateProgram(GLuint vp, GLuint fp, const char *name=0);
   
 GLuint ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP);
 GLuint VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP);
+GLuint DropshadowFrameProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
+                              GLuint *uMVP);
 GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC, GLuint *uMVP,
                       GLuint *uTex);
 GLuint ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP, GLuint *uTex);
-
+GLuint TwoTextureProgram(GLuint *aP, GLuint *aUVST, GLuint *uC, GLuint *uMVP,
+                         GLuint *uUVTex, GLuint *uSTTex);
 
 // Buffer functions:
 //   Target: GL_ARRAY_BUFFER, GL_ELEMNT_ARRAY_BUFFER
@@ -150,10 +174,18 @@ bool StoreSubBuffer(GLuint id, GLenum target, GLintptr offset,
                     GLsizeiptr size, void *data);
 
 
-// Check for a named extension:
-
-bool IsExtensionEnabled(const char *extension);
-bool IsMSAAResolutionSupported(GLuint w, GLuint h);
+// Tristrip functions build common primitives into pre-allocated buffers.
+void RoundedRectSize2fi(int cornerSegments, unsigned short *vertexCount,
+                        unsigned short *idxCount);
+void BuildRoundedRect2fi(float x0, float y0, float x1, float y1,
+                         float u0, float v0, float u1, float v1,
+                         float radiusX, float radiusY, int segments,
+                         float *P, float *UV, unsigned short *idx);
+void RoundedFrameSize2fi(int cornerSegments, unsigned short *vertexCount,
+                         unsigned short *idxCount);
+void BuildRoundedFrame2fi(float x0, float y0, float x1, float y1,
+                          float radiusX, float radiusY, int segments,
+                          float *P, float *UV, unsigned short *idx);
 
 
 };      // namespace GlesUtil
