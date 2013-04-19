@@ -5,6 +5,7 @@
 #include <OpenGLES/ES2/glext.h>
 
 #include <assert.h>
+#include <limits>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -911,7 +912,8 @@ struct V2f { float x, y; };                           // 2D Position & UV
 
 bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
                         float ptW, float ptH, float r, float g, float b,float a,
-                        const float *MVP,float charPadPt) {
+                        const float *MVP, float charPadPt,
+                        int firstChar, int lastChar) {
   if (text == NULL)
     return false;
   if (font == NULL)
@@ -919,14 +921,19 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   if (ptW == 0 || ptH == 0)
     return false;
   
-  size_t len = strlen(text);
+  const size_t len = strlen(text);
   if (len == 0)
     return true;                                      // Nothing to draw, ok
   
   // Create attribute arrays for the text indexed tristrip
-  std::vector<V2f> P(4*len);
-  std::vector<V2f> UV(4*len);
-  const size_t idxCount = (4 + 3) * len - 3;          // 4/quad + 3 degen - last
+  lastChar = lastChar < 0 ? std::numeric_limits<int>::max() : lastChar;
+  if (lastChar < firstChar)
+    return false;
+  const size_t n = len < lastChar-firstChar+1? len : lastChar-firstChar+1;
+  lastChar = firstChar + n;                           // Loop terminator
+  std::vector<V2f> P(4*n);
+  std::vector<V2f> UV(4*n);
+  const size_t idxCount = (4 + 3) * n - 3;            // 4/quad + 3 degen - last
   std::vector<unsigned short> idx(idxCount);
   const int colCount = floor(1 / font->charDimUV[0]);
   
@@ -936,14 +943,16 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   // can overlap due to kerning via charWidthPt. Quads are rendered as
   // a tristrip with degenerate tris connecting each quad.
   float curX = 0;
-  for (size_t i = 0; i < len; ++i) {
+  for (size_t i = 0; i < lastChar; ++i) {
     const int x0 = curX;                              // Integer pixel coords
     const int y0 = 0;
     const int x1 = curX + font->charDimPt[0];
     const int y1 = font->charDimPt[1];
     const int k = (unsigned char)text[i];             // Glyph index
     curX += font->charWidthPt[k] + charPadPt;         // Kerning offset in X
-    const size_t j = i * 4;                           // Vertex index
+    if (i < firstChar)
+      continue;
+    const size_t j = (i - firstChar) * 4;             // Vertex index
     P[j+0].x = x + x0 * ptW;                          // Vertex positions
     P[j+0].y = y + y0 * ptH;
     P[j+1].x = x + x0 * ptW;
@@ -963,12 +972,12 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
     UV[j+1].x = u0; UV[j+1].y = v0;                   // Ick! Flipped texture.
     UV[j+2].x = u1; UV[j+2].y = v1;
     UV[j+3].x = u1; UV[j+3].y = v0;
-    const size_t q = i * 7;                           // First idx
+    const size_t q = (i - firstChar) * 7;             // First idx
     idx[q+0] = j;
     idx[q+1] = j+1;
     idx[q+2] = j+2;
     idx[q+3] = j+3;
-    if (i < len - 1) {                                // Skip last degen
+    if (i < lastChar - 1) {                           // Skip last degen
       idx[q+4] = j+3;                                 // Degenerate tri
       idx[q+5] = j+4;
       idx[q+6] = j+4;
@@ -1013,7 +1022,8 @@ bool GlesUtil::DrawText(const char *text, float x, float y,
 static bool DrawJustified(const char *text, float x0, float x1,
                           float y, float textW, GlesUtil::Align align,
                           const GlesUtil::Font *font, float ptW, float ptH,
-                          float r, float g, float b, float a, const float *MVP){
+                          float r, float g, float b, float a, const float *MVP,
+                          int fc, int lc) {
   const float w = x1 - x0;
   float x, pad = 0;
   switch (align) {
@@ -1029,7 +1039,7 @@ static bool DrawJustified(const char *text, float x0, float x1,
       }
       break;
   }
-  if (!DrawText(text, x + x0, y, font, ptW, ptH, r,g,b,a, MVP, pad))
+  if (!DrawText(text, x + x0, y, font, ptW, ptH, r,g,b,a, MVP, pad, fc, lc))
     return false;
   return true;
 }
@@ -1038,7 +1048,8 @@ static bool DrawJustified(const char *text, float x0, float x1,
 bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
                              float x1, float y1, Align align, const Font *font,
                              float ptW, float ptH, float r, float g, float b,
-                             float a, const float *MVP) {
+                             float a, const float *MVP,
+                             int firstChar, int lastChar) {
   const float wrapW = x1 - x0;
   if (wrapW <= 0)
     return false;
@@ -1072,7 +1083,8 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
     
     // Draw the current line. We either hit a return, the end of the string,
     // or went past the width of the rectangle and moved back to last separator
-    if (!DrawJustified(&str[0], x0,x1, y, w, align, font, ptW,ptH, r,g,b,a,MVP))
+    if (!DrawJustified(&str[0], x0,x1, y, w, align, font, ptW,ptH, r,g,b,a,
+                       MVP, firstChar, lastChar))
       return false;
     
     w = 0;
