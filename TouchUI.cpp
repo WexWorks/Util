@@ -232,7 +232,10 @@ bool Label::SetText(const char *text, float pts) {
 bool Label::FitViewport() {
   const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
   int w = ceilf(mPts * GlesUtil::TextWidth(mText, font));
-  int h = ceilf(mPts * font->charDimPt[1]);
+  std::string s(mText);
+  int nlines = std::count(s.begin(), s.end(), '\n');
+  nlines = std::max(1, nlines);
+  int h = ceilf(mPts * nlines * font->charDimPt[1]);
 
   if (mTex) {
     const int padH = 0.5 * h;
@@ -2831,11 +2834,10 @@ void ButtonGridFrame::Add(tui::Button *button) {
 }
 
 
-bool ButtonGridFrame::Delete(tui::Button *button) {
+bool ButtonGridFrame::Remove(tui::Button *button) {
   for (std::vector<tui::Button *>::iterator i = mButtonVec.begin();
        i != mButtonVec.end(); ++i) {
     if (*i == button) {
-      delete *i;
       mButtonVec.erase(i);
       SetViewport(Left(), Bottom(), Width(), Height()); // re-layout
       return true;
