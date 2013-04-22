@@ -204,7 +204,13 @@ bool ViewportWidget::TouchStartInside() const {
 // Label
 //
 
-void *Label::sFont = NULL;
+const GlesUtil::FontSet *Label::sFontSet = NULL;
+
+
+void Label::SetFontSet(const GlesUtil::FontSet *fontSet) {
+  sFontSet = fontSet;
+}
+
 
 Label::~Label() {
   free((void *)mText);
@@ -219,8 +225,8 @@ bool Label::Init(const char *text, float pts) {
 bool Label::SetText(const char *text, float pts) {
   free((void *)mText);
   mText = strdup(text);
-  const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
-  mPts = pts / font->charDimPt[1];
+  mFont = &sFontSet->Font(pts);
+  mPts = pts / mFont->charDimPt[1];
   size_t len = strlen(mText);
   mLineCount = len > 0 ? 1 : 0;
   for (size_t i = 0; i < len; ++i)
@@ -230,12 +236,11 @@ bool Label::SetText(const char *text, float pts) {
 
 
 bool Label::FitViewport() {
-  const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
-  int w = ceilf(mPts * GlesUtil::TextWidth(mText, font));
+  int w = ceilf(mPts * GlesUtil::TextWidth(mText, mFont));
   std::string s(mText);
   int nlines = std::count(s.begin(), s.end(), '\n');
   nlines = std::max(1, nlines);
-  int h = ceilf(mPts * nlines * font->charDimPt[1]);
+  int h = ceilf(mPts * nlines * mFont->charDimPt[1]);
 
   if (mTex) {
     const int padH = 0.5 * h;
@@ -273,7 +278,6 @@ bool Label::Draw() {
   glBlendEquation(GL_FUNC_ADD);
   if (!MVP())
     glViewport(Left(), Bottom(), Width(), Height());
-  const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
   
@@ -297,7 +301,7 @@ bool Label::Draw() {
   r = k * mTextColor[0]; g = k * mTextColor[1];
   b = k * mTextColor[2]; a = k * mTextColor[3];
   if (!GlesUtil::DrawParagraph(mText, x0, y0, x1, y, align,
-                               font, mPtW, mPtH, r, g, b, a, MVP(),
+                               mFont, mPtW, mPtH, r, g, b, a, MVP(),
                                mTextRange[0], mTextRange[1]))
     return false;
   glDisable(GL_BLEND);
@@ -307,8 +311,7 @@ bool Label::Draw() {
 
 float Label::TopLineOffset() const {
   float k = MVP() ? 0.5 : 1.0 / Height();
-  const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
-  return k * (Height() - mLineCount * mPts * font->charDimPt[1]);
+  return k * (Height() - mLineCount * mPts * mFont->charDimPt[1]);
 }
 
 

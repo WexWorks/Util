@@ -76,6 +76,10 @@ bool GlesUtil::IsFramebufferComplete() {
 }
 
 
+//
+// Drawing
+//
+
 bool GlesUtil::DrawColorLines2f(unsigned int count, const float *P,
                                 float r, float g, float b, float a,
                                 const float *MVP) {
@@ -393,6 +397,10 @@ bool GlesUtil::DrawDropshadowStrip2fi(unsigned short icount, const float *P,
 }
 
 
+//
+// Texture
+//
+
 bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
                             GLenum minFilter, GLenum magFilter,
                             GLenum clampS, GLenum clampT,
@@ -500,6 +508,10 @@ GLuint GlesUtil::CreateShader(GLenum type, const char *source) {
   return shader;
 }
 
+
+//
+// Programs
+//
 
 GLuint GlesUtil::CreateProgram(GLuint vp, GLuint fp, const char *name) {
   if (!vp || !fp)
@@ -889,6 +901,28 @@ bool GlesUtil::IsExtensionEnabled(const char *extension) {
   return strstr((const char *)extensionString, extension) != NULL;
 }
 
+
+//
+// Text
+//
+
+#include <set>
+
+const GlesUtil::Font &GlesUtil::FontSet::Font(float pts) const {
+  static std::set<int> ptSet;
+  if (ptSet.find(int(pts)) == ptSet.end()) {
+    printf("Loading font size %d\n", int(pts));
+    ptSet.insert(int(pts));
+  }
+  
+  for (size_t i = 0; i < fontCount; ++i) {            // Search font vec
+    if (fontVec[i].charDimPt[0] >= pts)
+      return fontVec[i];                              // Closest fit
+  }
+  return fontVec[fontCount - 1];                      // Return largest
+}
+
+
 unsigned int GlesUtil::TextWidth(const char *text, const Font *font,
                                  float charPadPt) {
   if (!text)
@@ -1114,6 +1148,10 @@ void GlesUtil::RoundedRectSize2fi(int segments, unsigned short *vertexCount,
   *idxCount = 3*5 /*rects*/ + 4 /*fans*/ * 4 /*pts/tri*/ * (segments - 1);
 }
 
+
+//
+// Tristrip Shapes
+//
 
 void GlesUtil::BuildRoundedRect2fi(float x0, float y0, float x1, float y1,
                                    float u0, float v0, float u1, float v1,

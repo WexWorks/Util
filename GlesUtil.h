@@ -75,11 +75,6 @@ bool DrawDropshadowStrip2fi(unsigned short icount,const float *P,const float *UV
 //   which are typically set using the viewport (e.g. 2/vpWidth).
 //   MVP defaults to unit matrix, implying NDC space [-1,-1]x[1,1].
 //   Drawing locations & rects are specified in MVP space (i.e. NDC default).
-//
-// Issues:
-//   - Unicode is not currently supported. Unused ASCII character slots
-//     in the texture could be filled with unicode characters?
-//   - There is no way to specify a font color or shading.
 
 struct Font {
   float charDimUV[2];                                 // UV space between chars
@@ -88,6 +83,13 @@ struct Font {
   GLuint tex;                                         // 16x16 ASCII char grid
   enum { MagGlassChar=16, StarChar=17, FlagChar=18, InfoChar=19, LevelsChar=20 };
 };
+  
+struct FontSet {
+  const Font *fontVec;                                // Increasing pt size
+  unsigned int fontCount;                             // Size of fontVec
+  const Font &Font(float pts) const;                  // Return best match
+};
+  
 
 // Return the length, in pts, of a given string. Pts are an arbitrary
 // unit used for all text drawing. Often pts=pixels, but you can scale

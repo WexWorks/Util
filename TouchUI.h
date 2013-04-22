@@ -9,6 +9,8 @@
 #include <vector>
 #include <string>
 
+namespace GlesUtil { struct Font; struct FontSet; };
+
 
 /*
  The touch user interface library provides a lightweight,
@@ -158,7 +160,7 @@ namespace tui {
   // Text label, display only
   class Label : public ViewportWidget {
   public:
-    Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0), mAlign(1),
+    Label() : mText(NULL), mFont(NULL), mPts(0), mPtW(0), mPtH(0), mAlign(1),
               mLineCount(0), mTex(0), mTexPad(0) {
       mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 1;
       mTextRange[0] = 0; mTextRange[1] = -1;
@@ -188,14 +190,15 @@ namespace tui {
     virtual bool Draw();
     
     // Initialize the font used to draw all labels
-    static void SetFont(void *font) { sFont = font; }
+    static void SetFontSet(const GlesUtil::FontSet *fontSet);
     
   protected:
-    static void *sFont;
+    static const GlesUtil::FontSet *sFontSet;
 
     float TopLineOffset() const;
     
     const char *mText;
+    const GlesUtil::Font *mFont;
     float mPts, mPtW, mPtH;
     float mTextColor[4], mBkgTexColor[4];
     int mAlign;
