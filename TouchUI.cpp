@@ -274,22 +274,27 @@ bool Label::Draw() {
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
   
+  float r, g, b, a;
+  const float k = Enabled() ? 1 : 0.5;
   if (mTex) {
+    r = k * mBkgTexColor[0]; g = k * mBkgTexColor[1];
+    b = k * mBkgTexColor[2]; a = k * mBkgTexColor[3];
     const int edgeDim = Height() * mTexDim[0] / (2 * mTexDim[1]);
     float ew = edgeDim / float(MVP() ? 1 : 0.5 * Width());
-    if (!GlesUtil::DrawTexture2f(mTex, x0, y0, x0+ew, y1, 0, 1, 0.5, 0, MVP()))
+    if (!GlesUtil::DrawTexture2f(mTex,x0,y0,x0+ew,y1, 0,1,0.5,0, r,g,b,a,MVP()))
       return false;
-    if (!GlesUtil::DrawTexture2f(mTex, x0+ew, y0, x1-ew, y1, 0.5, 1, 0.5, 0,MVP()))
+    if (!GlesUtil::DrawTexture2f(mTex,x0+ew,y0,x1-ew,y1,0.5,1,0.5,0,r,g,b,a,MVP()))
       return false;
-    if (!GlesUtil::DrawTexture2f(mTex, x1-ew, y0, x1, y1, 0.5, 1, 1, 0, MVP()))
+    if (!GlesUtil::DrawTexture2f(mTex,x1-ew,y0,x1,y1, 0.5,1,1,0, r,g,b,a,MVP()))
       return false;
   }
   
   GlesUtil::Align align = (GlesUtil::Align)mAlign;
   float y = y1 - TopLineOffset();
+  r = k * mTextColor[0]; g = k * mTextColor[1];
+  b = k * mTextColor[2]; a = k * mTextColor[3];
   if (!GlesUtil::DrawParagraph(mText, x0, y0, x1, y, align,
-                               font, mPtW, mPtH, mColor[0], mColor[1],
-                               mColor[2], mColor[3], MVP()))
+                               font, mPtW, mPtH, r, g, b, a, MVP()))
     return false;
   glDisable(GL_BLEND);
   return true;
@@ -593,7 +598,9 @@ bool ImageButton::Draw() {
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
   unsigned int texture = Pressed() ? mPressedTex : mDefaultTex;
-  if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0, MVP()))
+  const float g = Enabled() ? 1 : 0.5;
+  if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0,
+                               g, g, g, 1, MVP()))
     return false;
   
   return true;
@@ -638,7 +645,7 @@ bool CheckboxImageButton::Draw() {
   GetNDCRect(&x0, &y0, &x1, &y1);
   unsigned int texture = Pressed() ? mPressedTex : Selected() ?
                                     mSelectedTex : mDeselectedTex;
-  float g = Enabled() ? 1 : 0.5;
+  const float g = Enabled() ? 1 : 0.5;
   if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0,
                                g, g, g, 1, MVP()))
     return false;
@@ -721,6 +728,7 @@ bool TextCheckbox::Init(const char *text, float pts, size_t w, size_t h,
   mDeselectedTex = deselectedTex;
   mPressedTex = pressedTex;
   mSelectedTex = selectedTex;
+  mLabel->SetBackgroundTex(mDim[0], mDim[1], mDeselectedTex, 2);
   return true;
 }
 
@@ -728,14 +736,8 @@ bool TextCheckbox::Init(const char *text, float pts, size_t w, size_t h,
 bool TextCheckbox::FitViewport() {
   if (!mLabel->FitViewport())
     return false;
-  const int padH = 0.5 * mLabel->Height();
-  const int h = mLabel->Height() + 2 * padH;
-  const int padW = h * mDim[0] / (2 * mDim[1]);
-  const int w = mLabel->Width() + 2 * padW;
-  if (!mLabel->SetViewport(Left() + padW, Bottom() + padH,
+  if (!Button::SetViewport(mLabel->Left(), mLabel->Bottom(),
                            mLabel->Width(), mLabel->Height()))
-    return false;
-  if (!Button::SetViewport(Left(), Bottom(), w, h))
     return false;
   return true;
 }
@@ -744,9 +746,7 @@ bool TextCheckbox::FitViewport() {
 bool TextCheckbox::SetViewport(int x, int y, int w, int h) {
   if (!Button::SetViewport(x, y, w, h))
     return false;
-  const int padH = 0.5 * mLabel->Height();
-  const int padW = h * mDim[0] / (2 * mDim[1]);
-  if (!mLabel->SetViewport(x + padW, y + padH, w - 2 * padW, h - 2 * padH))
+  if (!mLabel->SetViewport(x, y, w, h))
     return false;
   return true;
 }
@@ -761,29 +761,13 @@ void TextCheckbox::SetMVP(const float *mvp) {
 bool TextCheckbox::Draw() {
   if (Hidden())
     return true;
-  
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glBlendEquation(GL_FUNC_ADD);
-  if (!MVP())
-    glViewport(Left(), Bottom(), Width(), Height());
-  
+
   const GLuint tex = Pressed() ? mPressedTex : Selected() ?
-                                mSelectedTex : mDeselectedTex;
-  const int edgeDim = Height() * mDim[0] / (2 * mDim[1]);
-  float x0, y0, x1, y1;
-  GetNDCRect(&x0, &y0, &x1, &y1);
-  float ew = edgeDim / float(MVP() ? 1 : 0.5 * Width());
-  if (!GlesUtil::DrawTexture2f(tex, x0, y0, x0+ew, y1, 0, 1, 0.5, 0, MVP()))
-    return false;
-  if (!GlesUtil::DrawTexture2f(tex, x0+ew, y0, x1-ew, y1, 0.5, 1, 0.5, 0, MVP()))
-    return false;
-  if (!GlesUtil::DrawTexture2f(tex, x1-ew, y0, x1, y1, 0.5, 1, 1, 0, MVP()))
-    return false;
+                       mSelectedTex : mDeselectedTex;
+  mLabel->SetBackgroundTex(mDim[0], mDim[1], tex, 2);
   
   if (!mLabel->Draw())
     return false;
-  glDisable(GL_BLEND);
   
   return true;
 }
@@ -1231,7 +1215,9 @@ bool Toolbar::SetViewport(int x, int y, int w, int h) {
       totalWidth += w;
   }
   
-  int flexibleSpacing = flexibleCount ? (Width() - totalWidth) / flexibleCount : 0;
+  int flexibleSpacing = flexibleCount ? (Width()-totalWidth)/flexibleCount : 0;
+  if (flexibleSpacing < 0)
+    flexibleSpacing = 0;
   
   // Now set the viewport for all widgets (except flexible spacers)
   int wx = x;
@@ -1283,6 +1269,32 @@ bool Toolbar::Touch(const tui::Event &event) {
       consumed = true;
   }
   return consumed;
+}
+
+
+bool Toolbar::Step(float seconds) {
+  bool status = true;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    AnimatedViewport *av = dynamic_cast<AnimatedViewport *>(mWidgetVec[i]);
+    if (!av)
+      continue;
+    if (!av->Step(seconds))
+      status = false;
+  }
+  return status;
+}
+
+
+bool Toolbar::Dormant() const {
+  bool status = true;
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    AnimatedViewport *av = dynamic_cast<AnimatedViewport *>(mWidgetVec[i]);
+    if (!av)
+      continue;
+    if (!av->Dormant())
+      status = false;
+  }
+  return status;
 }
 
 
@@ -2283,8 +2295,8 @@ bool Frame::Step(float seconds) {
     switch (mSnapMode) {
       case SNAP_CENTER:     tx0 = -1 + padW;        ty0 = -1 + padH;
                             tx1 = 1 - padW;         ty1 = 1 - padH;       break;
-      case SNAP_UPPER_LEFT: tx0 = -1 + 2 * padW;    ty0 = -1 + 2 * padH;
-                            tx1 = 1;                ty1 = 1;              break;
+      case SNAP_UPPER_LEFT: tx0 = -1;               ty0 = -1 + 2 * padH;
+                            tx1 = 1 - 2 * padW;     ty1 = 1;              break;
       case SNAP_PIXEL:      tx0 = -pw/2;            ty0 = -ph/2;
                             tx1 = pw/2;             ty1 = ph/2;           break;
       case SNAP_NDC_RECT:   tx0 = mSnapNDCRect[0];  ty0 = mSnapNDCRect[1];
@@ -2347,6 +2359,7 @@ bool Frame::Step(float seconds) {
     // Adjust the center of the current window by moving toward target
     assert(du == 0 || !mIsLocked[0]);
     assert(dv == 0 || !mIsLocked[1]);
+    assert(!isinf(du) && !isinf(dv) && !isinf(su) && !isinf(sv));
     mCenterUV[0] += su * du;
     mCenterUV[1] -= sv * dv;
     
@@ -2512,31 +2525,49 @@ void Frame::OnTouchBegan() {
 // Center the image and compute the scaling required to fit the image
 // within the current frame.
 
-bool Frame::SnapToFitFrame() {
+void Frame::SnapToFitFrame() {
   mCenterUV[0] = 0.5;                         // Center image
   mCenterUV[1] = 0.5;
   ComputeScaleRange();                        // Recompute if needed
-  mScale = mScaleMin;                         // Fit image to screen
+  mScale = mScaleMin == 0 ? 1 : mScaleMin;    // Fit image to screen
   mScaleVelocity = 0;
   mCenterVelocityUV[0] = 0;
   mCenterVelocityUV[1] = 0;
   mTargetScale = 0;
   mIsTargetWindowActive = false;
   mIsTargetScaleActive = false;
-  return true;
 }
 
 
 // Center the image and compute the scaling required to fit the image
 // across the current frame, offsetting the y location using v=[0,1]
 
-bool Frame::SnapToFitWidth(float v) {
+void Frame::SnapToFitWidth(float v) {
   SnapToFitFrame();
-  mScale = Width() / float(ImageWidth());
+  if (ImageWidth() != 0)
+    mScale = Width() / float(ImageWidth());
   float v2 = Height() / (mScale * ImageHeight());
   if (v2 < 1)
     mCenterUV[1] = v * (1 - v2) + v2 / 2;
-  return true;
+}
+
+
+void Frame::SnapToFitHeight(float u) {
+  SnapToFitFrame();
+  if (ImageHeight() != 0)
+    mScale = Height() / float(ImageHeight());
+  float u2 = Width() / (mScale * ImageWidth());
+  if (u2 < 1)
+    mCenterUV[0] = u * (1 - u2) + u2 / 2;
+}
+
+
+void Frame::SnapToUVCenter(float u, float v) {
+  float scale = mScale;
+  SnapToFitFrame();
+  mScale = scale;
+  mCenterUV[0] = u;
+  mCenterUV[1] = v;
 }
 
 
@@ -2569,6 +2600,12 @@ float Frame::Ndc2V(float y) const {
 
 void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
                                float *u0, float *v0, float *u1, float *v1) const {
+  if (Width() == 0 || Height() == 0) {        // Avoid inf
+    *x0 = *y0 = *x1 = *y1 = 0;
+    *u0 = *v0 = *u1 = *v1 = 0;
+    return;
+  }
+  
   int sw = mScale * ImageWidth();
   int sh = mScale * ImageHeight();
   float halfWidthUV = std::min(0.5f * Width() / sw, 0.5f);
@@ -2596,8 +2633,15 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
       if (*u0 > *u1)
         *u0 = *u1;
     }
+  } else if (mSnapMode == SNAP_UPPER_LEFT) {  // Image narrower, snap to corner
+    float offset = U2Ndc(0.5 - mCenterUV[0]); // Off-center adjustment
+    *x0 = -1 + offset;
+    *x1 = 1 - 2 * padW + offset;
+    *u0 = 0;
+    *u1 = 1;
   } else {                                    // Image narrower than screen
-    float offset = U2Ndc(0.5 - mCenterUV[0]);
+    float offset = U2Ndc(0.5 - mCenterUV[0]); // Off-center adjustment
+    assert(!isinf(offset) && !isnan(offset));
     *x0 = -1 + padW + offset;                 // Pad left & right edges
     *x1 = 1 - padW + offset;
     *u0 = 0;
@@ -2623,8 +2667,14 @@ void Frame::ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
       if (*v0 > *v1)
         *v0 = *v1;
     }
+  } else if (mSnapMode == SNAP_UPPER_LEFT) {  // Image narrower, snap to corner
+    float offset = V2Ndc(0.5 - mCenterUV[1]); // Off-center adjustment
+    *y0 = -1 + 2 * padH - offset;
+    *y1 = 1 - offset;
+    *v0 = 0;
+    *v1 = 1;
   } else  {                                    // Image shorter than screen
-    float offset = V2Ndc(0.5 - mCenterUV[1]);
+    float offset = V2Ndc(0.5 - mCenterUV[1]);  // Off-center adjustment
     *y0 = -1 + padH - offset;                  // Pad the top & bottom edges
     *y1 = 1 - padH - offset;
     *v0 = 0;
@@ -2716,9 +2766,14 @@ bool ButtonGridFrame::Delete(tui::Button *button) {
 }
 
 
-void ButtonGridFrame::Clear() {
+void ButtonGridFrame::Destroy() {
   for (size_t i = 0; i < mButtonVec.size(); ++i)
     delete mButtonVec[i];
+  Clear();
+}
+
+
+void ButtonGridFrame::Clear() {
   mButtonVec.clear();
 }
 
@@ -2729,12 +2784,16 @@ void ButtonGridFrame::Sort(const CompareButton &compare) {
 
 
 bool ButtonGridFrame::Snap(size_t i) {
-  if (i >= ButtonCount())
+  tui::Button *b = Button(i);
+  if (!b)
     return false;
-  const int hc = mButtonHorizCount[mButtonHorizCountIdx];
-  int row = i / hc;
-  float v = row * (mButtonDim + mButtonPad) / float(ImageHeight());
-  SnapToFitWidth(v);
+  if (IsXLocked()) {
+    float v = b->Top() / float(ImageHeight());
+    SnapToFitWidth(v);
+  } else if (IsYLocked()) {
+    float u = b->Right() / float(ImageWidth());
+    SnapToFitHeight(u);
+  }
   return true;
 }
 
@@ -2777,12 +2836,15 @@ void ButtonGridFrame::SetMVP(const float *mvp) {
 }
 
 
-bool ButtonGridFrame::Touch(const tui::Event &event) {
+bool ButtonGridFrame::Touch(const Event &event) {
   if (!Enabled() || Hidden())
     return false;
   
-  if (Frame::Touch(event))
+  if (Frame::Touch(event)) {
+    for (size_t i = 0; i < mButtonVec.size(); ++i)        // Cancel checkboxes
+      mButtonVec[i]->Touch(tui::Event(tui::TOUCH_CANCELLED));
     return true;
+  }
   
   if (IsDragging() || IsScaling())
     return false;
@@ -2810,6 +2872,13 @@ bool ButtonGridFrame::Touch(const tui::Event &event) {
   }
   
   return false;
+}
+
+
+bool ButtonGridFrame::Step(float seconds) {
+  if (!ButtonCount())
+    return true;
+  return tui::Frame::Step(seconds);
 }
 
 

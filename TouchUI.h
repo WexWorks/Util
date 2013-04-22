@@ -160,7 +160,8 @@ namespace tui {
   public:
     Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0), mAlign(1),
               mLineCount(0), mTex(0), mTexPad(0) {
-      mColor[0] = mColor[1] = mColor[2] = mColor[3] = 1;
+      mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 1;
+      mBkgTexColor[0] = mBkgTexColor[1] = mBkgTexColor[2] = mBkgTexColor[3] = 1;
       mTexDim[0] = mTexDim[1] = 0;
     }
     virtual ~Label();
@@ -171,11 +172,15 @@ namespace tui {
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual void SetTextColor(float r, float g, float b, float a) {
-      mColor[0] = r; mColor[1] = g; mColor[2] = b; mColor[3] = a;
+      mTextColor[0] = r; mTextColor[1] = g; mTextColor[2] = b; mTextColor[3] =a;
+    }
+    virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
+      mBkgTexColor[0]=r; mBkgTexColor[1]=g; mBkgTexColor[2]=b;mBkgTexColor[3]=a;
     }
     virtual void SetBackgroundTex(int w, int h, unsigned long tex, float pad) {
       mTexDim[0] = w; mTexDim[1] = h; mTex = tex; mTexPad = pad;
     }
+    virtual const char *Text() const { return mText; }
     virtual bool Draw();
     
     // Initialize the font used to draw all labels
@@ -188,7 +193,7 @@ namespace tui {
     
     const char *mText;
     float mPts, mPtW, mPtH;
-    float mColor[4];
+    float mTextColor[4], mBkgTexColor[4];
     int mAlign;
     float mLineCount;
     unsigned long mTex;
@@ -359,9 +364,16 @@ namespace tui {
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
+    virtual void Enable(bool status) {
+      Button::Enable(status); mLabel->Enable(status);
+    }
     virtual void SetLabelColor(float r, float g, float b, float a) {
       mLabel->SetTextColor(r, g, b, a);
     }
+    virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
+      mLabel->SetBackgroundTexColor(r, g, b, a);
+    }
+    virtual const char *Text() const { return mLabel->Text(); }
     virtual bool Draw();
     
   protected:
@@ -382,9 +394,16 @@ namespace tui {
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
+    virtual void Enable(bool status) {
+      CheckboxButton::Enable(status); mLabel->Enable(status);
+    }
     virtual void SetLabelColor(float r, float g, float b, float a) {
       mLabel->SetTextColor(r, g, b, a);
     }
+    virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
+      mLabel->SetBackgroundTexColor(r, g, b, a);
+    }
+    virtual const char *Text() const { return mLabel->Text(); }
     virtual bool Draw();
     
   protected:
@@ -518,7 +537,7 @@ namespace tui {
   // widgets will be automatically adjusted on rotation. Use ViewportWidget
   // for fixed spacing (flexible spacer is a ViewportWidget with negative size).
   // Set the size of each widget for spacing, but the (x,y) is ignored.
-  class Toolbar : public ViewportWidget {
+  class Toolbar : public AnimatedViewport {
   public:
     static const size_t kStdHeight = 44;
     
@@ -531,6 +550,8 @@ namespace tui {
     virtual bool AddFlexibleSpacer();
     virtual void Clear() { mWidgetVec.clear(); }
     virtual bool Touch(const Event &event);
+    virtual bool Step(float seconds);
+    virtual bool Dormant() const;
     virtual bool Draw();
     
   private:
@@ -544,6 +565,7 @@ namespace tui {
   public:
     class Frame {
     public:
+      virtual ~Frame() {}
       virtual bool Draw() = 0;                // Viewport set prior to call
       virtual bool OnTouchTap(const Event::Touch &touch) { return false; }
       virtual bool OnLongTouch(int x, int y) { return false; }
@@ -763,6 +785,10 @@ namespace tui {
     virtual void Lock(bool horizontal, bool vertical, bool scale) {
       mIsLocked[0] = horizontal; mIsLocked[1] = vertical; mIsScaleLocked =scale;
     }
+    virtual bool IsXLocked() const { return mIsLocked[0]; }
+    virtual bool IsYLocked() const { return mIsLocked[1]; }
+    virtual float UCenter() const { return mCenterUV[0]; }
+    virtual float VCenter() const { return mCenterUV[1]; }
     virtual void SnapToScreenCenter() { mSnapMode = SNAP_CENTER; }
     virtual void SnapToUpperLeft() { mSnapMode = SNAP_UPPER_LEFT; }
     virtual void SnapToPixelCenter() { mSnapMode = SNAP_PIXEL; }
@@ -782,8 +808,10 @@ namespace tui {
     virtual void OnTouchBegan();
     
     // Frame adjustments
-    virtual bool SnapToFitFrame();            // Whole image in frame
-    virtual bool SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
+    virtual void SnapToFitFrame();            // Whole image in frame
+    virtual void SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
+    virtual void SnapToFitHeight(float u);    // u in [0, 1] [left, right]
+    virtual void SnapToUVCenter(float u, float v);
     
     // Compute the current display region that would be sent to DrawImage
     virtual void ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
@@ -856,20 +884,23 @@ namespace tui {
   // Buttons are clipped prior to drawing to 
   class ButtonGridFrame : public Frame {
   public:
-    ButtonGridFrame();
+    ButtonGridFrame();                        // count<0 -> fixed # row/col
     virtual bool Init(int wideCount, int narrowCount,
                       int buttonPad, int topPad, int bottomPad);
     virtual void Add(Button *button);
     virtual bool Delete(Button *button);
-    virtual void Clear();                     // Delete all buttons and clear
+    virtual void Destroy();                   // Delete all buttons and clear
+    virtual void Clear();                     // Clear list, but don't delete
     virtual size_t ButtonCount() const { return mButtonVec.size(); }
-    virtual Button *Button(size_t i) { return mButtonVec[i]; }
+    virtual class Button *Button(size_t i) { return mButtonVec[i]; }
+    virtual const class Button *Button(size_t i) const { return mButtonVec[i]; }
     virtual void Sort(const CompareButton &compare);
     virtual bool Snap(size_t i);              // Ensure button #i is visible
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual bool Touch(const tui::Event &event);
     virtual bool Draw();
+    virtual bool Step(float seconds);
 
   private:
     std::vector<tui::Button *> mButtonVec;    // Button grid
