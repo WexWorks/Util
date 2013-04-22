@@ -87,8 +87,8 @@ struct SetImagePixels {
                           size_t histogramCount, unsigned long *histogram) = 0;
 };
 
-struct SetAlertText {
-  virtual bool operator()(const char *inputText) = 0;
+struct SetAlert {
+  virtual bool operator()(bool isOK, const char *inputText) = 0;
 };
 
 struct SetShareOptions {
@@ -152,7 +152,8 @@ public:
   
   // Display an alert box with optional text input and button names
   virtual void AlertBox(const char *title, const char *msg, const char *ok,
-                        const char *cancel,bool secure,SetAlertText *setText)=0;
+                        const char *cancel, bool hasTextInput,bool isTextSecure,
+                        SetAlert *setAlert) = 0;
   
   // Open a sharing option dialog and return the options via callback
   virtual bool GetShareOptions(const char *service, const int fromRect[4],
