@@ -294,7 +294,8 @@ bool Label::Draw() {
   r = k * mTextColor[0]; g = k * mTextColor[1];
   b = k * mTextColor[2]; a = k * mTextColor[3];
   if (!GlesUtil::DrawParagraph(mText, x0, y0, x1, y, align,
-                               font, mPtW, mPtH, r, g, b, a, MVP()))
+                               font, mPtW, mPtH, r, g, b, a, MVP(),
+                               mTextRange[0], mTextRange[1]))
     return false;
   glDisable(GL_BLEND);
   return true;
@@ -662,23 +663,22 @@ bool CheckboxImageButton::Draw() {
 
 bool TextButton::Init(const char *text, float pts, size_t w, size_t h,
                       unsigned int defaultTex, unsigned int pressedTex) {
-  mLabel = new Label;
-  if (!mLabel->Init(text, pts))
+  if (!mLabel.Init(text, pts))
     return true;
   mDim[0] = w;
   mDim[1] = h;
   mDefaultTex = defaultTex;
   mPressedTex = pressedTex;
-  mLabel->SetBackgroundTex(mDim[0], mDim[1], mDefaultTex, 2);
+  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDefaultTex, 2);
   return true;
 }
 
 
 bool TextButton::FitViewport() {
-  if (!mLabel->FitViewport())
+  if (!mLabel.FitViewport())
     return false;
-  if (!Button::SetViewport(mLabel->Left(), mLabel->Bottom(),
-                           mLabel->Width(), mLabel->Height()))
+  if (!Button::SetViewport(mLabel.Left(), mLabel.Bottom(),
+                           mLabel.Width(), mLabel.Height()))
     return false;
   return true;
 }
@@ -687,7 +687,7 @@ bool TextButton::FitViewport() {
 bool TextButton::SetViewport(int x, int y, int w, int h) {
   if (!Button::SetViewport(x, y, w, h))
     return false;
-  if (!mLabel->SetViewport(x, y, w, h))
+  if (!mLabel.SetViewport(x, y, w, h))
     return false;
   return true;
 }
@@ -695,7 +695,7 @@ bool TextButton::SetViewport(int x, int y, int w, int h) {
 
 void TextButton::SetMVP(const float *mvp) {
   Button::SetMVP(mvp);
-  mLabel->SetMVP(mvp);
+  mLabel.SetMVP(mvp);
 }
 
 
@@ -704,9 +704,9 @@ bool TextButton::Draw() {
     return true;
   
   const GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
-  mLabel->SetBackgroundTex(mDim[0], mDim[1], tex, 2);
+  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex, 2);
   
-  if (!mLabel->Draw())
+  if (!mLabel.Draw())
     return false;
   
   return true;
@@ -720,24 +720,23 @@ bool TextButton::Draw() {
 bool TextCheckbox::Init(const char *text, float pts, size_t w, size_t h,
                         unsigned int deselectedTex, unsigned int pressedTex,
                         unsigned int selectedTex) {
-  mLabel = new Label;
-  if (!mLabel->Init(text, pts))
+  if (!mLabel.Init(text, pts))
     return true;
   mDim[0] = w;
   mDim[1] = h;
   mDeselectedTex = deselectedTex;
   mPressedTex = pressedTex;
   mSelectedTex = selectedTex;
-  mLabel->SetBackgroundTex(mDim[0], mDim[1], mDeselectedTex, 2);
+  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDeselectedTex, 2);
   return true;
 }
 
 
 bool TextCheckbox::FitViewport() {
-  if (!mLabel->FitViewport())
+  if (!mLabel.FitViewport())
     return false;
-  if (!Button::SetViewport(mLabel->Left(), mLabel->Bottom(),
-                           mLabel->Width(), mLabel->Height()))
+  if (!Button::SetViewport(mLabel.Left(), mLabel.Bottom(),
+                           mLabel.Width(), mLabel.Height()))
     return false;
   return true;
 }
@@ -746,7 +745,7 @@ bool TextCheckbox::FitViewport() {
 bool TextCheckbox::SetViewport(int x, int y, int w, int h) {
   if (!Button::SetViewport(x, y, w, h))
     return false;
-  if (!mLabel->SetViewport(x, y, w, h))
+  if (!mLabel.SetViewport(x, y, w, h))
     return false;
   return true;
 }
@@ -754,7 +753,7 @@ bool TextCheckbox::SetViewport(int x, int y, int w, int h) {
 
 void TextCheckbox::SetMVP(const float *mvp) {
   CheckboxButton::SetMVP(mvp);
-  mLabel->SetMVP(mvp);
+  mLabel.SetMVP(mvp);
 }
 
 
@@ -764,9 +763,9 @@ bool TextCheckbox::Draw() {
 
   const GLuint tex = Pressed() ? mPressedTex : Selected() ?
                        mSelectedTex : mDeselectedTex;
-  mLabel->SetBackgroundTex(mDim[0], mDim[1], tex, 2);
+  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex, 2);
   
-  if (!mLabel->Draw())
+  if (!mLabel.Draw())
     return false;
   
   return true;
@@ -1077,6 +1076,86 @@ bool Slider::Touch(const Event &event) {
 
 
 //
+// StarRating
+//
+
+bool StarRating::Init(size_t count, float pts) {
+  mStarCount = count;
+  mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 1;
+  mSelectedColor[0] = 0.5;
+  mSelectedColor[1] = 0.5;
+  mSelectedColor[2] = 0.9;                              // Blue
+  mSelectedColor[3] = 1;
+  char text[512];
+  for (size_t i = 0; i < count; ++i)
+    text[i] = GlesUtil::Font::StarChar;
+  text[count] = '\0';
+  if (!mLabel.Init(text, pts))
+    return false;
+  if (!FitViewport())
+    return false;
+  return true;
+}
+
+
+bool StarRating::FitViewport() {
+  if (!mLabel.FitViewport())
+    return false;
+  if (!Button::SetViewport(mLabel.Left(), mLabel.Bottom(),
+                           mLabel.Width(), mLabel.Height()))
+    return false;
+  return true;
+}
+
+
+bool StarRating::SetViewport(int x, int y, int w, int h) {
+  if (!Button::SetViewport(x, y, w, h))
+    return false;
+  if (!mLabel.SetViewport(x, y, w, h))
+    return false;
+  return true;
+}
+
+
+bool StarRating::Draw() {
+  if (Hidden())
+    return true;
+  
+  int v = Pressed() ? mDragValue : mValue;
+  if (v > 0) {
+    mLabel.SetTextColor(mSelectedColor[0], mSelectedColor[1],
+                        mSelectedColor[2], mSelectedColor[3]);
+    mLabel.SetTextRange(0, v-1);
+    if (!mLabel.Draw())
+      return false;
+  }
+  if (v < mStarCount) {
+    mLabel.SetTextColor(mTextColor[0], mTextColor[1],
+                        mTextColor[2], mTextColor[3]);
+    mLabel.SetTextRange(v, mStarCount);
+    if (!mLabel.Draw())
+      return false;
+  }
+  return true;
+}
+
+
+bool StarRating::OnDrag(tui::EventPhase phase, float x, float y,
+                        double timestamp) {
+  ComputeDragValue(x);
+  return true;
+}
+
+
+bool StarRating::SetValue(size_t value) {
+  if (value > mStarCount)
+    return false;
+  mValue = value;
+  return true;
+}
+
+
+//
 // Group
 //
 
@@ -1150,7 +1229,7 @@ bool Group::Dormant() const {
     if (!av)
       continue;
     if (!av->Dormant())
-      status = false;
+      status = false;                                     // FIXME: break?
   }
   return status;
 }
@@ -1160,7 +1239,7 @@ bool Group::Enabled() const {
   bool enabled = false;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
     if (mWidgetVec[i]->Enabled())
-      enabled = true;
+      enabled = true;                                     // FIXME: break?
   }
   return enabled;
 }
@@ -1176,7 +1255,7 @@ bool Group::Hidden() const {
   bool hidden = false;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
     if (mWidgetVec[i]->Hidden())
-      hidden = true;
+      hidden = true;                                      // FIXME: break?
   }
   return hidden;
 }

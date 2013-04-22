@@ -161,6 +161,7 @@ namespace tui {
     Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0), mAlign(1),
               mLineCount(0), mTex(0), mTexPad(0) {
       mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 1;
+      mTextRange[0] = 0; mTextRange[1] = -1;
       mBkgTexColor[0] = mBkgTexColor[1] = mBkgTexColor[2] = mBkgTexColor[3] = 1;
       mTexDim[0] = mTexDim[1] = 0;
     }
@@ -171,6 +172,9 @@ namespace tui {
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
+    virtual void SetTextRange(int firstChar, int lastChar) {
+      mTextRange[0] = firstChar; mTextRange[1] = lastChar;
+    }
     virtual void SetTextColor(float r, float g, float b, float a) {
       mTextColor[0] = r; mTextColor[1] = g; mTextColor[2] = b; mTextColor[3] =a;
     }
@@ -195,6 +199,7 @@ namespace tui {
     float mPts, mPtW, mPtH;
     float mTextColor[4], mBkgTexColor[4];
     int mAlign;
+    int mTextRange[2];
     float mLineCount;
     unsigned long mTex;
     int mTexDim[2];
@@ -356,7 +361,7 @@ namespace tui {
   // background textures with a string centered on top
   class TextButton : public Button {
   public:
-    TextButton() : mLabel(NULL), mDefaultTex(0), mPressedTex(0) {
+    TextButton() : mDefaultTex(0), mPressedTex(0) {
       memset(mDim, 0, sizeof(mDim));
     }
     virtual bool Init(const char *text, float pts, size_t w, size_t h,
@@ -365,19 +370,19 @@ namespace tui {
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual void Enable(bool status) {
-      Button::Enable(status); mLabel->Enable(status);
+      Button::Enable(status); mLabel.Enable(status);
     }
     virtual void SetLabelColor(float r, float g, float b, float a) {
-      mLabel->SetTextColor(r, g, b, a);
+      mLabel.SetTextColor(r, g, b, a);
     }
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
-      mLabel->SetBackgroundTexColor(r, g, b, a);
+      mLabel.SetBackgroundTexColor(r, g, b, a);
     }
-    virtual const char *Text() const { return mLabel->Text(); }
+    virtual const char *Text() const { return mLabel.Text(); }
     virtual bool Draw();
     
   protected:
-    Label *mLabel;
+    Label mLabel;
     size_t mDim[2];
     unsigned int mDefaultTex, mPressedTex;
   };
@@ -386,8 +391,7 @@ namespace tui {
   // Checkbox button with extended background and foreground text
   class TextCheckbox : public CheckboxButton {
   public:
-    TextCheckbox() : mLabel(NULL), mDeselectedTex(0), mPressedTex(0),
-                     mSelectedTex(0) {}
+    TextCheckbox() : mDeselectedTex(0), mPressedTex(0), mSelectedTex(0) {}
     virtual bool Init(const char *text, float pts, size_t w, size_t h,
                       unsigned int deselectedTex, unsigned int pressedTex,
                       unsigned int selectedTex);
@@ -395,19 +399,19 @@ namespace tui {
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual void Enable(bool status) {
-      CheckboxButton::Enable(status); mLabel->Enable(status);
+      CheckboxButton::Enable(status); mLabel.Enable(status);
     }
     virtual void SetLabelColor(float r, float g, float b, float a) {
-      mLabel->SetTextColor(r, g, b, a);
+      mLabel.SetTextColor(r, g, b, a);
     }
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
-      mLabel->SetBackgroundTexColor(r, g, b, a);
+      mLabel.SetBackgroundTexColor(r, g, b, a);
     }
-    virtual const char *Text() const { return mLabel->Text(); }
+    virtual const char *Text() const { return mLabel.Text(); }
     virtual bool Draw();
     
   protected:
-    Label *mLabel;
+    Label mLabel;
     size_t mDim[2];
     unsigned int mDeselectedTex, mPressedTex, mSelectedTex;
   };
@@ -476,7 +480,6 @@ namespace tui {
   
   
   // Slider using a constrained handle
-  
   class Slider : public ViewportWidget {
   public:
     Slider() : mHandle(NULL), mSliderTex(0) {}
@@ -496,6 +499,54 @@ namespace tui {
     ImageHandle *mHandle;
     unsigned int mSliderTex;
     float mHandleT;
+  };
+  
+  
+  // Star-rating widget
+  // Override OnTouchTap to get value changed on up event.
+  class StarRating : public Button {
+  public:
+    StarRating() : mStarCount(0), mValue(0) {
+      mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 0;
+      mSelectedColor[0]=mSelectedColor[1]=mSelectedColor[2]=mSelectedColor[3]=0;
+    }
+    virtual bool Init(size_t count, float pts);
+    virtual bool FitViewport();
+    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetDefaultColor(float r, float g, float b, float a) {
+      mTextColor[0] = r; mTextColor[1] = g; mTextColor[2] = b; mTextColor[3] =a;
+    }
+    virtual void SetSelectedColor(float r, float g, float b, float a) {
+      mSelectedColor[0] = r; mSelectedColor[1] = g;
+      mSelectedColor[2] = b; mSelectedColor[3] = a;
+    }
+    virtual bool Draw();
+    virtual bool OnDrag(EventPhase phase, float x, float y, double timestamp);
+    virtual void SetMVP(const float *mvp) {
+      Button::SetMVP(mvp); mLabel.SetMVP(mvp);
+    }
+    virtual void Enable(bool status) {
+      Button::Enable(status); mLabel.Enable(status);
+    }
+    virtual bool SetValue(size_t value);
+    virtual size_t Value() const { return mValue; }
+    
+  private:
+    virtual void ComputeDragValue(float x) {
+      mDragValue = ceilf((mStarCount * (x - Left())) / float(Width()));
+      mDragValue = std::min(mDragValue, mStarCount);
+      mDragValue = std::max(mDragValue, size_t(1));
+    }
+    virtual bool InvokeTouchTap(const Event::Touch &touch) {
+      ComputeDragValue(touch.x);
+      SetValue(mDragValue);
+      return Button::InvokeTouchTap(touch);
+    }
+
+    size_t mStarCount;                        // Number of stars
+    size_t mValue, mDragValue;                // Current rating
+    float mTextColor[4], mSelectedColor[4];   // Text colors
+    Label mLabel;                             // Draw
   };
   
   

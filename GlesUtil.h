@@ -104,7 +104,8 @@ bool DrawText(const char *text, float x, float y, const Font *font,
               float ptW, float ptH, const float *MVP = 0, float charPadPt = 0);
 bool DrawText(const char *text, float x, float y, const Font *font,
               float ptW, float ptH, float r, float g, float b, float a,
-              const float *MVP = 0, float charPadPt = 0);
+              const float *MVP = 0, float charPadPt = 0,
+              int firstChar = 0, int lastChar = -1);
 
 // Paragraph rendering with text justification and word wrapping within
 // the specified rectangle. Text is aligned within the specified rectangle,
@@ -120,7 +121,8 @@ bool DrawParagraph(const char *text, float x0, float y0, float x1, float y1,
                    const float *MVP = 0);
 bool DrawParagraph(const char *text, float x0, float y0, float x1, float y1,
                    Align align, const Font *font, float ptW, float ptH,
-                   float r, float g, float b, float a, const float *MVP = 0);
+                   float r, float g, float b, float a, const float *MVP = 0,
+                   int firstChar = 0, int lastCar = -1);
 
 
 // Texture functions:
