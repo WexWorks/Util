@@ -272,6 +272,25 @@ bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
 }
 
 
+bool GlesUtil::Draw3SliceTexture2f(GLuint tex,
+                                   float x0, float y0, float x1, float y1,
+                                   float u0, float v0, float u1, float v1,
+                                   int texW, int texH, int vpW, int vpH,
+                                   float r, float g, float b, float a,
+                                   const float *MVP) {
+  const int edgeDim = vpH * texW / (2 * texH);
+  const float ew = edgeDim / float(MVP ? 1 : 0.5 * vpW);
+  const float mu = 0.5 * (u0 + u1);
+  if (!GlesUtil::DrawTexture2f(tex, x0,y0,x0+ew,y1, u0,v0,mu,v1, r,g,b,a, MVP))
+    return false;
+  if (!GlesUtil::DrawTexture2f(tex, x0+ew,y0,x1-ew,y1,mu,v0,mu,v1,r,g,b,a, MVP))
+    return false;
+  if (!GlesUtil::DrawTexture2f(tex, x1-ew,y0,x1,y1, mu,v0,u1,v1, r,g,b,a, MVP))
+    return false;
+  return true;
+}
+
+
 bool GlesUtil::DrawTwoTexture2f(GLuint uvTex, float stTex,
                                 float x0, float y0, float x1, float y1,
                                 float u0, float v0, float u1, float v1,
@@ -908,11 +927,25 @@ bool GlesUtil::IsExtensionEnabled(const char *extension) {
 
 #include <set>
 
+static std::set<int> sDebugFontPtSet;
+static char sDebugFontName[1024] = { 0 };
+static const GlesUtil::FontSet *sDebugFontSet = NULL;
+
+
+void GlesUtil::DebugFontSizes(const GlesUtil::FontSet &fontSet,
+                              const char *name) {
+  sDebugFontSet = &fontSet;
+  strcpy(sDebugFontName, name);
+  sDebugFontPtSet.clear();
+}
+
+
 const GlesUtil::Font &GlesUtil::FontSet::Font(float pts) const {
-  static std::set<int> ptSet;
-  if (ptSet.find(int(pts)) == ptSet.end()) {
-    printf("Loading font size %d\n", int(pts));
-    ptSet.insert(int(pts));
+  if (this == sDebugFontSet) {
+    if (sDebugFontPtSet.find(int(pts)) == sDebugFontPtSet.end()) {
+      printf("Loading \"%s\" size %d\n", sDebugFontName, int(pts));
+      sDebugFontPtSet.insert(int(pts));
+    }
   }
   
   for (size_t i = 0; i < fontCount; ++i) {            // Search font vec
@@ -924,7 +957,7 @@ const GlesUtil::Font &GlesUtil::FontSet::Font(float pts) const {
 
 
 unsigned int GlesUtil::TextWidth(const char *text, const Font *font,
-                                 float charPadPt) {
+                                 bool isKerned) {
   if (!text)
     return 0;
   
@@ -940,7 +973,7 @@ unsigned int GlesUtil::TextWidth(const char *text, const Font *font,
       maxW = std::max(w, maxW);                       // Longest line
       w = 0;                                          // Restart
     }
-    w += font->charWidthPt[k] + charPadPt;            // Kerning offset in X
+    w += isKerned ? font->charWidthPt[k] : font->charDimPt[0];
   }
   maxW = std::max(w, maxW);
   
@@ -1048,6 +1081,9 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   glDisableVertexAttribArray(aP);
   glBindTexture(GL_TEXTURE_2D, 0);
   
+  if (Error())
+    return false;
+  
   return true;
 }
 
@@ -1091,6 +1127,7 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
                              float a, const float *MVP,
                              int firstChar, int lastChar) {
   const float wrapW = x1 - x0;
+  const float eps = ptW / 4;          // Due to width accumulation
   if (wrapW <= 0)
     return false;
   float w = 0;
@@ -1110,7 +1147,7 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
     } else {
       str.push_back(c);
       w += ptW * font->charWidthPt[(unsigned char)c];
-      if (w <= wrapW)
+      if (w <= wrapW + eps)
         continue;
       if (w - lastSepW > wrapW) {
         // FIXME: What happens if a single word is longer than the line?

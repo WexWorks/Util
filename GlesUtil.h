@@ -46,7 +46,7 @@ bool DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
                          const float *MVP=0);
 bool DrawGradientBox2f(float x0, float y0, float x1, float y1, bool isVertical,
                        float r0, float g0, float b0, float r1,float g1,float b1,
-                       const float *MVP=0);
+                       const float *MVP = 0);
 bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                    float u0, float v0, float u1, float v1,
                    const float *MVP = 0);
@@ -54,6 +54,10 @@ bool DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                    float u0, float v0, float u1, float v1,
                    float r, float g, float b, float a,
                    const float *MVP = 0);
+bool Draw3SliceTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
+                         float u0, float v0, float u1, float v1,
+                         int texW, int texH, int vpW, int vpH,
+                         float r, float g, float b, float a,const float *MVP=0);
 bool DrawTwoTexture2f(GLuint uvTex, float stTex,
                       float x0, float y0, float x1, float y1,
                       float u0, float v0, float u1, float v1,
@@ -94,12 +98,25 @@ struct FontSet {
 // Return the length, in pts, of a given string. Pts are an arbitrary
 // unit used for all text drawing. Often pts=pixels, but you can scale
 // pts using ptW,ptH in the drawing functions and the MVP also affects pts.
-unsigned int TextWidth(const char *text, const Font *font, float charPadPt = 0);
+// The returned length is the longest line ('\n') within the input string.
+// If isKerned is true, the returned width is the exact number of points
+// from the leftmost part of the first character to the rightmost part of
+// the last character. If isKerned is false, the width is the number of
+// characters in the longest line multiplied by the font point width.
+unsigned int TextWidth(const char *text, const Font *font, bool isKerned);
 
+// Report the font sizes requested for the specified font.
+// Only one debug font allowed, any previous font will be ignored.
+void DebugFontSizes(const FontSet &fontSet, const char *name);
+  
 // Draw a one-line string of text. Starting location is the lower
 // left corner of the first character in MVP space. Linefeeds are ignored.
 // (ptW, ptH) scale points into MVP (e.g. NDC) space, and are typically set
-// to (2 / vpW, 2 / vpH) to scale to [-1, -1] x [1, 1]
+// to (2 / vpW, 2 / vpH) to scale to [-1, -1] x [1, 1] assuming the text
+// is intended to fill the viewport and the width was computed with TextWidth
+// with kerning enabled. If the MVP defines NDC space in pixels, and the
+// points are pixels (font point size matches desired size in pixels),
+// then ptW == ptH == 1.
 // Note: we should remove ptW,ptH and put xform into MVP, simpler.
 
 bool DrawText(const char *text, float x, float y, const Font *font,
