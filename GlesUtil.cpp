@@ -989,6 +989,11 @@ const GlesUtil::Font &GlesUtil::FontSet::Font(float pts) const {
 }
 
 
+GlesUtil::Font::Font() {
+  memset(this, 0, sizeof(Font));                      // Zero out all fields
+}
+
+
 unsigned int GlesUtil::TextWidth(const char *text, const Font *font,
                                  bool isKerned) {
   if (!text)
@@ -1016,8 +1021,52 @@ unsigned int GlesUtil::TextWidth(const char *text, const Font *font,
 
 struct V2f { float x, y; };                           // 2D Position & UV
 
+// M44f multiply extracted from IlmMath so we don't add a dependency
+static void MultiplyM44f(const float ap[16], const float bp[16], float cp[16]) {
+  float a0 = ap[0];
+  float a1 = ap[1];
+  float a2 = ap[2];
+  float a3 = ap[3];
+  
+  cp[0]  = a0 * bp[0]  + a1 * bp[4]  + a2 * bp[8]  + a3 * bp[12];
+  cp[1]  = a0 * bp[1]  + a1 * bp[5]  + a2 * bp[9]  + a3 * bp[13];
+  cp[2]  = a0 * bp[2]  + a1 * bp[6]  + a2 * bp[10] + a3 * bp[14];
+  cp[3]  = a0 * bp[3]  + a1 * bp[7]  + a2 * bp[11] + a3 * bp[15];
+  
+  a0 = ap[4];
+  a1 = ap[5];
+  a2 = ap[6];
+  a3 = ap[7];
+  
+  cp[4]  = a0 * bp[0]  + a1 * bp[4]  + a2 * bp[8]  + a3 * bp[12];
+  cp[5]  = a0 * bp[1]  + a1 * bp[5]  + a2 * bp[9]  + a3 * bp[13];
+  cp[6]  = a0 * bp[2]  + a1 * bp[6]  + a2 * bp[10] + a3 * bp[14];
+  cp[7]  = a0 * bp[3]  + a1 * bp[7]  + a2 * bp[11] + a3 * bp[15];
+  
+  a0 = ap[8];
+  a1 = ap[9];
+  a2 = ap[10];
+  a3 = ap[11];
+  
+  cp[8]  = a0 * bp[0]  + a1 * bp[4]  + a2 * bp[8]  + a3 * bp[12];
+  cp[9]  = a0 * bp[1]  + a1 * bp[5]  + a2 * bp[9]  + a3 * bp[13];
+  cp[10] = a0 * bp[2]  + a1 * bp[6]  + a2 * bp[10] + a3 * bp[14];
+  cp[11] = a0 * bp[3]  + a1 * bp[7]  + a2 * bp[11] + a3 * bp[15];
+  
+  a0 = ap[12];
+  a1 = ap[13];
+  a2 = ap[14];
+  a3 = ap[15];
+  
+  cp[12] = a0 * bp[0]  + a1 * bp[4]  + a2 * bp[8]  + a3 * bp[12];
+  cp[13] = a0 * bp[1]  + a1 * bp[5]  + a2 * bp[9]  + a3 * bp[13];
+  cp[14] = a0 * bp[2]  + a1 * bp[6]  + a2 * bp[10] + a3 * bp[14];
+  cp[15] = a0 * bp[3]  + a1 * bp[7]  + a2 * bp[11] + a3 * bp[15];
+}
+
+
 bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
-                        float ptW, float ptH, float r, float g, float b,float a,
+                        float ptW, float ptH, const FontStyle *style,
                         const float *MVP, float charPadPt,
                         int firstChar, int lastChar) {
   if (text == NULL)
@@ -1089,11 +1138,15 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
     }
   }
   
+  if (style == NULL) {
+    static const FontStyle sDefaultStyle;             // White text
+    style = &sDefaultStyle;
+  }
+  
   // Set up the texture shader
   GLuint program, aP, aUV, uC, uMVP, uTex;
   program = TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
   glUseProgram(program);                              // Setup program
-  glUniform4f(uC, r, g, b, a);
   glEnableVertexAttribArray(aUV);                     // Vertex arrays
   glEnableVertexAttribArray(aP);
   glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, &UV[0].x);
@@ -1101,10 +1154,28 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   glActiveTexture(GL_TEXTURE0);                       // Setup texture
   glBindTexture(GL_TEXTURE_2D, font->tex);
   glUniform1i(uTex, 0);
+  
+  if (style->dropshadowOffsetPts[0] != 0 || style->dropshadowOffsetPts[1] != 0){
+    const float tx = ptW * style->dropshadowOffsetPts[0];
+    const float ty = ptH * style->dropshadowOffsetPts[1];
+    const float D[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, tx,ty,0,1 };
+    const float *M = &D[0];
+    float C[16] = { 0 };
+    if (MVP) {
+      MultiplyM44f(D, MVP, C);                        // Prepend drop offset
+      M = &C[0];
+    }
+    glUniformMatrix4fv(uMVP, 1, GL_FALSE, M);
+    glUniform4f(uC, style->dropshadowC[0], style->dropshadowC[1],
+                style->dropshadowC[2], style->dropshadowC[3]);
+    glDrawElements(GL_TRIANGLE_STRIP, idxCount, GL_UNSIGNED_SHORT, &idx[0]);
+  }
+  
   static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
   if (!MVP)
     MVP = &I[0];  
   glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+  glUniform4f(uC, style->C[0], style->C[1], style->C[2], style->C[3]);
 
   // Draw the tristrip with all the character rectangles
   glDrawElements(GL_TRIANGLE_STRIP, idxCount, GL_UNSIGNED_SHORT, &idx[0]);
@@ -1120,17 +1191,10 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
 }
 
 
-bool GlesUtil::DrawText(const char *text, float x, float y,
-                        const Font *font, float ptW, float ptH,
-                        const float *MVP, float charPadPt) {
-  return DrawText(text, x, y, font, ptW, ptH, 1, 1, 1, 1, MVP, charPadPt);
-}
-
-
 static bool DrawJustified(const char *text, float x0, float x1,
                           float y, float textW, GlesUtil::Align align,
                           const GlesUtil::Font *font, float ptW, float ptH,
-                          float r, float g, float b, float a, const float *MVP,
+                          const GlesUtil::FontStyle *style, const float *MVP,
                           int fc, int lc) {
   const float w = x1 - x0;
   float x, pad = 0;
@@ -1147,7 +1211,7 @@ static bool DrawJustified(const char *text, float x0, float x1,
       }
       break;
   }
-  if (!DrawText(text, x + x0, y, font, ptW, ptH, r,g,b,a, MVP, pad, fc, lc))
+  if (!DrawText(text, x + x0, y, font, ptW, ptH, style, MVP, pad, fc, lc))
     return false;
   return true;
 }
@@ -1155,9 +1219,8 @@ static bool DrawJustified(const char *text, float x0, float x1,
 
 bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
                              float x1, float y1, Align align, const Font *font,
-                             float ptW, float ptH, float r, float g, float b,
-                             float a, const float *MVP,
-                             int firstChar, int lastChar) {
+                             float ptW, float ptH, const FontStyle *style,
+                             const float *MVP, int firstChar, int lastChar) {
   const float wrapW = x1 - x0;
   const float eps = ptW / 4;          // Due to width accumulation
   if (wrapW <= 0)
@@ -1192,7 +1255,7 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
     
     // Draw the current line. We either hit a return, the end of the string,
     // or went past the width of the rectangle and moved back to last separator
-    if (!DrawJustified(&str[0], x0,x1, y, w, align, font, ptW,ptH, r,g,b,a,
+    if (!DrawJustified(&str[0], x0,x1, y, w, align, font, ptW,ptH, style,
                        MVP, firstChar, lastChar))
       return false;
     
@@ -1201,13 +1264,6 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
     str.resize(0);
   }
   return true;
-}
-
-
-bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
-                             float x1, float y1, Align align, const Font *font,
-                             float ptW, float ptH,  const float *MVP) {
-  return DrawParagraph(text, x0, y0, x1, y1, align, font, ptW,ptH, 1,1,1,1,MVP);
 }
 
 

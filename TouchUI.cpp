@@ -312,10 +312,17 @@ bool Label::Draw() {
   const float textNDCHeight = ptH * mLineCount * mFont->charDimPt[1];
   const float padNDCHeight = 0.5 * (ndcH - textNDCHeight);
   float y = y1 - padNDCHeight;
-  r = k * mTextColor[0]; g = k * mTextColor[1];
-  b = k * mTextColor[2]; a = k * mTextColor[3];
+  GlesUtil::FontStyle style;
+  style.C[0] = k * mTextColor[0]; style.C[1] = k * mTextColor[1];
+  style.C[2] = k * mTextColor[2]; style.C[3] = /*no k*/ mTextColor[3];
+  style.dropshadowC[0] = mTextDropshadowColor[0];
+  style.dropshadowC[1] = mTextDropshadowColor[1];
+  style.dropshadowC[2] = mTextDropshadowColor[2];
+  style.dropshadowC[3] = mTextDropshadowColor[3];
+  style.dropshadowOffsetPts[0] = mTextDropshadowOffsetPts[0];
+  style.dropshadowOffsetPts[1] = mTextDropshadowOffsetPts[1];
   if (!GlesUtil::DrawParagraph(mText, x0, y0, x1, y, align,
-                               mFont, ptW, ptH, r, g, b, a, MVP(),
+                               mFont, ptW, ptH, &style, MVP(),
                                mTextRange[0], mTextRange[1]))
     return false;
   glDisable(GL_BLEND);
