@@ -238,6 +238,39 @@ bool GlesUtil::DrawGradientBox2f(float x0, float y0, float x1, float y1,
 }
 
 
+bool GlesUtil::DrawDropshadowBox2f(float x0, float y0, float x1, float y1,
+                                   float r, float g, float b, float a,
+                                   bool isVertical, const float *MVP) {
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  GLuint aP, aUV, uC, uMVP;
+  GLuint program = GlesUtil::DropshadowFrameProgram(&aP, &aUV, &uC, &uMVP);
+  if (!program)
+    return false;
+  glUseProgram(program);
+  glUniform4f(uC, r, g, b, a);
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!MVP)
+    MVP = &I[0];
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+  const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
+  const float vUV[8] = { 0, 0,  0, 1,  1, 0,  1, 1 };
+  const float hUV[8] = { 0, 0,  1, 0,  0, 1,  1, 1 };
+  glEnableVertexAttribArray(aUV);
+  glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, isVertical ? vUV : hUV);
+  glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+  glDisableVertexAttribArray(aUV);
+  glDisableVertexAttribArray(aP);
+  glDisable(GL_BLEND);
+  if (Error())
+    return false;
+  
+  return true;
+}
+
+
 bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                              float u0, float v0, float u1, float v1,
                              float r, float g, float b, float a,
@@ -1006,7 +1039,7 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   lastChar = firstChar + n;                           // Loop terminator
   std::vector<V2f> P(4*n);
   std::vector<V2f> UV(4*n);
-  const size_t idxCount = (4 + 3) * n - 3;            // 4/quad + 3 degen - last
+  const size_t idxCount = (4 + 2) * n - 2;            // 4/quad + 2 degen - last
   std::vector<unsigned short> idx(idxCount);
   const int colCount = floor(1 / font->charDimUV[0]);
   
@@ -1045,7 +1078,7 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
     UV[j+1].x = u0; UV[j+1].y = v0;                   // Ick! Flipped texture.
     UV[j+2].x = u1; UV[j+2].y = v1;
     UV[j+3].x = u1; UV[j+3].y = v0;
-    const size_t q = (i - firstChar) * 7;             // First idx
+    const size_t q = (i - firstChar) * (4 + 2);       // First idx, 4vert, 2degn
     idx[q+0] = j;
     idx[q+1] = j+1;
     idx[q+2] = j+2;
@@ -1053,7 +1086,6 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
     if (i < lastChar - 1) {                           // Skip last degen
       idx[q+4] = j+3;                                 // Degenerate tri
       idx[q+5] = j+4;
-      idx[q+6] = j+4;
     }
   }
   

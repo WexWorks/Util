@@ -166,7 +166,7 @@ namespace tui {
       mTextRange[0] = 0; mTextRange[1] = -1;
       mBkgTexColor[0] = mBkgTexColor[1] = mBkgTexColor[2] = mBkgTexColor[3] = 1;
       mTexDim[0] = mTexDim[1] = 0;
-      mTexPadPt[0] = mTexPadPt[1] = 0;
+      mPadPt[0] = mPadPt[1] = 0;
     }
     virtual ~Label();
     virtual bool Init(const char *text, float pts, const char *font = NULL);
@@ -183,10 +183,14 @@ namespace tui {
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
       mBkgTexColor[0]=r; mBkgTexColor[1]=g; mBkgTexColor[2]=b;mBkgTexColor[3]=a;
     }
-    virtual void SetBackgroundTex(int w, int h, unsigned long tex,
-                                  float padPtX, float padPtY);
-    virtual float BackgroundPadXPts() const { return mTexPadPt[0]; }
-    virtual float BackgroundPadYPts() const { return mTexPadPt[1]; }
+    virtual void SetBackgroundTex(int w, int h, unsigned long tex) {
+      mTexDim[0] = w; mTexDim[1] = h; mTex = tex;
+    }
+    virtual void SetViewportPad(float xPts, float yPts) {
+      mPadPt[0] = xPts; mPadPt[1] = yPts;
+    }
+    virtual float BackgroundPadXPts() const { return mPadPt[0]; }
+    virtual float BackgroundPadYPts() const { return mPadPt[1]; }
     virtual int TextLineCount() const { return mLineCount; }
     virtual const GlesUtil::Font &Font() const { return *mFont; }
     virtual float Points() const { return mPts; }
@@ -207,7 +211,7 @@ namespace tui {
     int mLineCount;
     unsigned long mTex;
     int mTexDim[2];
-    float mTexPadPt[2];
+    float mPadPt[2];
   };
   
   
@@ -383,6 +387,9 @@ namespace tui {
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
       mLabel.SetBackgroundTexColor(r, g, b, a);
     }
+    virtual void SetViewportPad(float xPts, float yPts) {
+      mLabel.SetViewportPad(xPts, yPts);
+    }
     virtual const char *Text() const { return mLabel.Text(); }
     virtual bool Draw();
     
@@ -412,6 +419,9 @@ namespace tui {
     }
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
       mLabel.SetBackgroundTexColor(r, g, b, a);
+    }
+    virtual void SetViewportPad(float xPts, float yPts) {
+      mLabel.SetViewportPad(xPts, yPts);
     }
     virtual const char *Text() const { return mLabel.Text(); }
     virtual bool Draw();

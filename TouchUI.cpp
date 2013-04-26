@@ -249,8 +249,8 @@ bool Label::FitViewport() {
   const float ptScale = mPts / float(mFont->charDimPt[0]);
   int tw = ceilf(ptScale * GlesUtil::TextWidth(mText, mFont, true /*kern*/));
   int th = ceilf(ptScale * mLineCount * mFont->charDimPt[1]);
-  int w = tw + 2 * mTexPadPt[0];
-  int h = th + 2 * mTexPadPt[1];
+  int w = tw + 2 * mPadPt[0];
+  int h = th + 2 * mPadPt[1];
   h = std::max(h, mTexDim[1]);
   w = std::max(w, mTexDim[0]);
   w = std::max(w, h);
@@ -264,13 +264,6 @@ bool Label::FitViewport() {
 
 void Label::SetMVP(const float *mvp) {
   ViewportWidget::SetMVP(mvp);
-}
-
-
-void Label::SetBackgroundTex(int w, int h, unsigned long tex,
-                             float padPtX, float padPtY) {
-  mTexDim[0] = w; mTexDim[1] = h; mTex = tex;
-  mTexPadPt[0] = padPtX; mTexPadPt[1] = padPtY;
 }
 
 
@@ -300,18 +293,18 @@ bool Label::Draw() {
   const float ptScale = mPts / float(mFont->charDimPt[0]);
   if (!MVP()) {
     // Compute mPtW, mPtH here, based on the actual viewport?
-    int w = Width() - 2 * mTexPadPt[0];
-    int h = Height() - 2 * mTexPadPt[1];
+    int w = Width() - 2 * mPadPt[0];
+    int h = Height() - 2 * mPadPt[1];
     ptW = 2.0 * ptScale / w;
     ptH = 2.0 * ptScale / h;
-    glViewport(Left() + mTexPadPt[0], Bottom() + mTexPadPt[1], w, h);
+    glViewport(Left() + mPadPt[0], Bottom() + mPadPt[1], w, h);
     ndcH = 2;
   } else {
-    x0 += mTexPadPt[0];                               // push in, no vp change
-    y0 += mTexPadPt[1];
-    x1 -= mTexPadPt[0];
-    y1 -= mTexPadPt[1];
-    ndcH = Height() - 2 * mTexPadPt[1];
+    x0 += mPadPt[0];                                  // push in, no vp change
+    y0 += mPadPt[1];
+    x1 -= mPadPt[0];
+    y1 -= mPadPt[1];
+    ndcH = Height() - 2 * mPadPt[1];
     ptW = ptH = ptScale;
   }
   
@@ -456,7 +449,7 @@ bool Sprite::Draw() {
     return true;
   if (mOpacity < 1) {
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glBlendEquation(GL_FUNC_ADD);
   } else {
     glDisable(GL_BLEND);
@@ -608,7 +601,7 @@ bool ImageButton::Draw() {
   
   if (mIsBlendEnabled) {
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glBlendEquation(GL_FUNC_ADD);
   } else {
     glDisable(GL_BLEND);
@@ -654,7 +647,7 @@ bool CheckboxImageButton::Draw() {
   
   if (mBlendEnabled) {
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glBlendEquation(GL_FUNC_ADD);
   } else {
     glDisable(GL_BLEND);
@@ -691,11 +684,12 @@ bool TextButton::Init(const char *text, float pts, size_t w, size_t h,
   mDim[1] = h;
   mDefaultTex = defaultTex;
   mPressedTex = pressedTex;
+  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDefaultTex);
   if (padX < 0)
     padX = pts;
   if (padY < 0)
     padY = pts/1.5;
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDefaultTex, padX, padY);
+  mLabel.SetViewportPad(padX, padY);
   return true;
 }
 
@@ -731,8 +725,7 @@ bool TextButton::Draw() {
   
   const GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
   const float pts = mLabel.Points();
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex, mLabel.BackgroundPadXPts(),
-                          mLabel.BackgroundPadYPts());
+  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex);
   
   if (!mLabel.Draw())
     return false;
@@ -756,11 +749,12 @@ bool TextCheckbox::Init(const char *text, float pts, size_t w, size_t h,
   mDeselectedTex = deselectedTex;
   mPressedTex = pressedTex;
   mSelectedTex = selectedTex;
+  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDeselectedTex);
   if (padX < 0)
     padX = pts;
   if (padY < 0)
     padY = pts/1.5;
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDeselectedTex, padX, padY);
+  mLabel.SetViewportPad(padX, padY);
   return true;
 }
 
@@ -797,8 +791,7 @@ bool TextCheckbox::Draw() {
   const GLuint tex = Pressed() ? mPressedTex : Selected() ?
                        mSelectedTex : mDeselectedTex;
   const float pts = mLabel.Points();
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex, mLabel.BackgroundPadXPts(),
-                          mLabel.BackgroundPadYPts());
+  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex);
   
   if (!mLabel.Draw())
     return false;
@@ -1008,7 +1001,7 @@ bool ImageHandle::Draw() {
   if (!MVP())
     glViewport(Left(), Bottom(), Width(), Height());
   glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
   glBlendEquation(GL_FUNC_ADD);
   GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
   float x0, y0, x1, y1;
@@ -1070,7 +1063,7 @@ bool Slider::Draw() {
   if (!MVP())
     glViewport(Left(), Bottom(), Width(), Height());
   glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
   glBlendEquation(GL_FUNC_ADD);
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
