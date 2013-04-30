@@ -899,12 +899,18 @@ unsigned int GlesUtil::TextWidth(const char *text, const Font *font,
     return 0;
   
   size_t w = 0;
+  size_t maxW = 0;
   for (size_t i = 0; i < len; ++i) {
     const int k = (unsigned char)text[i];             // Glyph index
+    if (k == '\n') {
+      maxW = std::max(w, maxW);                       // Longest line
+      w = 0;                                          // Restart
+    }
     w += font->charWidthPt[k] + charPadPt;            // Kerning offset in X
   }
+  maxW = std::max(w, maxW);
   
-  return w;
+  return maxW;
 }
 
 
