@@ -157,11 +157,36 @@ namespace tui {
   };
   
   
-  // Text label, display only
-  class Label : public ViewportWidget {
+  // Progress bar
+  class ProgressBar : public ViewportWidget {
   public:
-    Label() : mText(NULL), mFont(NULL), mPts(0), mAlign(1),
-              mLineCount(0), mTex(0) {
+    ProgressBar() : mValue(0) { mRange[0] = 0; mRange[1] = 100; }
+    virtual bool SetRange(float min, float max);
+    virtual void SetValue(float value) { mValue = value; }
+    virtual bool Draw();
+    
+  private:
+    float mRange[2];                          // [min, max] value
+    float mValue;                             // Current value
+  };
+  
+  
+  // Base class for any animated widgets
+  class AnimatedViewport : public ViewportWidget {
+  public:
+    AnimatedViewport() {}
+    virtual ~AnimatedViewport() {}
+    virtual bool Step(float seconds) = 0;     // Update animated components
+    virtual bool Dormant() const = 0;         // True if Step can be skipped
+  };
+  
+  
+  // Text label, display only, with optional animated fade
+  class Label : public AnimatedViewport {
+  public:
+    Label() : mText(NULL), mFont(NULL), mPts(0), mOpacity(1), mAlign(1),
+              mLineCount(0), mTex(0), mTimeoutSec(0), mFadeSec(0),
+              mRemainingSec(0) {
       mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 1;
       mTextRange[0] = 0; mTextRange[1] = -1;
       mTextDropshadowOffsetPts[0] = 0; mTextDropshadowOffsetPts[1] = 0;
@@ -196,6 +221,10 @@ namespace tui {
       mTextDropshadowOffsetPts[0] = xOffsetPts;
       mTextDropshadowOffsetPts[1] = yOffsetPts;
     }
+    virtual void SetFade(float timeoutSec, float fadeSec) {
+      mTimeoutSec = mRemainingSec = timeoutSec; mFadeSec = fadeSec;
+    }
+    virtual void SetOpacity(float opacity) { mOpacity = opacity; }
     virtual void SetViewportPad(float xPts, float yPts) {
       mPadPt[0] = xPts; mPadPt[1] = yPts;
     }
@@ -205,48 +234,30 @@ namespace tui {
     virtual const GlesUtil::Font &Font() const { return *mFont; }
     virtual float Points() const { return mPts; }
     virtual const char *Text() const { return mText; }
+    
+    virtual bool Step(float seconds);                     // Only if fading
+    virtual bool Dormant() const { return mTimeoutSec == 0 || Hidden(); }
     virtual bool Draw();
     
     static bool AddFontSet(const char *name, const GlesUtil::FontSet &fontSet);
     
-  protected:
+  private:
     static std::map<std::string, const GlesUtil::FontSet *> sFontMap;
     
-    const char *mText;
-    const GlesUtil::Font *mFont;
-    float mPts;
-    float mTextColor[4], mBkgTexColor[4];
-    float mTextDropshadowColor[4], mTextDropshadowOffsetPts[2];
-    int mAlign;
-    int mTextRange[2];
-    int mLineCount;
-    unsigned long mTex;
-    int mTexDim[2];
-    float mPadPt[2];
-  };
-  
-  
-  // Progress bar
-  class ProgressBar : public ViewportWidget {
-  public:
-    ProgressBar() : mValue(0) { mRange[0] = 0; mRange[1] = 100; }
-    virtual bool SetRange(float min, float max);
-    virtual void SetValue(float value) { mValue = value; }
-    virtual bool Draw();
-    
-  private:
-    float mRange[2];                          // [min, max] value
-    float mValue;                             // Current value
-  };
-  
-  
-  // Base class for any animated widgets
-  class AnimatedViewport : public ViewportWidget {
-  public:
-    AnimatedViewport() {}
-    virtual ~AnimatedViewport() {}
-    virtual bool Step(float seconds) = 0;     // Update animated components
-    virtual bool Dormant() const = 0;         // True if Step can be skipped
+    const char *mText;                        // Label text
+    const GlesUtil::Font *mFont;              // Rendering font
+    float mPts;                               // Font size
+    float mTextColor[4], mBkgTexColor[4];     // Text and texture colors
+    float mTextDropshadowColor[4];            // Optional dropshadow color
+    float mTextDropshadowOffsetPts[2];        // Zero == off (default is 0)
+    float mOpacity;                           // Multiplies other colors
+    int mAlign;                               // Paragraph alignment
+    int mTextRange[2];                        // Character subrange
+    int mLineCount;                           // Lines of text, ie. '\n'
+    unsigned long mTex;                       // Background texture
+    int mTexDim[2];                           // Size of bkgrnd tex
+    float mPadPt[2];                          // Pad around text
+    float mTimeoutSec,mFadeSec,mRemainingSec; // Fade timeout (default is off)
   };
   
   
