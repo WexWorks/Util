@@ -14,8 +14,7 @@ namespace GlesUtil { struct Font; struct FontSet; };
 
 /*
  The touch user interface library provides a lightweight,
- non-invasive widget collection with OpenGL-ES rendering.  TouchUI is
- dependent only on OpenGL-ES and the STL vector template.
+ non-invasive widget collection with OpenGL-ES rendering.
  
  Widgets are designed to work with touch-based interfaces and include
  common widgets found on mobile platforms such as fling-able lists,
@@ -26,8 +25,7 @@ namespace GlesUtil { struct Font; struct FontSet; };
  designed to live inside application-created external OpenGL
  windows/contexts/surfaces, allowing it to be used with a variety of
  window-system toolkits, or called from platform-specific toolkits
- such as Cocoa (iOS), Android, GLUT or custom game engines frameworks.
- 
+ such as UIKit, Android, GLUT or custom game engines frameworks.
  */
 
 namespace tui {
@@ -89,7 +87,9 @@ namespace tui {
     virtual void Hide(bool status) { mIsHidden = status; }
     
     virtual size_t TouchStartCount() const { return mTouchStart.size(); }
-    virtual const Event::Touch &TouchStart(size_t idx) const { return mTouchStart[idx]; }
+    virtual const Event::Touch &TouchStart(size_t idx) const {
+      return mTouchStart[idx];
+    }
     
     virtual void SetMVP(const float *mvp) { mMVP = mvp; }
     virtual const float *MVP() const { return mMVP; }
@@ -164,9 +164,12 @@ namespace tui {
               mLineCount(0), mTex(0) {
       mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 1;
       mTextRange[0] = 0; mTextRange[1] = -1;
+      mTextDropshadowOffsetPts[0] = 0; mTextDropshadowOffsetPts[1] = 0;
+      mTextDropshadowColor[0] = mTextDropshadowColor[1] = 0;
+      mTextDropshadowColor[2] = mTextDropshadowColor[3] = 0;
       mBkgTexColor[0] = mBkgTexColor[1] = mBkgTexColor[2] = mBkgTexColor[3] = 1;
       mTexDim[0] = mTexDim[1] = 0;
-      mTexPadPt[0] = mTexPadPt[1] = 0;
+      mPadPt[0] = mPadPt[1] = 0;
     }
     virtual ~Label();
     virtual bool Init(const char *text, float pts, const char *font = NULL);
@@ -183,10 +186,21 @@ namespace tui {
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
       mBkgTexColor[0]=r; mBkgTexColor[1]=g; mBkgTexColor[2]=b;mBkgTexColor[3]=a;
     }
-    virtual void SetBackgroundTex(int w, int h, unsigned long tex,
-                                  float padPtX, float padPtY);
-    virtual float BackgroundPadXPts() const { return mTexPadPt[0]; }
-    virtual float BackgroundPadYPts() const { return mTexPadPt[1]; }
+    virtual void SetBackgroundTex(int wPts, int hPts, unsigned long tex) {
+      mTexDim[0] = wPts; mTexDim[1] = hPts; mTex = tex;
+    }
+    virtual void SetDropshadow(float r, float g, float b, float a,
+                               float xOffsetPts, float yOffsetPts) {
+      mTextDropshadowColor[0] = r; mTextDropshadowColor[1] = g;
+      mTextDropshadowColor[2] = b; mTextDropshadowColor[3] = a;
+      mTextDropshadowOffsetPts[0] = xOffsetPts;
+      mTextDropshadowOffsetPts[1] = yOffsetPts;
+    }
+    virtual void SetViewportPad(float xPts, float yPts) {
+      mPadPt[0] = xPts; mPadPt[1] = yPts;
+    }
+    virtual float BackgroundPadXPts() const { return mPadPt[0]; }
+    virtual float BackgroundPadYPts() const { return mPadPt[1]; }
     virtual int TextLineCount() const { return mLineCount; }
     virtual const GlesUtil::Font &Font() const { return *mFont; }
     virtual float Points() const { return mPts; }
@@ -202,12 +216,13 @@ namespace tui {
     const GlesUtil::Font *mFont;
     float mPts;
     float mTextColor[4], mBkgTexColor[4];
+    float mTextDropshadowColor[4], mTextDropshadowOffsetPts[2];
     int mAlign;
     int mTextRange[2];
     int mLineCount;
     unsigned long mTex;
     int mTexDim[2];
-    float mTexPadPt[2];
+    float mPadPt[2];
   };
   
   
@@ -383,6 +398,13 @@ namespace tui {
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
       mLabel.SetBackgroundTexColor(r, g, b, a);
     }
+    virtual void SetDropshadow(float r, float g, float b, float a,
+                               float xOffsetPts, float yOffsetPts) {
+      mLabel.SetDropshadow(r, g, b, a, xOffsetPts, yOffsetPts);
+    }
+    virtual void SetViewportPad(float xPts, float yPts) {
+      mLabel.SetViewportPad(xPts, yPts);
+    }
     virtual const char *Text() const { return mLabel.Text(); }
     virtual bool Draw();
     
@@ -412,6 +434,13 @@ namespace tui {
     }
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
       mLabel.SetBackgroundTexColor(r, g, b, a);
+    }
+    virtual void SetDropshadow(float r, float g, float b, float a,
+                               float xOffsetPts, float yOffsetPts) {
+      mLabel.SetDropshadow(r, g, b, a, xOffsetPts, yOffsetPts);
+    }
+    virtual void SetViewportPad(float xPts, float yPts) {
+      mLabel.SetViewportPad(xPts, yPts);
     }
     virtual const char *Text() const { return mLabel.Text(); }
     virtual bool Draw();
@@ -621,6 +650,10 @@ namespace tui {
     std::vector<ViewportWidget *> mWidgetVec;
   };
   
+  
+  //
+  // Frames
+  //
   
   // A horizontal or vertical scrollable list of clickable frames
   class FlinglistImpl : public AnimatedViewport {
