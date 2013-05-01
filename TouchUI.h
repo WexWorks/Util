@@ -9,6 +9,8 @@
 #include <vector>
 #include <string>
 
+namespace GlesUtil { struct Font; struct FontSet; };
+
 
 /*
  The touch user interface library provides a lightweight,
@@ -158,19 +160,19 @@ namespace tui {
   // Text label, display only
   class Label : public ViewportWidget {
   public:
-    Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0), mAlign(1),
-              mLineCount(0), mTex(0), mTexPad(0) {
+    Label() : mText(NULL), mFont(NULL), mPts(0), mAlign(1),
+              mLineCount(0), mTex(0) {
       mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 1;
       mTextRange[0] = 0; mTextRange[1] = -1;
       mBkgTexColor[0] = mBkgTexColor[1] = mBkgTexColor[2] = mBkgTexColor[3] = 1;
       mTexDim[0] = mTexDim[1] = 0;
+      mTexPadPt[0] = mTexPadPt[1] = 0;
     }
     virtual ~Label();
-    virtual bool Init(const char *text, float pts);
-    virtual bool SetText(const char *text, float pts);
+    virtual bool Init(const char *text, float pts, const char *font = NULL);
+    virtual bool SetText(const char *text, float pts, const char *font = NULL);
     virtual void SetJustify(int glesUtilAlign) { mAlign = glesUtilAlign; }
     virtual bool FitViewport();
-    virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual void SetTextRange(int firstChar, int lastChar) {
       mTextRange[0] = firstChar; mTextRange[1] = lastChar;
@@ -181,29 +183,31 @@ namespace tui {
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
       mBkgTexColor[0]=r; mBkgTexColor[1]=g; mBkgTexColor[2]=b;mBkgTexColor[3]=a;
     }
-    virtual void SetBackgroundTex(int w, int h, unsigned long tex, float pad) {
-      mTexDim[0] = w; mTexDim[1] = h; mTex = tex; mTexPad = pad;
-    }
+    virtual void SetBackgroundTex(int w, int h, unsigned long tex,
+                                  float padPtX, float padPtY);
+    virtual float BackgroundPadXPts() const { return mTexPadPt[0]; }
+    virtual float BackgroundPadYPts() const { return mTexPadPt[1]; }
+    virtual int TextLineCount() const { return mLineCount; }
+    virtual const GlesUtil::Font &Font() const { return *mFont; }
+    virtual float Points() const { return mPts; }
     virtual const char *Text() const { return mText; }
     virtual bool Draw();
     
-    // Initialize the font used to draw all labels
-    static void SetFont(void *font) { sFont = font; }
+    static bool AddFontSet(const char *name, const GlesUtil::FontSet &fontSet);
     
   protected:
-    static void *sFont;
-
-    float TopLineOffset() const;
+    static std::map<std::string, const GlesUtil::FontSet *> sFontMap;
     
     const char *mText;
-    float mPts, mPtW, mPtH;
+    const GlesUtil::Font *mFont;
+    float mPts;
     float mTextColor[4], mBkgTexColor[4];
     int mAlign;
     int mTextRange[2];
-    float mLineCount;
+    int mLineCount;
     unsigned long mTex;
     int mTexDim[2];
-    float mTexPad;
+    float mTexPadPt[2];
   };
   
   
@@ -365,7 +369,8 @@ namespace tui {
       memset(mDim, 0, sizeof(mDim));
     }
     virtual bool Init(const char *text, float pts, size_t w, size_t h,
-                      unsigned int defaultTex, unsigned int pressedTex);
+                      unsigned int defaultTex, unsigned int pressedTex,
+                      const char *font = NULL, float padX=-1, float padY=-1);
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
@@ -394,7 +399,8 @@ namespace tui {
     TextCheckbox() : mDeselectedTex(0), mPressedTex(0), mSelectedTex(0) {}
     virtual bool Init(const char *text, float pts, size_t w, size_t h,
                       unsigned int deselectedTex, unsigned int pressedTex,
-                      unsigned int selectedTex);
+                      unsigned int selectedTex, const char *font = NULL,
+                      float padX=-1, float padY=-1);
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
@@ -510,7 +516,7 @@ namespace tui {
       mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 0;
       mSelectedColor[0]=mSelectedColor[1]=mSelectedColor[2]=mSelectedColor[3]=0;
     }
-    virtual bool Init(size_t count, float pts);
+    virtual bool Init(size_t count, float pts, const char *font = NULL);
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetDefaultColor(float r, float g, float b, float a) {
@@ -592,8 +598,12 @@ namespace tui {
   public:
     static const size_t kStdHeight = 44;
     
-    Toolbar() : mBackgroundTex(0) {}
-    virtual void SetBackgroundTex(unsigned int tex) { mBackgroundTex = tex; }
+    Toolbar() : mBackgroundTex(0) {
+      mBackgroundTexDim[0] = mBackgroundTexDim[1] = 0;
+    }
+    virtual void SetBackgroundTex(unsigned int tex, int w, int h) {
+      mBackgroundTex = tex; mBackgroundTexDim[0] = w; mBackgroundTexDim[1] = h;
+    }
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual void Add(ViewportWidget *widget) { mWidgetVec.push_back(widget); }
@@ -607,6 +617,7 @@ namespace tui {
     
   private:
     unsigned int mBackgroundTex;
+    unsigned int mBackgroundTexDim[2];
     std::vector<ViewportWidget *> mWidgetVec;
   };
   

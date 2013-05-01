@@ -204,23 +204,39 @@ bool ViewportWidget::TouchStartInside() const {
 // Label
 //
 
-void *Label::sFont = NULL;
+std::map<std::string, const GlesUtil::FontSet *> Label::sFontMap;
+
+
+bool Label::AddFontSet(const char *name, const GlesUtil::FontSet &fontSet) {
+  std::string key(name);
+  if (sFontMap.find(key) != sFontMap.end())
+    return false;
+  sFontMap[key] = &fontSet;
+  return true;
+}
+
 
 Label::~Label() {
   free((void *)mText);
 }
 
 
-bool Label::Init(const char *text, float pts) {
-  return SetText(text, pts);
+bool Label::Init(const char *text, float pts, const char *font) {
+  return SetText(text, pts, font);
 }
 
 
-bool Label::SetText(const char *text, float pts) {
+bool Label::SetText(const char *text, float pts, const char *font) {
   free((void *)mText);
   mText = strdup(text);
-  const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
-  mPts = pts / font->charDimPt[1];
+  mPts = pts;
+  std::map<std::string, const GlesUtil::FontSet *>::const_iterator i;
+  if (font == NULL)
+    font = "System";
+  i = sFontMap.find(font);
+  if (i == sFontMap.end())
+    return false;
+  mFont = &i->second->Font(pts);
   size_t len = strlen(mText);
   mLineCount = len > 0 ? 1 : 0;
   for (size_t i = 0; i < len; ++i)
@@ -230,38 +246,31 @@ bool Label::SetText(const char *text, float pts) {
 
 
 bool Label::FitViewport() {
-  const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
-  int w = ceilf(mPts * GlesUtil::TextWidth(mText, font));
-  std::string s(mText);
-  int nlines = std::count(s.begin(), s.end(), '\n');
-  nlines = std::max(1, nlines);
-  int h = ceilf(mPts * nlines * font->charDimPt[1]);
-
-  if (mTex) {
-    const int padH = 0.5 * h;
-    h = std::max(mTexDim[1], int(h + mTexPad * padH));
-    const int padW = h * mTexDim[0] / (2 * mTexDim[1]);
-    w = std::max(mTexDim[0], int(w + mTexPad * padW));
-  }
+  const float ptScale = mPts / float(mFont->charDimPt[0]);
+  int tw = ceilf(ptScale * GlesUtil::TextWidth(mText, mFont, true /*kern*/));
+  int th = ceilf(ptScale * mLineCount * mFont->charDimPt[1]);
+  int w = tw + 2 * mTexPadPt[0];
+  int h = th + 2 * mTexPadPt[1];
+  h = std::max(h, mTexDim[1]);
+  w = std::max(w, mTexDim[0]);
+  w = std::max(w, h);
   
-  if (!SetViewport(Left(), Bottom(), w, h))
+  if (!ViewportWidget::SetViewport(Left(), Bottom(), w, h))
     return false;
-  return true;
-}
 
-
-bool Label::SetViewport(int x, int y, int w, int h) {
-  if (!ViewportWidget::SetViewport(x, y, w, h))
-    return false;
-  mPtW = mPts / (MVP() ? 1 : 0.5 * Width());
-  mPtH = mPts / (MVP() ? 1 : 0.5 * Height());
   return true;
 }
 
 
 void Label::SetMVP(const float *mvp) {
   ViewportWidget::SetMVP(mvp);
-  SetViewport(Left(), Bottom(), Width(), Height());   // Set mPtW, mPtH
+}
+
+
+void Label::SetBackgroundTex(int w, int h, unsigned long tex,
+                             float padPtX, float padPtY) {
+  mTexDim[0] = w; mTexDim[1] = h; mTex = tex;
+  mTexPadPt[0] = padPtX; mTexPadPt[1] = padPtY;
 }
 
 
@@ -269,11 +278,10 @@ bool Label::Draw() {
   if (Hidden())
     return true;
   glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
   glBlendEquation(GL_FUNC_ADD);
   if (!MVP())
     glViewport(Left(), Bottom(), Width(), Height());
-  const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
   
@@ -282,33 +290,43 @@ bool Label::Draw() {
   if (mTex) {
     r = k * mBkgTexColor[0]; g = k * mBkgTexColor[1];
     b = k * mBkgTexColor[2]; a = k * mBkgTexColor[3];
-    const int edgeDim = Height() * mTexDim[0] / (2 * mTexDim[1]);
-    float ew = edgeDim / float(MVP() ? 1 : 0.5 * Width());
-    if (!GlesUtil::DrawTexture2f(mTex,x0,y0,x0+ew,y1, 0,1,0.5,0, r,g,b,a,MVP()))
+    if (!GlesUtil::Draw3SliceTexture2f(mTex, x0, y0, x1, y1, 0, 1, 1, 0,
+                                       mTexDim[0], mTexDim[1], Width(),Height(),
+                                       r, g, b, a, MVP()))
       return false;
-    if (!GlesUtil::DrawTexture2f(mTex,x0+ew,y0,x1-ew,y1,0.5,1,0.5,0,r,g,b,a,MVP()))
-      return false;
-    if (!GlesUtil::DrawTexture2f(mTex,x1-ew,y0,x1,y1, 0.5,1,1,0, r,g,b,a,MVP()))
-      return false;
+  }
+
+  float ndcH, ptW, ptH;
+  const float ptScale = mPts / float(mFont->charDimPt[0]);
+  if (!MVP()) {
+    // Compute mPtW, mPtH here, based on the actual viewport?
+    int w = Width() - 2 * mTexPadPt[0];
+    int h = Height() - 2 * mTexPadPt[1];
+    ptW = 2.0 * ptScale / w;
+    ptH = 2.0 * ptScale / h;
+    glViewport(Left() + mTexPadPt[0], Bottom() + mTexPadPt[1], w, h);
+    ndcH = 2;
+  } else {
+    x0 += mTexPadPt[0];                               // push in, no vp change
+    y0 += mTexPadPt[1];
+    x1 -= mTexPadPt[0];
+    y1 -= mTexPadPt[1];
+    ndcH = Height() - 2 * mTexPadPt[1];
+    ptW = ptH = ptScale;
   }
   
   GlesUtil::Align align = (GlesUtil::Align)mAlign;
-  float y = y1 - TopLineOffset();
+  const float textNDCHeight = ptH * mLineCount * mFont->charDimPt[1];
+  const float padNDCHeight = 0.5 * (ndcH - textNDCHeight);
+  float y = y1 - padNDCHeight;
   r = k * mTextColor[0]; g = k * mTextColor[1];
   b = k * mTextColor[2]; a = k * mTextColor[3];
   if (!GlesUtil::DrawParagraph(mText, x0, y0, x1, y, align,
-                               font, mPtW, mPtH, r, g, b, a, MVP(),
+                               mFont, ptW, ptH, r, g, b, a, MVP(),
                                mTextRange[0], mTextRange[1]))
     return false;
   glDisable(GL_BLEND);
   return true;
-}
-
-
-float Label::TopLineOffset() const {
-  float k = MVP() ? 0.5 : 1.0 / Height();
-  const GlesUtil::Font *font = (const GlesUtil::Font *)sFont;
-  return k * (Height() - mLineCount * mPts * font->charDimPt[1]);
 }
 
 
@@ -665,14 +683,19 @@ bool CheckboxImageButton::Draw() {
 //
 
 bool TextButton::Init(const char *text, float pts, size_t w, size_t h,
-                      unsigned int defaultTex, unsigned int pressedTex) {
-  if (!mLabel.Init(text, pts))
+                      unsigned int defaultTex, unsigned int pressedTex,
+                      const char *font, float padX, float padY) {
+  if (!mLabel.Init(text, pts, font))
     return true;
   mDim[0] = w;
   mDim[1] = h;
   mDefaultTex = defaultTex;
   mPressedTex = pressedTex;
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDefaultTex, 2);
+  if (padX < 0)
+    padX = pts;
+  if (padY < 0)
+    padY = pts/1.5;
+  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDefaultTex, padX, padY);
   return true;
 }
 
@@ -707,7 +730,9 @@ bool TextButton::Draw() {
     return true;
   
   const GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex, 2);
+  const float pts = mLabel.Points();
+  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex, mLabel.BackgroundPadXPts(),
+                          mLabel.BackgroundPadYPts());
   
   if (!mLabel.Draw())
     return false;
@@ -722,15 +747,20 @@ bool TextButton::Draw() {
 
 bool TextCheckbox::Init(const char *text, float pts, size_t w, size_t h,
                         unsigned int deselectedTex, unsigned int pressedTex,
-                        unsigned int selectedTex) {
-  if (!mLabel.Init(text, pts))
+                        unsigned int selectedTex, const char *font,
+                        float padX, float padY) {
+  if (!mLabel.Init(text, pts, font))
     return true;
   mDim[0] = w;
   mDim[1] = h;
   mDeselectedTex = deselectedTex;
   mPressedTex = pressedTex;
   mSelectedTex = selectedTex;
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDeselectedTex, 2);
+  if (padX < 0)
+    padX = pts;
+  if (padY < 0)
+    padY = pts/1.5;
+  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDeselectedTex, padX, padY);
   return true;
 }
 
@@ -766,7 +796,9 @@ bool TextCheckbox::Draw() {
 
   const GLuint tex = Pressed() ? mPressedTex : Selected() ?
                        mSelectedTex : mDeselectedTex;
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex, 2);
+  const float pts = mLabel.Points();
+  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex, mLabel.BackgroundPadXPts(),
+                          mLabel.BackgroundPadYPts());
   
   if (!mLabel.Draw())
     return false;
@@ -1082,7 +1114,7 @@ bool Slider::Touch(const Event &event) {
 // StarRating
 //
 
-bool StarRating::Init(size_t count, float pts) {
+bool StarRating::Init(size_t count, float pts, const char *font) {
   mStarCount = count;
   mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 1;
   mSelectedColor[0] = 0.5;
@@ -1093,7 +1125,7 @@ bool StarRating::Init(size_t count, float pts) {
   for (size_t i = 0; i < count; ++i)
     text[i] = GlesUtil::Font::StarChar;
   text[count] = '\0';
-  if (!mLabel.Init(text, pts))
+  if (!mLabel.Init(text, pts, font))
     return false;
   if (!FitViewport())
     return false;
@@ -1387,11 +1419,13 @@ bool Toolbar::Draw() {
     glViewport(Left(), Bottom(), Width(), Height());
   if (mBackgroundTex) {
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glBlendEquation(GL_FUNC_ADD);
     float x0, y0, x1, y1;
     GetNDCRect(&x0, &y0, &x1, &y1);
-    if (!GlesUtil::DrawTexture2f(mBackgroundTex, x0,y0,x1,y1, 0,1,1,0, MVP()))
+    if (!GlesUtil::Draw3SliceTexture2f(mBackgroundTex, x0, y0, x1, y1, 0,1,1,0,
+                                       mBackgroundTexDim[0],mBackgroundTexDim[1],
+                                       Width(), Height(), 1, 1, 1, 1))
       return false;
     glDisable(GL_BLEND);
   }
