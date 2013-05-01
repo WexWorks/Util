@@ -95,6 +95,7 @@ bool GlesUtil::DrawColorLines2f(unsigned int count, const float *P,
   glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
   
   glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
   glDrawArrays(GL_LINES, 0, count);
   if (Error())
     return false;

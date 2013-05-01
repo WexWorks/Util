@@ -403,7 +403,7 @@ namespace tui {
     virtual void Enable(bool status) {
       Button::Enable(status); mLabel.Enable(status);
     }
-    virtual void SetLabelColor(float r, float g, float b, float a) {
+    virtual void SetTextColor(float r, float g, float b, float a) {
       mLabel.SetTextColor(r, g, b, a);
     }
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
@@ -440,7 +440,7 @@ namespace tui {
     virtual void Enable(bool status) {
       CheckboxButton::Enable(status); mLabel.Enable(status);
     }
-    virtual void SetLabelColor(float r, float g, float b, float a) {
+    virtual void SetTextColor(float r, float g, float b, float a) {
       mLabel.SetTextColor(r, g, b, a);
     }
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
@@ -464,7 +464,11 @@ namespace tui {
   
   
   // Manages a set of CheckboxButtons, ensuring that only a single
-  // checkbox of the group, or none, is selected at any given time
+  // checkbox of the group, or none, is selected at any given time.
+  // NOTE: Make sure the checkbox buttons return true from OnTouchTap
+  //       or the radio button will not deselect the other buttons.
+  // NOTE: In CheckboxButton::OnTouchTap, the radio button state does
+  //       not yet account for the newly pressed button.
   class RadioButton : public ViewportWidget {
   public:
     RadioButton() : mIsNoneAllowed(false) {}
@@ -476,7 +480,9 @@ namespace tui {
     virtual bool Draw();
     virtual void Hide(bool status);
     virtual CheckboxButton *Selected() const;
+    virtual int SelectedIdx() const;
     virtual void SetSelected(CheckboxButton *button);
+    virtual void SetSelectedIdx(int idx) { SetSelected(mButtonVec[idx]);}
     virtual void SetIsNoneAllowed(bool status) { mIsNoneAllowed = status; }
     virtual bool IsNoneAllowed() const { return mIsNoneAllowed; }
     virtual bool OnNoneSelected() { return false; }
@@ -528,13 +534,18 @@ namespace tui {
   // Slider using a constrained handle
   class Slider : public ViewportWidget {
   public:
-    Slider() : mHandle(NULL), mSliderTex(0) {}
+    Slider() : mHandle(NULL), mSliderTex(0) {
+      mBkgTexColor[0] = mBkgTexColor[1] = mBkgTexColor[2] = mBkgTexColor[3] = 1;
+    }
     virtual ~Slider();
     
     virtual bool Init(unsigned int sliderTex, size_t handleW, size_t handleH,
                       unsigned int handleTex, unsigned int handlePressedTex);
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
+    virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
+      mBkgTexColor[0]=r; mBkgTexColor[1]=g; mBkgTexColor[2]=b;mBkgTexColor[3]=a;
+    }
     virtual bool Touch(const Event &event);
     virtual bool Draw();
     virtual bool SetValue(float value);
@@ -545,6 +556,7 @@ namespace tui {
     ImageHandle *mHandle;
     unsigned int mSliderTex;
     float mHandleT;
+    float mBkgTexColor[4];                      // Texture multiplier
   };
   
   
