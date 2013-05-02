@@ -550,7 +550,7 @@ namespace tui {
     virtual bool Draw();
     virtual bool SetValue(float value);
     virtual float Value() const { return mHandleT; }
-    virtual bool OnValueChanged(float value) const { return false; }
+    virtual bool OnValueChanged(float value) { return false; }
     
   private:
     ImageHandle *mHandle;

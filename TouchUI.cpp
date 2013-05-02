@@ -1122,6 +1122,8 @@ bool Slider::SetValue(float value) {
   int hy = Bottom() + (Height() - mHandle->Height()) / 2;
   if (!mHandle->SetViewport(hx, hy, mHandle->Width(), mHandle->Height()))
     return false;
+  if (!OnValueChanged(Value()))
+    return false;
   return true;
 }
 
