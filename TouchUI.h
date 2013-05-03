@@ -9,11 +9,12 @@
 #include <vector>
 #include <string>
 
+namespace GlesUtil { struct Font; struct FontSet; };
+
 
 /*
  The touch user interface library provides a lightweight,
- non-invasive widget collection with OpenGL-ES rendering.  TouchUI is
- dependent only on OpenGL-ES and the STL vector template.
+ non-invasive widget collection with OpenGL-ES rendering.
  
  Widgets are designed to work with touch-based interfaces and include
  common widgets found on mobile platforms such as fling-able lists,
@@ -24,8 +25,7 @@
  designed to live inside application-created external OpenGL
  windows/contexts/surfaces, allowing it to be used with a variety of
  window-system toolkits, or called from platform-specific toolkits
- such as Cocoa (iOS), Android, GLUT or custom game engines frameworks.
- 
+ such as UIKit, Android, GLUT or custom game engines frameworks.
  */
 
 namespace tui {
@@ -87,7 +87,9 @@ namespace tui {
     virtual void Hide(bool status) { mIsHidden = status; }
     
     virtual size_t TouchStartCount() const { return mTouchStart.size(); }
-    virtual const Event::Touch &TouchStart(size_t idx) const { return mTouchStart[idx]; }
+    virtual const Event::Touch &TouchStart(size_t idx) const {
+      return mTouchStart[idx];
+    }
     
     virtual void SetMVP(const float *mvp) { mMVP = mvp; }
     virtual const float *MVP() const { return mMVP; }
@@ -158,47 +160,69 @@ namespace tui {
   // Text label, display only
   class Label : public ViewportWidget {
   public:
-    Label() : mText(NULL), mPts(0), mPtW(0), mPtH(0), mAlign(1),
-              mLineCount(0), mTex(0), mTexPad(0) {
+    Label() : mText(NULL), mFont(NULL), mPts(0), mAlign(1),
+              mLineCount(0), mTex(0) {
       mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 1;
+      mTextRange[0] = 0; mTextRange[1] = -1;
+      mTextDropshadowOffsetPts[0] = 0; mTextDropshadowOffsetPts[1] = 0;
+      mTextDropshadowColor[0] = mTextDropshadowColor[1] = 0;
+      mTextDropshadowColor[2] = mTextDropshadowColor[3] = 0;
       mBkgTexColor[0] = mBkgTexColor[1] = mBkgTexColor[2] = mBkgTexColor[3] = 1;
       mTexDim[0] = mTexDim[1] = 0;
+      mPadPt[0] = mPadPt[1] = 0;
     }
     virtual ~Label();
-    virtual bool Init(const char *text, float pts);
-    virtual bool SetText(const char *text, float pts);
+    virtual bool Init(const char *text, float pts, const char *font = NULL);
+    virtual bool SetText(const char *text, float pts, const char *font = NULL);
     virtual void SetJustify(int glesUtilAlign) { mAlign = glesUtilAlign; }
     virtual bool FitViewport();
-    virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
+    virtual void SetTextRange(int firstChar, int lastChar) {
+      mTextRange[0] = firstChar; mTextRange[1] = lastChar;
+    }
     virtual void SetTextColor(float r, float g, float b, float a) {
       mTextColor[0] = r; mTextColor[1] = g; mTextColor[2] = b; mTextColor[3] =a;
     }
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
       mBkgTexColor[0]=r; mBkgTexColor[1]=g; mBkgTexColor[2]=b;mBkgTexColor[3]=a;
     }
-    virtual void SetBackgroundTex(int w, int h, unsigned long tex, float pad) {
-      mTexDim[0] = w; mTexDim[1] = h; mTex = tex; mTexPad = pad;
+    virtual void SetBackgroundTex(int wPts, int hPts, unsigned long tex) {
+      mTexDim[0] = wPts; mTexDim[1] = hPts; mTex = tex;
     }
+    virtual void SetDropshadow(float r, float g, float b, float a,
+                               float xOffsetPts, float yOffsetPts) {
+      mTextDropshadowColor[0] = r; mTextDropshadowColor[1] = g;
+      mTextDropshadowColor[2] = b; mTextDropshadowColor[3] = a;
+      mTextDropshadowOffsetPts[0] = xOffsetPts;
+      mTextDropshadowOffsetPts[1] = yOffsetPts;
+    }
+    virtual void SetViewportPad(float xPts, float yPts) {
+      mPadPt[0] = xPts; mPadPt[1] = yPts;
+    }
+    virtual float BackgroundPadXPts() const { return mPadPt[0]; }
+    virtual float BackgroundPadYPts() const { return mPadPt[1]; }
+    virtual int TextLineCount() const { return mLineCount; }
+    virtual const GlesUtil::Font &Font() const { return *mFont; }
+    virtual float Points() const { return mPts; }
     virtual const char *Text() const { return mText; }
     virtual bool Draw();
     
-    // Initialize the font used to draw all labels
-    static void SetFont(void *font) { sFont = font; }
+    static bool AddFontSet(const char *name, const GlesUtil::FontSet &fontSet);
     
   protected:
-    static void *sFont;
-
-    float TopLineOffset() const;
+    static std::map<std::string, const GlesUtil::FontSet *> sFontMap;
     
     const char *mText;
-    float mPts, mPtW, mPtH;
+    const GlesUtil::Font *mFont;
+    float mPts;
     float mTextColor[4], mBkgTexColor[4];
+    float mTextDropshadowColor[4], mTextDropshadowOffsetPts[2];
     int mAlign;
-    float mLineCount;
+    int mTextRange[2];
+    int mLineCount;
     unsigned long mTex;
     int mTexDim[2];
-    float mTexPad;
+    float mPadPt[2];
   };
   
   
@@ -356,28 +380,36 @@ namespace tui {
   // background textures with a string centered on top
   class TextButton : public Button {
   public:
-    TextButton() : mLabel(NULL), mDefaultTex(0), mPressedTex(0) {
+    TextButton() : mDefaultTex(0), mPressedTex(0) {
       memset(mDim, 0, sizeof(mDim));
     }
     virtual bool Init(const char *text, float pts, size_t w, size_t h,
-                      unsigned int defaultTex, unsigned int pressedTex);
+                      unsigned int defaultTex, unsigned int pressedTex,
+                      const char *font = NULL, float padX=-1, float padY=-1);
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual void Enable(bool status) {
-      Button::Enable(status); mLabel->Enable(status);
+      Button::Enable(status); mLabel.Enable(status);
     }
     virtual void SetLabelColor(float r, float g, float b, float a) {
-      mLabel->SetTextColor(r, g, b, a);
+      mLabel.SetTextColor(r, g, b, a);
     }
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
-      mLabel->SetBackgroundTexColor(r, g, b, a);
+      mLabel.SetBackgroundTexColor(r, g, b, a);
     }
-    virtual const char *Text() const { return mLabel->Text(); }
+    virtual void SetDropshadow(float r, float g, float b, float a,
+                               float xOffsetPts, float yOffsetPts) {
+      mLabel.SetDropshadow(r, g, b, a, xOffsetPts, yOffsetPts);
+    }
+    virtual void SetViewportPad(float xPts, float yPts) {
+      mLabel.SetViewportPad(xPts, yPts);
+    }
+    virtual const char *Text() const { return mLabel.Text(); }
     virtual bool Draw();
     
   protected:
-    Label *mLabel;
+    Label mLabel;
     size_t mDim[2];
     unsigned int mDefaultTex, mPressedTex;
   };
@@ -386,28 +418,35 @@ namespace tui {
   // Checkbox button with extended background and foreground text
   class TextCheckbox : public CheckboxButton {
   public:
-    TextCheckbox() : mLabel(NULL), mDeselectedTex(0), mPressedTex(0),
-                     mSelectedTex(0) {}
+    TextCheckbox() : mDeselectedTex(0), mPressedTex(0), mSelectedTex(0) {}
     virtual bool Init(const char *text, float pts, size_t w, size_t h,
                       unsigned int deselectedTex, unsigned int pressedTex,
-                      unsigned int selectedTex);
+                      unsigned int selectedTex, const char *font = NULL,
+                      float padX=-1, float padY=-1);
     virtual bool FitViewport();
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual void Enable(bool status) {
-      CheckboxButton::Enable(status); mLabel->Enable(status);
+      CheckboxButton::Enable(status); mLabel.Enable(status);
     }
     virtual void SetLabelColor(float r, float g, float b, float a) {
-      mLabel->SetTextColor(r, g, b, a);
+      mLabel.SetTextColor(r, g, b, a);
     }
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
-      mLabel->SetBackgroundTexColor(r, g, b, a);
+      mLabel.SetBackgroundTexColor(r, g, b, a);
     }
-    virtual const char *Text() const { return mLabel->Text(); }
+    virtual void SetDropshadow(float r, float g, float b, float a,
+                               float xOffsetPts, float yOffsetPts) {
+      mLabel.SetDropshadow(r, g, b, a, xOffsetPts, yOffsetPts);
+    }
+    virtual void SetViewportPad(float xPts, float yPts) {
+      mLabel.SetViewportPad(xPts, yPts);
+    }
+    virtual const char *Text() const { return mLabel.Text(); }
     virtual bool Draw();
     
   protected:
-    Label *mLabel;
+    Label mLabel;
     size_t mDim[2];
     unsigned int mDeselectedTex, mPressedTex, mSelectedTex;
   };
@@ -476,7 +515,6 @@ namespace tui {
   
   
   // Slider using a constrained handle
-  
   class Slider : public ViewportWidget {
   public:
     Slider() : mHandle(NULL), mSliderTex(0) {}
@@ -496,6 +534,54 @@ namespace tui {
     ImageHandle *mHandle;
     unsigned int mSliderTex;
     float mHandleT;
+  };
+  
+  
+  // Star-rating widget
+  // Override OnTouchTap to get value changed on up event.
+  class StarRating : public Button {
+  public:
+    StarRating() : mStarCount(0), mValue(0) {
+      mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 0;
+      mSelectedColor[0]=mSelectedColor[1]=mSelectedColor[2]=mSelectedColor[3]=0;
+    }
+    virtual bool Init(size_t count, float pts, const char *font = NULL);
+    virtual bool FitViewport();
+    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetDefaultColor(float r, float g, float b, float a) {
+      mTextColor[0] = r; mTextColor[1] = g; mTextColor[2] = b; mTextColor[3] =a;
+    }
+    virtual void SetSelectedColor(float r, float g, float b, float a) {
+      mSelectedColor[0] = r; mSelectedColor[1] = g;
+      mSelectedColor[2] = b; mSelectedColor[3] = a;
+    }
+    virtual bool Draw();
+    virtual bool OnDrag(EventPhase phase, float x, float y, double timestamp);
+    virtual void SetMVP(const float *mvp) {
+      Button::SetMVP(mvp); mLabel.SetMVP(mvp);
+    }
+    virtual void Enable(bool status) {
+      Button::Enable(status); mLabel.Enable(status);
+    }
+    virtual bool SetValue(size_t value);
+    virtual size_t Value() const { return mValue; }
+    
+  private:
+    virtual void ComputeDragValue(float x) {
+      mDragValue = ceilf((mStarCount * (x - Left())) / float(Width()));
+      mDragValue = std::min(mDragValue, mStarCount);
+      mDragValue = std::max(mDragValue, size_t(1));
+    }
+    virtual bool InvokeTouchTap(const Event::Touch &touch) {
+      ComputeDragValue(touch.x);
+      SetValue(mDragValue);
+      return Button::InvokeTouchTap(touch);
+    }
+
+    size_t mStarCount;                        // Number of stars
+    size_t mValue, mDragValue;                // Current rating
+    float mTextColor[4], mSelectedColor[4];   // Text colors
+    Label mLabel;                             // Draw
   };
   
   
@@ -541,8 +627,12 @@ namespace tui {
   public:
     static const size_t kStdHeight = 44;
     
-    Toolbar() : mBackgroundTex(0) {}
-    virtual void SetBackgroundTex(unsigned int tex) { mBackgroundTex = tex; }
+    Toolbar() : mBackgroundTex(0) {
+      mBackgroundTexDim[0] = mBackgroundTexDim[1] = 0;
+    }
+    virtual void SetBackgroundTex(unsigned int tex, int w, int h) {
+      mBackgroundTex = tex; mBackgroundTexDim[0] = w; mBackgroundTexDim[1] = h;
+    }
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual void Add(ViewportWidget *widget) { mWidgetVec.push_back(widget); }
@@ -556,9 +646,14 @@ namespace tui {
     
   private:
     unsigned int mBackgroundTex;
+    unsigned int mBackgroundTexDim[2];
     std::vector<ViewportWidget *> mWidgetVec;
   };
   
+  
+  //
+  // Frames
+  //
   
   // A horizontal or vertical scrollable list of clickable frames
   class FlinglistImpl : public AnimatedViewport {
@@ -888,7 +983,7 @@ namespace tui {
     virtual bool Init(int wideCount, int narrowCount,
                       int buttonPad, int topPad, int bottomPad);
     virtual void Add(Button *button);
-    virtual bool Delete(Button *button);
+    virtual bool Remove(Button *button);      // Remove, but don't delete
     virtual void Destroy();                   // Delete all buttons and clear
     virtual void Clear();                     // Clear list, but don't delete
     virtual size_t ButtonCount() const { return mButtonVec.size(); }
