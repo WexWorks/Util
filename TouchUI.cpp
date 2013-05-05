@@ -2118,6 +2118,7 @@ bool FlinglistImpl::Touch(const Event &event) {
           mSnapSeconds = mSnapRemainingSeconds = 0;
           mSnapOriginalOffset = mSnapTargetOffset = 0;
           mLongPressSeconds = 0;
+          mFrameVec[mTouchFrameIdx]->OnTouchBegan(event.touchVec[t]);
         }
         break;
       case TOUCH_MOVED: {
