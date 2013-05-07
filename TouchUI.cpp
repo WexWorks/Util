@@ -711,7 +711,7 @@ bool TextButton::Init(const char *text, float pts, size_t w, size_t h,
   mDim[1] = h;
   mDefaultTex = defaultTex;
   mPressedTex = pressedTex;
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDefaultTex);
+  mLabel.SetBackgroundTex(mDefaultTex, mDim[0], mDim[1]);
   if (padX < 0)
     padX = pts;
   if (padY < 0)
@@ -752,7 +752,7 @@ bool TextButton::Draw() {
   
   const GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
   const float pts = mLabel.Points();
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex);
+  mLabel.SetBackgroundTex(tex, mDim[0], mDim[1]);
   
   if (!mLabel.Draw())
     return false;
@@ -776,7 +776,7 @@ bool TextCheckbox::Init(const char *text, float pts, size_t w, size_t h,
   mDeselectedTex = deselectedTex;
   mPressedTex = pressedTex;
   mSelectedTex = selectedTex;
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDeselectedTex);
+  mLabel.SetBackgroundTex(mDeselectedTex, mDim[0], mDim[1]);
   if (padX < 0)
     padX = pts;
   if (padY < 0)
@@ -818,7 +818,7 @@ bool TextCheckbox::Draw() {
   const GLuint tex = Pressed() ? mPressedTex : Selected() ?
                        mSelectedTex : mDeselectedTex;
   const float pts = mLabel.Points();
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex);
+  mLabel.SetBackgroundTex(tex, mDim[0], mDim[1]);
   
   if (!mLabel.Draw())
     return false;

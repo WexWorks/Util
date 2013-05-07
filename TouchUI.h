@@ -211,7 +211,7 @@ namespace tui {
     virtual void SetBackgroundTexColor(float r, float g, float b, float a) {
       mBkgTexColor[0]=r; mBkgTexColor[1]=g; mBkgTexColor[2]=b;mBkgTexColor[3]=a;
     }
-    virtual void SetBackgroundTex(int wPts, int hPts, unsigned long tex) {
+    virtual void SetBackgroundTex(unsigned long tex, int wPts, int hPts) {
       mTexDim[0] = wPts; mTexDim[1] = hPts; mTex = tex;
     }
     virtual void SetDropshadow(float r, float g, float b, float a,
