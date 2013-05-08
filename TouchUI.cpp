@@ -2411,7 +2411,8 @@ bool Frame::Step(float seconds) {
       mScaleVelocity = 0;
       mIsTargetScaleActive = false;
     } else {
-      mScale += 10 * seconds * (mTargetScale - mScale);
+      float k = std::min(10 * seconds, 0.99f);
+      mScale += k * (mTargetScale - mScale);
     }
   }
   
@@ -2424,11 +2425,30 @@ bool Frame::Step(float seconds) {
         mCenterVelocityUV[i] = 0;
       } else {
         isMoving = true;
-        mCenterUV[i] += 10 * seconds * (mTargetCenterUV[i] - mCenterUV[i]);
+        float k = std::min(10 * seconds, 0.99f);
+        mCenterUV[i] += k * (mTargetCenterUV[i] - mCenterUV[i]);
       }
     }
     if (!isMoving)
       mIsTargetCenterActive = false;
+    if (mIsTargetCenterActive && !mIsTargetScaleActive) {
+      // Check to see if the target center is past the limit (assuming scale).
+      // We don't want to stop translating, just limit the translation to
+      // the closest point along that inset edge of the image, where we just
+      // cover the full screen. Without this, we keep bouncing at the edge!
+      float x = mScale * mTargetCenterUV[0] * ImageWidth();
+      float y = mScale * mTargetCenterUV[1] * ImageHeight();
+      float w2 = Width() / 2;
+      float h2 = Height() / 2;
+      if (x < w2)
+        mCenterUV[0] = mTargetCenterUV[0] = (w2 + mScale) / (mScale * ImageWidth());
+      else if (mScale * ImageWidth() - x < w2)
+        mCenterUV[0] = mTargetCenterUV[0] = 1 - (w2 + mScale) / (mScale * ImageWidth());
+      if (y < h2)
+        mCenterUV[1] = mTargetCenterUV[1] = (h2 + mScale) / (mScale * ImageHeight());
+      else if (mScale * ImageHeight() - y < h2)
+        mCenterUV[1] = mTargetCenterUV[1] = 1 - (h2 + mScale) / (mScale * ImageHeight());
+    }
   }
   
   const int iw = ImageWidth();
