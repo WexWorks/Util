@@ -1166,8 +1166,10 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
       M = &C[0];
     }
     glUniformMatrix4fv(uMVP, 1, GL_FALSE, M);
-    glUniform4f(uC, style->dropshadowC[0], style->dropshadowC[1],
-                style->dropshadowC[2], style->dropshadowC[3]);
+    float r = style->dropshadowC[0] * style->dropshadowC[3];
+    float g = style->dropshadowC[1] * style->dropshadowC[3];
+    float b = style->dropshadowC[2] * style->dropshadowC[3];
+    glUniform4f(uC, r, g, b, style->dropshadowC[3]);
     glDrawElements(GL_TRIANGLE_STRIP, idxCount, GL_UNSIGNED_SHORT, &idx[0]);
   }
   
@@ -1175,7 +1177,10 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   if (!MVP)
     MVP = &I[0];  
   glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
-  glUniform4f(uC, style->C[0], style->C[1], style->C[2], style->C[3]);
+  float r = style->C[0] * style->C[3];
+  float g = style->C[1] * style->C[3];
+  float b = style->C[2] * style->C[3];
+  glUniform4f(uC, r, g, b, style->C[3]);
 
   // Draw the tristrip with all the character rectangles
   glDrawElements(GL_TRIANGLE_STRIP, idxCount, GL_UNSIGNED_SHORT, &idx[0]);
