@@ -229,14 +229,17 @@ bool Label::Init(const char *text, float pts, const char *font) {
 bool Label::SetText(const char *text, float pts, const char *font) {
   free((void *)mText);
   mText = strdup(text);
-  mPts = pts;
+  if (pts > 0)                                        // Retain if pts==0
+    mPts = pts;
+  else if (mPts == 0)                                 // Fail if already zero
+    return false;
   std::map<std::string, const GlesUtil::FontSet *>::const_iterator i;
   if (font == NULL)
     font = "System";
   i = sFontMap.find(font);
   if (i == sFontMap.end())
     return false;
-  mFont = &i->second->Font(pts);
+  mFont = &i->second->Font(mPts);
   size_t len = strlen(mText);
   mLineCount = len > 0 ? 1 : 0;
   for (size_t i = 0; i < len; ++i)
@@ -267,6 +270,23 @@ void Label::SetMVP(const float *mvp) {
 }
 
 
+bool Label::Step(float seconds) {
+  if (mTimeoutSec == 0 || Hidden())
+    return true;
+  mRemainingSec -= seconds;
+  float opacity = 1;
+  if (mRemainingSec <= 0) {
+    Hide(true);
+  } else if (mRemainingSec > mTimeoutSec - mFadeSec) {
+    opacity = (mTimeoutSec - mRemainingSec) / mFadeSec;
+  } else if (mRemainingSec < mFadeSec) {
+    opacity = mRemainingSec / mFadeSec;
+  }
+  SetOpacity(opacity);
+  return true;
+}
+
+
 bool Label::Draw() {
   if (Hidden())
     return true;
@@ -282,7 +302,7 @@ bool Label::Draw() {
   const float k = Enabled() ? 1 : 0.5;
   if (mTex) {
     r = k * mBkgTexColor[0]; g = k * mBkgTexColor[1];
-    b = k * mBkgTexColor[2]; a = k * mBkgTexColor[3];
+    b = k * mBkgTexColor[2]; a = mOpacity * k * mBkgTexColor[3];
     if (!GlesUtil::Draw3SliceTexture2f(mTex, x0, y0, x1, y1, 0, 1, 1, 0,
                                        mTexDim[0], mTexDim[1], Width(),Height(),
                                        r, g, b, a, MVP()))
@@ -293,8 +313,8 @@ bool Label::Draw() {
   const float ptScale = mPts / float(mFont->charDimPt[0]);
   if (!MVP()) {
     // Compute mPtW, mPtH here, based on the actual viewport?
-    int w = Width() - 2 * mPadPt[0];
-    int h = Height() - 2 * mPadPt[1];
+    int w = std::max(Width() - 2 * mPadPt[0], 2.0f);  // Avoid negative vp
+    int h = std::max(Height() - 2 * mPadPt[1], 2.0f);
     ptW = 2.0 * ptScale / w;
     ptH = 2.0 * ptScale / h;
     glViewport(Left() + mPadPt[0], Bottom() + mPadPt[1], w, h);
@@ -314,11 +334,11 @@ bool Label::Draw() {
   float y = y1 - padNDCHeight;
   GlesUtil::FontStyle style;
   style.C[0] = k * mTextColor[0]; style.C[1] = k * mTextColor[1];
-  style.C[2] = k * mTextColor[2]; style.C[3] = /*no k*/ mTextColor[3];
+  style.C[2] = k * mTextColor[2]; style.C[3] = mOpacity * mTextColor[3];
   style.dropshadowC[0] = mTextDropshadowColor[0];
   style.dropshadowC[1] = mTextDropshadowColor[1];
   style.dropshadowC[2] = mTextDropshadowColor[2];
-  style.dropshadowC[3] = mTextDropshadowColor[3];
+  style.dropshadowC[3] = mOpacity * mTextDropshadowColor[3];
   style.dropshadowOffsetPts[0] = mTextDropshadowOffsetPts[0];
   style.dropshadowOffsetPts[1] = mTextDropshadowOffsetPts[1];
   if (!GlesUtil::DrawParagraph(mText, x0, y0, x1, y, align,
@@ -691,7 +711,7 @@ bool TextButton::Init(const char *text, float pts, size_t w, size_t h,
   mDim[1] = h;
   mDefaultTex = defaultTex;
   mPressedTex = pressedTex;
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDefaultTex);
+  mLabel.SetBackgroundTex(mDefaultTex, mDim[0], mDim[1]);
   if (padX < 0)
     padX = pts;
   if (padY < 0)
@@ -732,7 +752,7 @@ bool TextButton::Draw() {
   
   const GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
   const float pts = mLabel.Points();
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex);
+  mLabel.SetBackgroundTex(tex, mDim[0], mDim[1]);
   
   if (!mLabel.Draw())
     return false;
@@ -756,7 +776,7 @@ bool TextCheckbox::Init(const char *text, float pts, size_t w, size_t h,
   mDeselectedTex = deselectedTex;
   mPressedTex = pressedTex;
   mSelectedTex = selectedTex;
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], mDeselectedTex);
+  mLabel.SetBackgroundTex(mDeselectedTex, mDim[0], mDim[1]);
   if (padX < 0)
     padX = pts;
   if (padY < 0)
@@ -798,7 +818,7 @@ bool TextCheckbox::Draw() {
   const GLuint tex = Pressed() ? mPressedTex : Selected() ?
                        mSelectedTex : mDeselectedTex;
   const float pts = mLabel.Points();
-  mLabel.SetBackgroundTex(mDim[0], mDim[1], tex);
+  mLabel.SetBackgroundTex(tex, mDim[0], mDim[1]);
   
   if (!mLabel.Draw())
     return false;
