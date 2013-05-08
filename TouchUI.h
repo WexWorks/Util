@@ -887,7 +887,8 @@ namespace tui {
               mIsTargetScaleCenterActive(false),
               mIsTargetCenterActive(false),
               mIsDirty(false),
-              mScaleMin(0), mScaleMax(0) {
+              mScaleMin(0), mScaleMax(0),
+              mIsSnapDirty(false) {
       memset(mDim, 0, sizeof(mDim));
       memset(mIsLocked, 0, sizeof(mIsLocked));
       memset(mCenterUV, 0, sizeof(mCenterUV));
@@ -989,6 +990,7 @@ namespace tui {
     float mTargetCenterUV[2];                 // Window center target
     bool mIsDirty;                            // True if we need to repaint
     float mScaleMin, mScaleMax;               // Valid scale range
+    bool mIsSnapDirty;                        // True after snap for clip
   };
   
   

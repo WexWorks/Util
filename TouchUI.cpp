@@ -2418,6 +2418,28 @@ bool Frame::Step(float seconds) {
   
   // Apply target center if enabled & not actively moving
   if (!IsDragging() && mIsTargetCenterActive) {
+    if (mIsSnapDirty) {
+      // Check to see if the target center is past the limit at target scale.
+      // We don't want to stop translating, just limit the translation to
+      // the closest point along that inset edge of the image, where we just
+      // cover the full screen. Without this, we keep bouncing at the edge!
+      // We do this here, rather than in the SnapTo* functions to avoid any
+      // forced function call ordering. All math is done using the target
+      // center and scale, so that we clamp immediately and never overshoot.
+      mIsSnapDirty = false;                 // Clamp once, after SnapTo*
+      float x = mTargetScale * mTargetCenterUV[0] * ImageWidth();
+      float y = mTargetScale * mTargetCenterUV[1] * ImageHeight();
+      float w2 = std::min(mScaleMin * ImageWidth(), float(Width())) / 2;
+      float h2 = std::min(mScaleMin * ImageHeight(), float(Height())) / 2;
+      if (x < w2)
+        mTargetCenterUV[0] = (w2 + mTargetScale) / (mTargetScale * ImageWidth());
+      else if (mTargetScale * ImageWidth() - x < w2)
+        mTargetCenterUV[0] = 1 - (w2 + mTargetScale) / (mTargetScale * ImageWidth());
+      if (y < h2)
+        mTargetCenterUV[1] = (h2 + mTargetScale) / (mTargetScale * ImageHeight());
+      else if (mTargetScale * ImageHeight() - y < h2)
+        mTargetCenterUV[1] = 1 - (h2 + mTargetScale) / (mTargetScale * ImageHeight());
+    }
     bool isMoving = false;
     for (size_t i = 0; i < 2; ++i) {
       if (fabs(mCenterUV[i] - mTargetCenterUV[i]) < 0.001) {
@@ -2431,24 +2453,6 @@ bool Frame::Step(float seconds) {
     }
     if (!isMoving)
       mIsTargetCenterActive = false;
-    if (mIsTargetCenterActive && !mIsTargetScaleActive) {
-      // Check to see if the target center is past the limit (assuming scale).
-      // We don't want to stop translating, just limit the translation to
-      // the closest point along that inset edge of the image, where we just
-      // cover the full screen. Without this, we keep bouncing at the edge!
-      float x = mScale * mTargetCenterUV[0] * ImageWidth();
-      float y = mScale * mTargetCenterUV[1] * ImageHeight();
-      float w2 = Width() / 2;
-      float h2 = Height() / 2;
-      if (x < w2)
-        mCenterUV[0] = mTargetCenterUV[0] = (w2 + mScale) / (mScale * ImageWidth());
-      else if (mScale * ImageWidth() - x < w2)
-        mCenterUV[0] = mTargetCenterUV[0] = 1 - (w2 + mScale) / (mScale * ImageWidth());
-      if (y < h2)
-        mCenterUV[1] = mTargetCenterUV[1] = (h2 + mScale) / (mScale * ImageHeight());
-      else if (mScale * ImageHeight() - y < h2)
-        mCenterUV[1] = mTargetCenterUV[1] = 1 - (h2 + mScale) / (mScale * ImageHeight());
-    }
   }
   
   const int iw = ImageWidth();
@@ -2719,6 +2723,7 @@ void Frame::SnapToFitFrame(bool isAnimated) {
     mTargetScale = mScaleMin;
     mIsTargetCenterActive = true;
     mIsTargetScaleActive = true;
+    mIsSnapDirty = true;
   } else {
     ResetView();                              // Initialize all view controls
     CancelMotion();                           // Stop any motion
@@ -2776,6 +2781,7 @@ void Frame::SnapToUVCenter(float u, float v, bool isAnimated) {
     mIsTargetCenterActive = true;
     mTargetCenterUV[0] = u;
     mTargetCenterUV[1] = v;
+    mIsSnapDirty = true;
   } else {
     mCenterUV[0] = u;
     mCenterUV[1] = v;
@@ -2789,6 +2795,7 @@ void Frame::SnapToScale(float scale, bool isAnimated) {
   if (isAnimated) {
     mTargetScale = scale;
     mIsTargetScaleActive = true;
+    mIsSnapDirty = true;
   } else {
     mScale = scale;
     CancelMotion();
