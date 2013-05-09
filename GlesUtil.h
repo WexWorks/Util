@@ -159,6 +159,7 @@ bool DrawText(const char *text, float x, float y, const Font *font,
 // starting one line down from the top (y1). No explicit clipping is performed,
 // however lines that fall below the bottom of the rect (y0) will be skipped.
 // Consider adding tab stops to paragraph layout?
+  
 enum Align { LeftJustify, CenterJustify, RightJustify, FullJustify };
 
 bool DrawParagraph(const char *text, float x0, float y0, float x1, float y1,
