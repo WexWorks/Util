@@ -751,7 +751,6 @@ bool TextButton::Draw() {
     return true;
   
   const GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
-  const float pts = mLabel.Points();
   mLabel.SetBackgroundTex(tex, mDim[0], mDim[1]);
   
   if (!mLabel.Draw())
@@ -817,7 +816,6 @@ bool TextCheckbox::Draw() {
 
   const GLuint tex = Pressed() ? mPressedTex : Selected() ?
                        mSelectedTex : mDeselectedTex;
-  const float pts = mLabel.Points();
   mLabel.SetBackgroundTex(tex, mDim[0], mDim[1]);
   
   if (!mLabel.Draw())
@@ -2404,7 +2402,7 @@ bool Frame::Step(float seconds) {
   } else if (mScale < mScaleMin && mScaleVelocity < -0.01) {
     mTargetScale = mScaleMin;
     mIsTargetScaleActive = true;
-    mIsTargetWindowActive = true;
+    mIsTargetScaleCenterActive = true;
   }
   
   // Apply target scale if enabled & not actively moving
@@ -2414,8 +2412,48 @@ bool Frame::Step(float seconds) {
       mScaleVelocity = 0;
       mIsTargetScaleActive = false;
     } else {
-      mScale += 10 * seconds * (mTargetScale - mScale);
+      float k = std::min(10 * seconds, 0.99f);
+      mScale += k * (mTargetScale - mScale);
     }
+  }
+  
+  // Apply target center if enabled & not actively moving
+  if (!IsDragging() && mIsTargetCenterActive) {
+    if (mIsSnapDirty) {
+      // Check to see if the target center is past the limit at target scale.
+      // We don't want to stop translating, just limit the translation to
+      // the closest point along that inset edge of the image, where we just
+      // cover the full screen. Without this, we keep bouncing at the edge!
+      // We do this here, rather than in the SnapTo* functions to avoid any
+      // forced function call ordering. All math is done using the target
+      // center and scale, so that we clamp immediately and never overshoot.
+      mIsSnapDirty = false;                 // Clamp once, after SnapTo*
+      float x = mTargetScale * mTargetCenterUV[0] * ImageWidth();
+      float y = mTargetScale * mTargetCenterUV[1] * ImageHeight();
+      float w2 = std::min(mScaleMin * ImageWidth(), float(Width())) / 2;
+      float h2 = std::min(mScaleMin * ImageHeight(), float(Height())) / 2;
+      if (x < w2)
+        mTargetCenterUV[0] = (w2 + mTargetScale) / (mTargetScale * ImageWidth());
+      else if (mTargetScale * ImageWidth() - x < w2)
+        mTargetCenterUV[0] = 1 - (w2 + mTargetScale) / (mTargetScale * ImageWidth());
+      if (y < h2)
+        mTargetCenterUV[1] = (h2 + mTargetScale) / (mTargetScale * ImageHeight());
+      else if (mTargetScale * ImageHeight() - y < h2)
+        mTargetCenterUV[1] = 1 - (h2 + mTargetScale) / (mTargetScale * ImageHeight());
+    }
+    bool isMoving = false;
+    for (size_t i = 0; i < 2; ++i) {
+      if (fabs(mCenterUV[i] - mTargetCenterUV[i]) < 0.001) {
+        mCenterUV[i] = mTargetCenterUV[i];
+        mCenterVelocityUV[i] = 0;
+      } else {
+        isMoving = true;
+        float k = std::min(10 * seconds, 0.99f);
+        mCenterUV[i] += k * (mTargetCenterUV[i] - mCenterUV[i]);
+      }
+    }
+    if (!isMoving)
+      mIsTargetCenterActive = false;
   }
   
   const int iw = ImageWidth();
@@ -2516,9 +2554,9 @@ bool Frame::Step(float seconds) {
     
     // Determine if we need to continue moving or if we've hit the target
     if (su < 1 || sv < 1)
-      mIsTargetWindowActive = true;
+      mIsTargetScaleCenterActive = true;
     else
-      mIsTargetWindowActive = false;
+      mIsTargetScaleCenterActive = false;
     mIsDirty = fabsf(du) > 0.5 * spu || fabsf(dv) > 0.5 * spv;
   }
 
@@ -2529,7 +2567,9 @@ bool Frame::Step(float seconds) {
 bool Frame::Dormant() const {
   if (mIsDirty)
     return false;
-  if (mIsTargetWindowActive || mIsTargetScaleActive)
+  if (mIsTargetCenterActive || mIsTargetScaleCenterActive)
+    return false;
+  if (mIsTargetScaleActive)
     return false;
   if (mScaleVelocity != 0)
     return false;
@@ -2676,16 +2716,37 @@ void Frame::OnTouchBegan() {
 // Center the image and compute the scaling required to fit the image
 // within the current frame.
 
-void Frame::SnapToFitFrame() {
+void Frame::SnapToFitFrame(bool isAnimated) {
+  ComputeScaleRange();                        // Recompute if needed
+  if (isAnimated) {
+    mTargetCenterUV[0] = 0.5;
+    mTargetCenterUV[1] = 0.5;
+    mTargetScale = mScaleMin;
+    mIsTargetCenterActive = true;
+    mIsTargetScaleActive = true;
+    mIsSnapDirty = true;
+  } else {
+    ResetView();                              // Initialize all view controls
+    CancelMotion();                           // Stop any motion
+  }
+}
+
+
+void Frame::ResetView() {
   mCenterUV[0] = 0.5;                         // Center image
   mCenterUV[1] = 0.5;
-  ComputeScaleRange();                        // Recompute if needed
   mScale = mScaleMin == 0 ? 1 : mScaleMin;    // Fit image to screen
+}
+
+
+void Frame::CancelMotion() {
   mScaleVelocity = 0;
   mCenterVelocityUV[0] = 0;
   mCenterVelocityUV[1] = 0;
   mTargetScale = 0;
-  mIsTargetWindowActive = false;
+  mTargetCenterUV[0] = mTargetCenterUV[1] = 0;
+  mIsTargetCenterActive = false;
+  mIsTargetScaleCenterActive = false;
   mIsTargetScaleActive = false;
 }
 
@@ -2693,7 +2754,8 @@ void Frame::SnapToFitFrame() {
 // Center the image and compute the scaling required to fit the image
 // across the current frame, offsetting the y location using v=[0,1]
 
-void Frame::SnapToFitWidth(float v) {
+void Frame::SnapToFitWidth(float v, bool isAnimated) {
+  assert(!isAnimated);
   SnapToFitFrame();
   if (ImageWidth() != 0)
     mScale = Width() / float(ImageWidth());
@@ -2703,7 +2765,8 @@ void Frame::SnapToFitWidth(float v) {
 }
 
 
-void Frame::SnapToFitHeight(float u) {
+void Frame::SnapToFitHeight(float u, bool isAnimated) {
+  assert(!isAnimated);
   SnapToFitFrame();
   if (ImageHeight() != 0)
     mScale = Height() / float(ImageHeight());
@@ -2713,12 +2776,31 @@ void Frame::SnapToFitHeight(float u) {
 }
 
 
-void Frame::SnapToUVCenter(float u, float v) {
-  float scale = mScale;
-  SnapToFitFrame();
-  mScale = scale;
-  mCenterUV[0] = u;
-  mCenterUV[1] = v;
+void Frame::SnapToUVCenter(float u, float v, bool isAnimated) {
+  ComputeScaleRange();
+  if (isAnimated) {
+    mIsTargetCenterActive = true;
+    mTargetCenterUV[0] = u;
+    mTargetCenterUV[1] = v;
+    mIsSnapDirty = true;
+  } else {
+    mCenterUV[0] = u;
+    mCenterUV[1] = v;
+    CancelMotion();
+  }
+}
+
+
+void Frame::SnapToScale(float scale, bool isAnimated) {
+  ComputeScaleRange();
+  if (isAnimated) {
+    mTargetScale = scale;
+    mIsTargetScaleActive = true;
+    mIsSnapDirty = true;
+  } else {
+    mScale = scale;
+    CancelMotion();
+  }
 }
 
 
