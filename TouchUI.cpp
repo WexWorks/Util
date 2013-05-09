@@ -25,6 +25,12 @@ int Sprite::mSpriteUCTex = 0;
 int Sprite::mSpriteUOpacity = 0;
 
 
+template <class T> inline T clamp (T a, T l, T h){
+  return (a < l)? l : ((a > h)? h : a);
+}
+
+
+
 //
 // Widget
 //
@@ -977,6 +983,7 @@ static void ClosestPoint(double ax, double ay, double bx, double by, bool clamp,
   const double ap_ab = apx * abx + apy * aby;
   double t = ap_ab / ab2;
   if (clamp) {
+    t = ::clamp(t, 0.0, 1.0);
     if (t < 0.0f)
       t = 0.0f;
     else if (t > 1.0f)
@@ -1610,11 +1617,6 @@ bool FlinglistImpl::Prepend(Frame *frame) {
 }
 
 
-static int clamp(int x, int min, int max) {
-  return x < min ? min : x > max ? max : x;
-}
-
-
 bool FlinglistImpl::Delete(Frame *frame) {
   for (std::vector<Frame *>::iterator i = mFrameVec.begin();
        i != mFrameVec.end(); ++i) {
@@ -1692,14 +1694,14 @@ bool FlinglistImpl::VisibleFrameRange(int *min, int *max) const {
   }
   if (mVertical) {
     *min = ceil(mScrollOffset / float(mFrameDim) - 1);
-    *min = clamp(*min, 0, mFrameVec.size() - 1);
+    *min = clamp(*min, 0, int(mFrameVec.size()) - 1);
     *max = floor((mScrollOffset + Height()) / float(mFrameDim));
-    *max = clamp(*max, 0, mFrameVec.size() - 1);
+    *max = clamp(*max, 0, int(mFrameVec.size()) - 1);
   } else {
     *min = ceil(mScrollOffset / float(mFrameDim) - 1);
-    *min = clamp(*min, 0, mFrameVec.size() - 1);
+    *min = clamp(*min, 0, int(mFrameVec.size()) - 1);
     *max = floor((mScrollOffset + Width()) / float(mFrameDim));
-    *max = clamp(*max, 0, mFrameVec.size() - 1);
+    *max = clamp(*max, 0, int(mFrameVec.size()) - 1);
   }
   assert(*min <= *max);
   return true;
@@ -2362,7 +2364,7 @@ void Frame::ComputeScaleRange() {
     mScaleMin = Height() / float(ImageHeight());
   }
   
-  mScaleMax = 32;
+  mScaleMax = std::max(32.0f, mScaleMin * 4); // Increase past 32 smoothly
   assert(mScaleMin < mScaleMax);
 }
 
@@ -2412,7 +2414,7 @@ bool Frame::Step(float seconds) {
       mScaleVelocity = 0;
       mIsTargetScaleActive = false;
     } else {
-      float k = std::min(10 * seconds, 0.99f);
+      float k = std::min(7 * seconds, 1.0f);
       mScale += k * (mTargetScale - mScale);
     }
   }
@@ -2428,28 +2430,32 @@ bool Frame::Step(float seconds) {
       // forced function call ordering. All math is done using the target
       // center and scale, so that we clamp immediately and never overshoot.
       mIsSnapDirty = false;                 // Clamp once, after SnapTo*
-      float x = mTargetScale * mTargetCenterUV[0] * ImageWidth();
-      float y = mTargetScale * mTargetCenterUV[1] * ImageHeight();
-      float w2 = std::min(mScaleMin * ImageWidth(), float(Width())) / 2;
-      float h2 = std::min(mScaleMin * ImageHeight(), float(Height())) / 2;
+      const float x = mTargetScale * mTargetCenterUV[0] * ImageWidth();
+      const float y = mTargetScale * mTargetCenterUV[1] * ImageHeight();
+      const float w2 = std::min(mScaleMin * ImageWidth(), float(Width())) / 2;
+      const float h2 = std::min(mScaleMin * ImageHeight(), float(Height())) / 2;
+      const float tw = mTargetScale * ImageWidth();
+      const float th = mTargetScale * ImageHeight();
       if (x < w2)
-        mTargetCenterUV[0] = (w2 + mTargetScale) / (mTargetScale * ImageWidth());
-      else if (mTargetScale * ImageWidth() - x < w2)
-        mTargetCenterUV[0] = 1 - (w2 + mTargetScale) / (mTargetScale * ImageWidth());
+        mTargetCenterUV[0] = (w2 + mTargetScale) / tw;
+      else if (tw - x < w2)
+        mTargetCenterUV[0] = 1 - (w2 + mTargetScale) / tw;
       if (y < h2)
-        mTargetCenterUV[1] = (h2 + mTargetScale) / (mTargetScale * ImageHeight());
-      else if (mTargetScale * ImageHeight() - y < h2)
-        mTargetCenterUV[1] = 1 - (h2 + mTargetScale) / (mTargetScale * ImageHeight());
+        mTargetCenterUV[1] = (h2 + mTargetScale) / th;
+      else if (th - y < h2)
+        mTargetCenterUV[1] = 1 - (h2 + mTargetScale) / th;
     }
     bool isMoving = false;
+    const size_t dim[2] = { ImageWidth(), ImageHeight() };
     for (size_t i = 0; i < 2; ++i) {
-      if (fabs(mCenterUV[i] - mTargetCenterUV[i]) < 0.001) {
+      static const float snapThreshold = 5 / float(dim[i]);
+      if (fabs(mCenterUV[i] - mTargetCenterUV[i]) < snapThreshold) {
         mCenterUV[i] = mTargetCenterUV[i];
         mCenterVelocityUV[i] = 0;
       } else {
         isMoving = true;
-        float k = std::min(10 * seconds, 0.99f);
-        mCenterUV[i] += k * (mTargetCenterUV[i] - mCenterUV[i]);
+        float k = std::min(10 * seconds, 1.0f);
+        mCenterUV[i] += k * (double(mTargetCenterUV[i]) - mCenterUV[i]);
       }
     }
     if (!isMoving)
@@ -2477,8 +2483,8 @@ bool Frame::Step(float seconds) {
     const int sh = mScale * ih;
     const float padW = std::max((int(Width()) - sw) / float(Width()), 0.0f);
     const float padH = std::max((int(Height()) - sh) / float(Height()), 0.0f);
-    const float pw = U2Ndc(1.0 / iw);                     // One pixel in NDC
-    const float ph = V2Ndc(1.0 / ih);
+    const float pw = clamp(U2Ndc(1.0 / iw), -1.0f, 1.0f); // One pixel in NDC
+    const float ph = clamp(V2Ndc(1.0 / ih), -1.0f, 1.0f);
 
     float tx0, ty0, tx1, ty1;                             // Target NDC window
     switch (mSnapMode) {
@@ -2557,7 +2563,7 @@ bool Frame::Step(float seconds) {
       mIsTargetScaleCenterActive = true;
     else
       mIsTargetScaleCenterActive = false;
-    mIsDirty = fabsf(du) > 0.5 * spu || fabsf(dv) > 0.5 * spv;
+    mIsDirty = fabsf((1 - su) * du) > 0.5 * spu || fabsf((1 - sv) * dv) > 0.5 * spv;
   }
 
   return true;
