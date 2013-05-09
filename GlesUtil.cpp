@@ -95,6 +95,7 @@ bool GlesUtil::DrawColorLines2f(unsigned int count, const float *P,
   glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
   
   glEnableVertexAttribArray(aP);
+  glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
   glDrawArrays(GL_LINES, 0, count);
   if (Error())
     return false;
@@ -1225,7 +1226,8 @@ static bool DrawJustified(const char *text, float x0, float x1,
 bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
                              float x1, float y1, Align align, const Font *font,
                              float ptW, float ptH, const FontStyle *style,
-                             const float *MVP, int firstChar, int lastChar) {
+                             const float *MVP, int firstChar, int lastChar,
+                             bool wrapLines) {
   const float wrapW = x1 - x0;
   const float eps = ptW / 4;          // Due to width accumulation
   if (wrapW <= 0)
@@ -1247,15 +1249,23 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
     } else {
       str.push_back(c);
       w += ptW * font->charWidthPt[(unsigned char)c];
-      if (w <= wrapW + eps)
+      if (w <= wrapW + eps) {
         continue;
-      if (w - lastSepW > wrapW) {
-        // FIXME: What happens if a single word is longer than the line?
-        continue;
+      } else if (!wrapLines || w - lastSepW > wrapW) {
+        const size_t n = str.size();
+        str[n] = '\0';
+        switch (n) {
+          default:                    // Add elipsis and skip rest of line
+          case 3: str[n-3] = '.';
+          case 2: str[n-2] = '.';
+          case 1: str[n-1] = '.';
+          case 0: break;
+        }
+      } else {
+        str[lastSep] = '\0';
+        w = lastSepW;
+        i -= str.size() - lastSep;    // Move back and re-do skipped characters
       }
-      str[lastSep] = '\0';
-      w = lastSepW;
-      i -= str.size() - lastSep;      // Move back and re-do skipped characters
     }
     
     // Draw the current line. We either hit a return, the end of the string,

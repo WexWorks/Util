@@ -165,7 +165,7 @@ enum Align { LeftJustify, CenterJustify, RightJustify, FullJustify };
 bool DrawParagraph(const char *text, float x0, float y0, float x1, float y1,
                    Align align, const Font *font, float ptW, float ptH,
                    const FontStyle *style = 0, const float *MVP = 0,
-                   int firstChar = 0, int lastCar = -1);
+                   int firstChar = 0, int lastCar = -1, bool wrapLines = true);
 
 
 // Texture functions:

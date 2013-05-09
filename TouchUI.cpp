@@ -859,6 +859,16 @@ CheckboxButton *RadioButton::Selected() const {
 }
 
 
+int RadioButton::SelectedIdx() const {
+  for (size_t i = 0; i < mButtonVec.size(); ++i) {
+    CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
+    if (cb && cb->Selected())
+      return i;
+  }
+  return -1;
+}
+
+
 void RadioButton::SetSelected(CheckboxButton *button) {
   bool wasSelected = Selected() != NULL;
   
@@ -1094,7 +1104,9 @@ bool Slider::Draw() {
   glBlendEquation(GL_FUNC_ADD);
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
-  if (!GlesUtil::DrawTexture2f(mSliderTex, x0, y0, x1, y1, 0, 1, 1, 0, MVP()))
+  if (!GlesUtil::DrawTexture2f(mSliderTex, x0, y0, x1, y1, 0, 1, 1, 0,
+                               mBkgTexColor[0], mBkgTexColor[1],
+                               mBkgTexColor[2], mBkgTexColor[3], MVP()))
     return false;
   glDisable(GL_BLEND);
   if (!mHandle->Draw())
@@ -1109,6 +1121,8 @@ bool Slider::SetValue(float value) {
   int hx = Left() + mHandleT * Width() - mHandle->Width() / 2.0;
   int hy = Bottom() + (Height() - mHandle->Height()) / 2;
   if (!mHandle->SetViewport(hx, hy, mHandle->Width(), mHandle->Height()))
+    return false;
+  if (!OnValueChanged(Value()))
     return false;
   return true;
 }
