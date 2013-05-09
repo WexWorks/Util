@@ -37,13 +37,14 @@ struct Metadata {
 // Save the image data in file with the metadata copied from url but with
 // the fields below modified (i.e. replace keywords in original url metadata)
 struct ShareImage {
-  ShareImage(const char *url,const char *file,const char *name,const char *album,
+  ShareImage(const char *url,const char *file,const char *name,
+             const char *album, const char *albumURL,
              int w, int h, const std::vector<std::string> &keywords,
              bool isFlagged, bool stripLocationInfo, bool stripCameraInfo,
              int orientation, int starRating, const char *author,
              const char *copyright, const char *comment)
-  : url(url), file(file), name(name), album(album), width(w), height(h),
-    keywords(keywords), isFlagged(isFlagged),
+  : url(url), file(file), name(name), album(album), albumURL(albumURL),
+    width(w), height(h), keywords(keywords), isFlagged(isFlagged),
     stripLocationInfo(stripLocationInfo), stripCameraInfo(stripCameraInfo),
     orientation(orientation), starRating(starRating), author(author),
     copyright(copyright), comment(comment) {}
@@ -52,8 +53,9 @@ struct ShareImage {
   
   std::string url;                                    // Original metadata
   std::string file;                                   // New pixel data
-  std::string name;                                   // User-visible name
-  std::string album;                                  // Path to directory
+  std::string name;                                   // User-visible image name
+  std::string album;                                  // User-visible album name
+  std::string albumURL;                               // URL for album
   int width, height;                                  // New image size
   std::vector<std::string> keywords;                  // New kewords
   bool isFlagged, stripLocationInfo, stripCameraInfo; // New bool metadata
