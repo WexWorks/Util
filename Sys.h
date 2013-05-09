@@ -98,6 +98,7 @@ struct SetAlert {
 
 struct SetShareOptions {
   enum ResMode { Source, Fixed, Percent };
+  virtual ~SetShareOptions() {}
   virtual bool operator()(const char *service, const char *comment,
                           ResMode resMode, int w, int h,
                           const char *nameRegex, const char *album,

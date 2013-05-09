@@ -2414,7 +2414,7 @@ bool Frame::Step(float seconds) {
       mScaleVelocity = 0;
       mIsTargetScaleActive = false;
     } else {
-      float k = std::min(7 * seconds, 0.99f);
+      float k = std::min(7 * seconds, 1.0f);
       mScale += k * (mTargetScale - mScale);
     }
   }
@@ -2454,7 +2454,7 @@ bool Frame::Step(float seconds) {
         mCenterVelocityUV[i] = 0;
       } else {
         isMoving = true;
-        float k = std::min(10 * seconds, 0.99f);
+        float k = std::min(10 * seconds, 1.0f);
         mCenterUV[i] += k * (double(mTargetCenterUV[i]) - mCenterUV[i]);
       }
     }
