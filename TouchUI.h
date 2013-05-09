@@ -885,15 +885,18 @@ namespace tui {
               mPrevScaleTimestamp(0), mPrevDragTimestamp(0),
               mTargetScale(0),
               mIsTargetScaleActive(false),
-              mIsTargetWindowActive(false),
+              mIsTargetScaleCenterActive(false),
+              mIsTargetCenterActive(false),
               mIsDirty(false),
-              mScaleMin(0), mScaleMax(0) {
+              mScaleMin(0), mScaleMax(0),
+              mIsSnapDirty(false) {
       memset(mDim, 0, sizeof(mDim));
       memset(mIsLocked, 0, sizeof(mIsLocked));
       memset(mCenterUV, 0, sizeof(mCenterUV));
       memset(mStartCenterUV, 0, sizeof(mStartCenterUV));
       memset(mPrevDragXY, 0, sizeof(mPrevDragXY));
       memset(mCenterVelocityUV, 0, sizeof(mCenterVelocityUV));
+      memset(mTargetCenterUV, 0, sizeof(mTargetCenterUV));
       mSnapNDCRect[0]=mSnapNDCRect[1] = -1; mSnapNDCRect[2]=mSnapNDCRect[3] = 1;
     }
     virtual ~Frame() {}
@@ -908,10 +911,10 @@ namespace tui {
     virtual bool IsYLocked() const { return mIsLocked[1]; }
     virtual float UCenter() const { return mCenterUV[0]; }
     virtual float VCenter() const { return mCenterUV[1]; }
-    virtual void SnapToScreenCenter() { mSnapMode = SNAP_CENTER; }
-    virtual void SnapToUpperLeft() { mSnapMode = SNAP_UPPER_LEFT; }
-    virtual void SnapToPixelCenter() { mSnapMode = SNAP_PIXEL; }
-    virtual void SnapToNDCRect(float u0, float v0, float u1, float v1) {
+    virtual void SetSnapModeCenter() { mSnapMode = SNAP_CENTER; }
+    virtual void SetSnapModeUpperLeft() { mSnapMode = SNAP_UPPER_LEFT; }
+    virtual void SetSnapModePixelCenter() { mSnapMode = SNAP_PIXEL; }
+    virtual void SetSnapModeNDCRect(float u0, float v0, float u1, float v1) {
       mSnapMode = SNAP_NDC_RECT; mSnapNDCRect[0] = u0; mSnapNDCRect[1] = v0;
       mSnapNDCRect[2] = u1; mSnapNDCRect[3] = v1;
     }
@@ -921,16 +924,19 @@ namespace tui {
     virtual bool Step(float seconds);         // Animate views
     virtual bool Dormant() const;             // True if all views dormant
     virtual float Scale() const { return mScale; }
+    virtual float MinScale() const { return mScaleMin; }
+    virtual float MaxScale() const { return mScaleMax; }
     virtual bool OnScale(EventPhase phase, float scale, float x, float y,
                          double timestamp);
     virtual bool OnDrag(EventPhase phase, float x, float y, double timestamp);
     virtual void OnTouchBegan();
     
     // Frame adjustments
-    virtual void SnapToFitFrame();            // Whole image in frame
-    virtual void SnapToFitWidth(float v);     // v in [0, 1] [top, bot]
-    virtual void SnapToFitHeight(float u);    // u in [0, 1] [left, right]
-    virtual void SnapToUVCenter(float u, float v);
+    virtual void SnapToFitFrame(bool isAnimated=false);
+    virtual void SnapToFitWidth(float v, bool isAnimated=false);
+    virtual void SnapToFitHeight(float u, bool isAnimated=false);
+    virtual void SnapToUVCenter(float u, float v, bool isAnimated=false);
+    virtual void SnapToScale(float scale, bool isAnimated=false);
     
     // Compute the current display region that would be sent to DrawImage
     virtual void ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
@@ -956,7 +962,9 @@ namespace tui {
     void operator=(const Frame &);            // Disallow assignment
     
     bool Reset();
-    void ComputeScaleRange();
+    void ComputeScaleRange();                 // Compute mScaleMin/Max
+    void ResetView();                         // Scale=min, uv=0.5
+    void CancelMotion();                      // Zero out animation variables
     float U2Ndc(float u) const;
     float V2Ndc(float v) const;
     float Ndc2U(float x) const;
@@ -978,9 +986,12 @@ namespace tui {
     double mPrevDragTimestamp;                // For velocity
     float mTargetScale;                       // Rubberband targets
     bool mIsTargetScaleActive;                // True if we use target scale
-    bool mIsTargetWindowActive;               // True if we use target center
+    bool mIsTargetScaleCenterActive;          // True if scale adjusts center
+    bool mIsTargetCenterActive;               // True if we use target center
+    float mTargetCenterUV[2];                 // Window center target
     bool mIsDirty;                            // True if we need to repaint
     float mScaleMin, mScaleMax;               // Valid scale range
+    bool mIsSnapDirty;                        // True after snap for clip
   };
   
   
