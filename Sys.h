@@ -3,36 +3,15 @@
 #ifndef SYS_H
 #define SYS_H
 
+#include "paramlist.h"
+
 #include <map>
 #include <string>
 #include <vector>
 
-
 namespace tui { class Event; }
 
 namespace sys {
-
-// Image metadata, broken into sections, each with a title and key-value map
-typedef std::map<std::string, std::string> MetadataMap;
-
-struct MetadataSection {
-  std::string title;
-  MetadataMap keyValueMap;
-};
-
-struct Metadata {
-  ~Metadata() { for (size_t i=0; i<sectionVec.size();++i) delete sectionVec[i];}
-  void Copy(const Metadata &src) {
-    for (size_t i = 0; i < src.sectionVec.size(); ++i) {
-      MetadataSection *s = new MetadataSection;
-      *s = *src.sectionVec[i];
-      sectionVec.push_back(s);
-    }
-  }
-  
-  std::vector<const MetadataSection *> sectionVec;
-};
-  
 
 // Save the image data in file with the metadata copied from url but with
 // the fields below modified (i.e. replace keywords in original url metadata)
@@ -82,7 +61,7 @@ struct SetImageThumbnail {
 };
 
 struct SetImageMetadata {
-  virtual bool operator()(const char *url, const Metadata &metadata) = 0;
+  virtual bool operator()(const char *url, const OIIO::ParamValueList &meta) =0;
 };
 
 struct SetImagePixels {

@@ -1196,10 +1196,11 @@ bool StarRating::Draw() {
     return true;
   
   int v = Pressed() ? mDragValue : mValue;
+  v = std::max(v, 0);
   if (v > 0) {
     mLabel.SetTextColor(mSelectedColor[0], mSelectedColor[1],
                         mSelectedColor[2], mSelectedColor[3]);
-    mLabel.SetTextRange(0, v-1);
+    mLabel.SetTextRange(0, std::max(v - 1, 0));
     if (!mLabel.Draw())
       return false;
   }
@@ -1221,7 +1222,7 @@ bool StarRating::OnDrag(tui::EventPhase phase, float x, float y,
 }
 
 
-bool StarRating::SetValue(size_t value) {
+bool StarRating::SetValue(int value) {
   if (value > mStarCount)
     return false;
   mValue = value;
