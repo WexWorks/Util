@@ -61,6 +61,10 @@ bool Draw3SliceTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
                          float u0, float v0, float u1, float v1,
                          int texW, int texH, int vpW, int vpH,
                          float r, float g, float b, float a,const float *MVP=0);
+bool Draw9SliceTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
+                         float u0, float v0, float u1, float v1,
+                         int texW, int texH, int vpW, int vpH,
+                         float r, float g, float b, float a,const float *MVP=0);
 bool DrawTwoTexture2f(GLuint uvTex, float stTex,
                       float x0, float y0, float x1, float y1,
                       float u0, float v0, float u1, float v1,

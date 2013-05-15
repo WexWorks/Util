@@ -591,9 +591,9 @@ namespace tui {
     
   private:
     virtual void ComputeDragValue(float x) {
-      mDragValue = ceilf((mStarCount * (x - Left())) / float(Width()));
+      mDragValue = roundf(0.25 + (mStarCount * (x - Left())) / float(Width()));
       mDragValue = std::min(mDragValue, int(mStarCount));
-      mDragValue = std::max(mDragValue, int(mStarCount) - 1);
+      mDragValue = std::max(mDragValue, 0);
     }
     virtual bool InvokeTouchTap(const Event::Touch &touch) {
       ComputeDragValue(touch.x);
@@ -937,6 +937,7 @@ namespace tui {
     virtual void SnapToFitHeight(float u, bool isAnimated=false);
     virtual void SnapToUVCenter(float u, float v, bool isAnimated=false);
     virtual void SnapToScale(float scale, bool isAnimated=false);
+    virtual void SnapToLimits(bool isAnimated=false);
     
     // Compute the current display region that would be sent to DrawImage
     virtual void ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
@@ -1024,8 +1025,10 @@ namespace tui {
     virtual size_t ButtonCount() const { return mButtonVec.size(); }
     virtual class Button *Button(size_t i) { return mButtonVec[i]; }
     virtual const class Button *Button(size_t i) const { return mButtonVec[i]; }
+    virtual void VisibleButtonRange(float u0, float v0, float u1, float v1,
+                                    int *minIdx, int *maxIdx);
     virtual void Sort(const CompareButton &compare);
-    virtual bool Snap(size_t i);              // Ensure button #i is visible
+    virtual bool Snap(size_t i, bool isAnimated=false); // Button #i is visible
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual bool Touch(const tui::Event &event);
