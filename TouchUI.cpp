@@ -349,7 +349,7 @@ bool Label::Draw() {
   style.dropshadowOffsetPts[1] = mTextDropshadowOffsetPts[1];
   if (!GlesUtil::DrawParagraph(mText, x0, y0, x1, y, align,
                                mFont, ptW, ptH, &style, MVP(),
-                               mTextRange[0], mTextRange[1]))
+                               mTextRange[0], mTextRange[1], mWrapLines))
     return false;
   glDisable(GL_BLEND);
   return true;
@@ -1200,7 +1200,7 @@ bool StarRating::Draw() {
   if (v > 0) {
     mLabel.SetTextColor(mSelectedColor[0], mSelectedColor[1],
                         mSelectedColor[2], mSelectedColor[3]);
-    mLabel.SetTextRange(0, std::max(v - 1, 0));
+    mLabel.SetTextRange(0, v - 1);
     if (!mLabel.Draw())
       return false;
   }

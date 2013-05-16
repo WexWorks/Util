@@ -1394,10 +1394,24 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
         str[n] = '\0';
         switch (n) {
           default:                    // Add elipsis and skip rest of line
-          case 3: str[n-3] = '.';
-          case 2: str[n-2] = '.';
-          case 1: str[n-1] = '.';
-          case 0: break;
+            /*FALLTHRU*/
+          case 3:
+            w -= ptW * font->charWidthPt[(unsigned char)str[n-3]];
+            w += ptW * font->charWidthPt[(unsigned char)'.'];
+            str[n-3] = '.';
+            /*FALLTHRU*/
+          case 2:
+            w -= ptW * font->charWidthPt[(unsigned char)str[n-2]];
+            w += ptW * font->charWidthPt[(unsigned char)'.'];
+            str[n-2] = '.';
+            /*FALLTHRU*/
+          case 1:
+            w -= ptW * font->charWidthPt[(unsigned char)str[n-1]];
+            w += ptW * font->charWidthPt[(unsigned char)'.'];
+            str[n-1] = '.';
+            /*FALLTHRU*/
+          case 0:
+            break;
         }
         while (i <= len && text[i] != '\n')
           ++i;
