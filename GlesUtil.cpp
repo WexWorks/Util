@@ -1261,6 +1261,8 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
           case 1: str[n-1] = '.';
           case 0: break;
         }
+        while (i <= len && text[i] != '\n')
+          ++i;
       } else {
         str[lastSep] = '\0';
         w = lastSepW;

@@ -586,14 +586,14 @@ namespace tui {
     virtual void Enable(bool status) {
       Button::Enable(status); mLabel.Enable(status);
     }
-    virtual bool SetValue(size_t value);
-    virtual size_t Value() const { return mValue; }
+    virtual bool SetValue(int value);
+    virtual int Value() const { return mValue; }
     
   private:
     virtual void ComputeDragValue(float x) {
       mDragValue = ceilf((mStarCount * (x - Left())) / float(Width()));
-      mDragValue = std::min(mDragValue, mStarCount);
-      mDragValue = std::max(mDragValue, size_t(1));
+      mDragValue = std::min(mDragValue, int(mStarCount));
+      mDragValue = std::max(mDragValue, int(mStarCount) - 1);
     }
     virtual bool InvokeTouchTap(const Event::Touch &touch) {
       ComputeDragValue(touch.x);
@@ -602,7 +602,7 @@ namespace tui {
     }
 
     size_t mStarCount;                        // Number of stars
-    size_t mValue, mDragValue;                // Current rating
+    int mValue, mDragValue;                   // Current rating
     float mTextColor[4], mSelectedColor[4];   // Text colors
     Label mLabel;                             // Draw
   };
