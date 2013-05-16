@@ -312,14 +312,49 @@ bool GlesUtil::Draw3SliceTexture2f(GLuint tex,
                                    int texW, int texH, int vpW, int vpH,
                                    float r, float g, float b, float a,
                                    const float *MVP) {
-  const int edgeDim = vpH * texW / (2 * texH);
-  const float ew = edgeDim / float(MVP ? 1 : 0.5 * vpW);
+  const int pw = vpH * texW / (2 * texH);
+  const float ew = std::min(pw / float(MVP ? 1 : 0.5 * vpW), 0.5f * (x1 - x0));
   const float mu = 0.5 * (u0 + u1);
   if (!GlesUtil::DrawTexture2f(tex, x0,y0,x0+ew,y1, u0,v0,mu,v1, r,g,b,a, MVP))
     return false;
   if (!GlesUtil::DrawTexture2f(tex, x0+ew,y0,x1-ew,y1,mu,v0,mu,v1,r,g,b,a, MVP))
     return false;
   if (!GlesUtil::DrawTexture2f(tex, x1-ew,y0,x1,y1, mu,v0,u1,v1, r,g,b,a, MVP))
+    return false;
+  return true;
+}
+
+
+bool GlesUtil::Draw9SliceTexture2f(GLuint tex,
+                                   float x0, float y0, float x1, float y1,
+                                   float u0, float v0, float u1, float v1,
+                                   int texW, int texH, int vpW, int vpH,
+                                   float r, float g, float b, float a,
+                                   const float *MVP) {
+  const int pw = vpH * texW / (2 * texH);
+  const int ph = vpW * texH / (2 * texW);
+  const float ew = std::min(pw / float(MVP ? 1 : 0.5f * vpW), 0.5f * (x1 - x0));
+  const float eh = std::min(ph / float(MVP ? 1 : 0.5f * vpH), 0.5f * (y1 - y0));
+  const float es = std::min(ew, eh);    // Corners must be squares
+  const float mu = 0.5 * (u0 + u1);
+  const float mv = 0.5 * (v0 + v1);
+  if (!GlesUtil::DrawTexture2f(tex, x0,y0,x0+es,y0+es, u0,v0,mu,mv, r,g,b,a, MVP))
+    return false;
+  if (!GlesUtil::DrawTexture2f(tex, x0,y0+es,x0+es,y1-es, u0,mv,mu,mv, r,g,b,a, MVP))
+    return false;
+  if (!GlesUtil::DrawTexture2f(tex, x0,y1-es,x0+es,y1, u0,mv,mu,v1, r,g,b,a, MVP))
+    return false;
+  if (!GlesUtil::DrawTexture2f(tex, x0+es,y0,x1-es,y0+es,mu,v0,mu,mv,r,g,b,a, MVP))
+    return false;
+  if (!GlesUtil::DrawTexture2f(tex, x0+es,y0+es,x1-es,y1-es,mu,mv,mu,mv,r,g,b,a, MVP))
+    return false;
+  if (!GlesUtil::DrawTexture2f(tex, x0+es,y1-es,x1-es,y1,mu,mv,mu,v1,r,g,b,a, MVP))
+    return false;
+  if (!GlesUtil::DrawTexture2f(tex, x1-es,y0,x1,y0+es, mu,v0,u1,mv, r,g,b,a, MVP))
+    return false;
+  if (!GlesUtil::DrawTexture2f(tex, x1-es,y0+es,x1,y1-es, mu,mv,u1,mv, r,g,b,a, MVP))
+    return false;
+  if (!GlesUtil::DrawTexture2f(tex, x1-es,y1-es,x1,y1, mu,mv,u1,v1, r,g,b,a, MVP))
     return false;
   return true;
 }

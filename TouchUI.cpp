@@ -1204,7 +1204,7 @@ bool StarRating::Draw() {
     if (!mLabel.Draw())
       return false;
   }
-  if (v < mStarCount) {
+  if (v < int(mStarCount)) {
     mLabel.SetTextColor(mTextColor[0], mTextColor[1],
                         mTextColor[2], mTextColor[3]);
     mLabel.SetTextRange(v, mStarCount);
@@ -1223,7 +1223,7 @@ bool StarRating::OnDrag(tui::EventPhase phase, float x, float y,
 
 
 bool StarRating::SetValue(int value) {
-  if (value > mStarCount)
+  if (value > int(mStarCount))
     return false;
   mValue = value;
   return true;
@@ -2431,20 +2431,21 @@ bool Frame::Step(float seconds) {
       // forced function call ordering. All math is done using the target
       // center and scale, so that we clamp immediately and never overshoot.
       mIsSnapDirty = false;                 // Clamp once, after SnapTo*
-      const float x = mTargetScale * mTargetCenterUV[0] * ImageWidth();
-      const float y = mTargetScale * mTargetCenterUV[1] * ImageHeight();
+      const float scale = mTargetScale == 0 ? mScale : mTargetScale;
+      const float x = scale * mTargetCenterUV[0] * ImageWidth();
+      const float y = scale * mTargetCenterUV[1] * ImageHeight();
       const float w2 = std::min(mScaleMin * ImageWidth(), float(Width())) / 2;
       const float h2 = std::min(mScaleMin * ImageHeight(), float(Height())) / 2;
-      const float tw = mTargetScale * ImageWidth();
-      const float th = mTargetScale * ImageHeight();
+      const float tw = scale * ImageWidth();
+      const float th = scale * ImageHeight();
       if (x < w2)
-        mTargetCenterUV[0] = (w2 + mTargetScale) / tw;
+        mTargetCenterUV[0] = (w2 + scale) / tw;
       else if (tw - x < w2)
-        mTargetCenterUV[0] = 1 - (w2 + mTargetScale) / tw;
+        mTargetCenterUV[0] = 1 - (w2 + scale) / tw;
       if (y < h2)
-        mTargetCenterUV[1] = (h2 + mTargetScale) / th;
+        mTargetCenterUV[1] = (h2 + scale) / th;
       else if (th - y < h2)
-        mTargetCenterUV[1] = 1 - (h2 + mTargetScale) / th;
+        mTargetCenterUV[1] = 1 - (h2 + scale) / th;
     }
     bool isMoving = false;
     const size_t dim[2] = { ImageWidth(), ImageHeight() };
@@ -2762,24 +2763,33 @@ void Frame::CancelMotion() {
 // across the current frame, offsetting the y location using v=[0,1]
 
 void Frame::SnapToFitWidth(float v, bool isAnimated) {
-  assert(!isAnimated);
-  SnapToFitFrame();
-  if (ImageWidth() != 0)
-    mScale = Width() / float(ImageWidth());
-  float v2 = Height() / (mScale * ImageHeight());
-  if (v2 < 1)
-    mCenterUV[1] = v * (1 - v2) + v2 / 2;
+  ComputeScaleRange();
+  CancelMotion();
+  if (!Width() || !ImageWidth()) {
+    ResetView();
+    return;
+  }
+  mScale = Width() / float(ImageWidth());
+  const float h2 = std::min(0.5f * Height() / (mScale * ImageHeight()), 0.5f);
+  float v2 = clamp(v, h2, 1 - h2);
+  if (isAnimated) {
+    SnapToUVCenter(mCenterUV[0], v2, isAnimated);
+  } else {
+    mCenterUV[0] = 0.5;
+    mCenterUV[1] = v2;
+  }
 }
 
 
 void Frame::SnapToFitHeight(float u, bool isAnimated) {
   assert(!isAnimated);
   SnapToFitFrame();
+  if (!Height() || !ImageHeight() || mScale == 0)
+    return;
   if (ImageHeight() != 0)
     mScale = Height() / float(ImageHeight());
-  float u2 = Width() / (mScale * ImageWidth());
-  if (u2 < 1)
-    mCenterUV[0] = u * (1 - u2) + u2 / 2;
+  const float u2 = std::min(0.5f *Width() / (mScale * ImageWidth()), 0.5f);
+  mCenterUV[0] = clamp(u, u2, 1-u2);
 }
 
 
@@ -2808,6 +2818,15 @@ void Frame::SnapToScale(float scale, bool isAnimated) {
     mScale = scale;
     CancelMotion();
   }
+}
+
+
+void Frame::SnapToLimits(bool isAnimated) {
+  ComputeScaleRange();
+  if (Scale() < MinScale())
+    SnapToScale(MinScale(), isAnimated);
+  else if (Scale() > MaxScale())
+    SnapToScale(MaxScale(), isAnimated);
 }
 
 
@@ -3017,21 +3036,62 @@ void ButtonGridFrame::Clear() {
 }
 
 
+void ButtonGridFrame::VisibleButtonRange(float u0, float v0, float u1, float v1,
+                                         int *minIdx, int *maxIdx) {
+  assert(u0 == 0 && u1 == 1);                                 // Later...
+
+  if (u0 > u1)
+    std::swap(u0, u1);
+  if (v0 > v1)
+    std::swap(v0, v1);
+  
+  const int s0 = u0 * ImageWidth(), t0 = v0 * ImageHeight();  // visible pixels
+  const int s1 = u1 * ImageWidth(), t1 = v1 * ImageHeight();
+  
+  // Button index 0 starts at y=height-(top+dim)
+  const int horizCount = mButtonHorizCount[mButtonHorizCountIdx];
+  const int lastRow = ButtonCount() / horizCount;
+  const int padRow0       = (t0 - mTopPad) / (mButtonDim + mButtonPad);
+  const int padRow0Offset = (t0 - mTopPad) % (mButtonDim + mButtonPad);
+  const int row0 = clamp(padRow0 + int(padRow0Offset >= mButtonDim), 0, lastRow);
+  const int row1 = clamp((t1 - mTopPad) / (mButtonDim + mButtonPad), 0, lastRow);
+  
+  *minIdx = row0 * horizCount;
+  *maxIdx = std::min((row1 + 1) * horizCount - 1, int(ButtonCount()) - 1);
+}
+
+
 void ButtonGridFrame::Sort(const CompareButton &compare) {
   std::sort(mButtonVec.begin(), mButtonVec.end(), compare);
 }
 
 
-bool ButtonGridFrame::Snap(size_t i) {
+bool ButtonGridFrame::Snap(size_t i, bool isAnimated) {
+  if (i >= ButtonCount())
+    return false;
+  
+  float x0, y0, x1, y1, u0, v0, u1, v1;
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+  int minIdx, maxIdx;
+  VisibleButtonRange(u0, v0, u1, v1, &minIdx, &maxIdx);
+  if (i >= minIdx && i <= maxIdx)
+    return true;
+
   tui::Button *b = Button(i);
   if (!b)
     return false;
   if (IsXLocked()) {
-    float v = b->Top() / float(ImageHeight());
-    SnapToFitWidth(v);
+    int py;
+    if (i < minIdx) {       // Scroll to place button at top of screen
+      py = b->Top() + mButtonPad + mTopPad - Height() / 2;
+    } else {                // Scroll to place button at bottom of screen
+      py = b->Bottom() - mButtonPad - mBottomPad + Height() / 2;
+    }
+    float v = (ImageHeight() - py) / float(ImageHeight());
+    SnapToFitWidth(v, isAnimated);
   } else if (IsYLocked()) {
     float u = b->Right() / float(ImageWidth());
-    SnapToFitHeight(u);
+    SnapToFitHeight(u, isAnimated);
   }
   return true;
 }
@@ -3134,17 +3194,10 @@ bool ButtonGridFrame::Draw() {
   ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   RegionToM44f(mMVPBuf, ImageWidth(), ImageHeight(), x0,y0,x1,y1, u0,v0,u1,v1);
 
-  for (size_t i = 0; i < mButtonVec.size(); ++i) {
-    float bu0 = mButtonVec[i]->Left() / float(ImageWidth());
-    float bv0 = mButtonVec[i]->Bottom() / float(ImageHeight());
-    float bu1 = mButtonVec[i]->Right() / float(ImageWidth());
-    float bv1 = mButtonVec[i]->Top() / float(ImageHeight());
-    if (bu0 > u1 || bu1 < u0)
-      continue;
-    bv0 = 1 - bv0;                      // OpenGL inversion
-    bv1 = 1 - bv1;
-    if (bv1 > v0 || bv0 < v1)
-      continue;
+  int minIdx, maxIdx;
+  VisibleButtonRange(u0, v0, u1, v1, &minIdx, &maxIdx);
+  
+  for (size_t i = minIdx; i <= maxIdx; ++i) {
     if (!mButtonVec[i]->Draw())
       return false;
   }
