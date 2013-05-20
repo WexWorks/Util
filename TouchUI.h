@@ -791,6 +791,7 @@ namespace tui {
       return -0.15 * std::max(Width(), Height()); }
     virtual void OverpullNDCRange(float *x0, float *y0,
                                   float *x1, float *y1) const;
+    virtual void ClampScrollableDim();
     
     std::vector<Frame *> mFrameVec;           // Frames (caller owns pointer)
     int mFrameDim;                            // Pixel dimensions of each frame
