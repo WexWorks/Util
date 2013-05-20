@@ -44,6 +44,14 @@ bool DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
 bool DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
                          float w, float h, float r, float g, float b, float a,
                          const float *MVP=0);
+bool DrawGradientBoxFrame2f(float x0, float y0, float x1, float y1,
+                            float w, float h,
+                            float umin, float umax, float vmin, float vmax,
+                            float ur0, float ug0, float ub0, float ua0,
+                            float vr0, float vg0, float vb0, float va0,
+                            float ur1, float ug1, float ub1, float ua1,
+                            float vr1, float vg1, float vb1, float va1,
+                            const float *MVP=0);
 bool DrawGradientBox2f(float x0, float y0, float x1, float y1, bool isVertical,
                        float r0, float g0, float b0, float r1,float g1,float b1,
                        const float *MVP = 0);
@@ -198,12 +206,21 @@ GLint MaxTextureSize();
 // Shader functions:
 //   Type: GL_VERTEX_SHADER, GL_FRAGMENT_SHADER
 //   Name:    Debugging only. Names texture in XCode.
-
+// Constant uses a single color for every pixel.
+// Vertex uses colors specified per vertex.
+// Gradient blends colors in U & V.
+// Dropshadow uses a ease-out in transparency along V.
+// Texture uses colors specified in a texture.
+// Screen texture uses the window position as UV in a texture.
+// TwoTexture blends two textures.
 GLuint CreateShader(GLenum type, const char *source);
 GLuint CreateProgram(GLuint vp, GLuint fp, const char *name=0);
   
 GLuint ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP);
 GLuint VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP);
+GLuint GradientProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
+                       GLuint *uCU0, GLuint *uCV0,
+                       GLuint *uCU1, GLuint *uCV1, GLuint *uUVWidth);
 GLuint DropshadowFrameProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
                               GLuint *uMVP);
 GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC, GLuint *uMVP,
