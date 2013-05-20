@@ -63,7 +63,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
   if (mTouchStart.size() != event.touchVec.size()) {
     trackingPhase = TOUCH_BEGAN;          // Restart when # touches changes
     if (event.touchVec.size() > mTouchStart.size())
-      OnTouchBegan();                     // Stop momentum on single touch
+      OnTouchBegan(event.touchVec[0]);    // Stop momentum on single touch
   } else {
     for (size_t i = 0; i < mTouchStart.size(); ++i) {
       size_t j = 0;
@@ -186,8 +186,8 @@ bool ViewportWidget::ProcessGestures(const Event &event) {
       for (size_t j = 0; j < TouchStartCount(); ++j) {
         if (t.id == TouchStart(j).id && Inside(t.x, t.y, mCancelPad) &&
             Inside(TouchStart(j).x, TouchStart(j).y, mCancelPad)) {
-          if (OnTapTouch(t))
-            break;
+          if (OnTouchTap(t))
+            return true;
         }
       }
     }
@@ -2164,6 +2164,7 @@ bool FlinglistImpl::Touch(const Event &event) {
           mSnapSeconds = mSnapRemainingSeconds = 0;
           mSnapOriginalOffset = mSnapTargetOffset = 0;
           mLongPressSeconds = 0;
+          OnTouchBegan(event.touchVec[t]);
           mFrameVec[mTouchFrameIdx]->OnTouchBegan(event.touchVec[t]);
         }
         break;
@@ -2725,7 +2726,7 @@ bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
 }
 
 
-void Frame::OnTouchBegan() {
+void Frame::OnTouchBegan(const tui::Event::Touch &touch) {
   mCenterVelocityUV[0] = 0;                   // Stop animation
   mCenterVelocityUV[1] = 0;
   mScaleVelocity = 0;

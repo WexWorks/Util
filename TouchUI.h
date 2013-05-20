@@ -73,7 +73,7 @@ namespace tui {
                          double timestamp) { return false; }
     virtual bool OnDrag(EventPhase phase, float x, float y,
                         double timestamp) { return false; }
-    virtual void OnTouchBegan() {}
+    virtual void OnTouchBegan(const Event::Touch &touch) {}
     virtual bool IsScaling() const { return mIsScaling; }
     virtual bool IsDragging() const { return mIsDragging; }
     virtual bool IsHorizontalDrag() const { return mIsHorizontalDrag; }
@@ -153,8 +153,7 @@ namespace tui {
       }
     }
 
-    virtual bool OnTapTouch(const Event::Touch &touch) { return false; }
-    virtual bool OnLongTouch(const Event::Touch &touch) { return false; }
+    virtual bool OnTouchTap(const Event::Touch &touch) { return false; }
     virtual bool ProcessGestures(const Event &event);
     
   protected:
@@ -325,9 +324,6 @@ namespace tui {
     virtual bool WasPressed() const { return !mPressVec.empty(); }
     virtual bool Canceled() const { return !Pressed() && WasPressed(); }
     virtual void AverageTouchPosition(double *x, double *y) const;
-    
-    // Override with action
-    virtual bool OnTouchTap(const Event::Touch &touch) { return false; };
     
   protected:
     virtual bool InvokeTouchTap(const Event::Touch &touch) {
@@ -947,7 +943,7 @@ namespace tui {
     virtual bool OnScale(EventPhase phase, float scale, float x, float y,
                          double timestamp);
     virtual bool OnDrag(EventPhase phase, float x, float y, double timestamp);
-    virtual void OnTouchBegan();
+    virtual void OnTouchBegan(const Event::Touch &touch);
     
     // Frame adjustments
     virtual void SnapToFitFrame(bool isAnimated=false);
