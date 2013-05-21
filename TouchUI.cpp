@@ -605,7 +605,12 @@ bool Button::Pressed() const {
 
 
 void Button::AverageTouchPosition(double *x, double *y) const {
-  double px, py;
+  if (mPressVec.empty()) {
+    *x = *y = 0;
+    return;
+  }
+  
+  double px = 0, py = 0;
   for (size_t i = 0; i < mPressVec.size(); ++i) {
     px += mPressVec[i].x;
     py += mPressVec[i].y;

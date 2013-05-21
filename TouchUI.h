@@ -547,7 +547,7 @@ namespace tui {
   // Slider using a constrained handle
   class Slider : public ViewportWidget {
   public:
-    Slider() : mHandle(NULL), mSliderTex(0) {
+    Slider() : mHandle(NULL), mSliderTex(0), mHandleT(0) {
       mBkgTexColor[0] = mBkgTexColor[1] = mBkgTexColor[2] = mBkgTexColor[3] = 1;
     }
     virtual ~Slider();
