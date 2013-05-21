@@ -185,8 +185,8 @@ namespace tui {
   class Label : public AnimatedViewport {
   public:
     Label() : mText(NULL), mFont(NULL), mPts(0), mOpacity(1), mAlign(1),
-              mLineCount(0), mTex(0), mTimeoutSec(0), mFadeSec(0),
-              mRemainingSec(0) {
+              mLineCount(0), mTex(0), mWrapLines(true),
+              mTimeoutSec(0), mFadeSec(0), mRemainingSec(0) {
       mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 1;
       mTextRange[0] = 0; mTextRange[1] = -1;
       mTextDropshadowOffsetPts[0] = 0; mTextDropshadowOffsetPts[1] = 0;
@@ -228,6 +228,7 @@ namespace tui {
     virtual void SetViewportPad(float xPts, float yPts) {
       mPadPt[0] = xPts; mPadPt[1] = yPts;
     }
+    virtual void SetWrapLines(bool status) { mWrapLines = status; }
     virtual float BackgroundPadXPts() const { return mPadPt[0]; }
     virtual float BackgroundPadYPts() const { return mPadPt[1]; }
     virtual int TextLineCount() const { return mLineCount; }
@@ -257,6 +258,7 @@ namespace tui {
     unsigned long mTex;                       // Background texture
     int mTexDim[2];                           // Size of bkgrnd tex
     float mPadPt[2];                          // Pad around text
+    bool mWrapLines;                          // Wrap text?
     float mTimeoutSec,mFadeSec,mRemainingSec; // Fade timeout (default is off)
   };
   
