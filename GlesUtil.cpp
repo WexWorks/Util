@@ -489,8 +489,6 @@ bool GlesUtil::DrawDropshadowStrip2fi(unsigned short icount, const float *P,
                                       const float *UV, const unsigned short *idx,
                                       float r, float g, float b, float a,
                                       const float *MVP) {
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   GLuint aP, aUV, uC, uMVP;
   GLuint program = GlesUtil::DropshadowFrameProgram(&aP, &aUV, &uC, &uMVP);
   if (!program)
@@ -508,7 +506,6 @@ bool GlesUtil::DrawDropshadowStrip2fi(unsigned short icount, const float *P,
   glDrawElements(GL_TRIANGLE_STRIP, icount, GL_UNSIGNED_SHORT, idx);
   glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
-  glDisable(GL_BLEND);
   if (Error())
     return false;
 
