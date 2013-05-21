@@ -213,6 +213,37 @@ bool GlesUtil::DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
 }
 
 
+bool GlesUtil::DrawGradientBoxFrame2f(float x0, float y0, float x1, float y1,
+                                      float w, float h,
+                                      float umin, float umax, float vmin, float vmax,
+                                      float ur0, float ug0, float ub0, float ua0,
+                                      float vr0, float vg0, float vb0, float va0,
+                                      float ur1, float ug1, float ub1, float ua1,
+                                      float vr1, float vg1, float vb1, float va1,
+                                      const float *MVP) {
+  GLuint aP, aUV, uCU0, uCV0, uCU1, uCV1, uUVWidth, uMVP;
+  GLuint program = GradientProgram(&aP, &aUV, &uMVP, &uCU0, &uCV0,
+                                   &uCU1, &uCV1, &uUVWidth);
+  if (!program)
+    return false;
+  glUseProgram(program);
+  glUniform4f(uCU0, ur0, ug0, ub0, ua0);
+  glUniform4f(uCV0, vr0, vg0, vb0, va0);
+  glUniform4f(uCU1, ur1, ug1, ub1, ua1);
+  glUniform4f(uCV1, vr1, vg1, vb1, va1);
+  glUniform4f(uUVWidth, umin, umax, vmin, vmax);
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!MVP)
+    MVP = &I[0];
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+  
+  if (!DrawBoxFrame2f(aP, x0, y0, x1, y1, w, h, aUV))
+    return false;
+  
+  return true;
+}
+
+
 bool GlesUtil::DrawGradientBox2f(float x0, float y0, float x1, float y1,
                                  bool isVertical, float r0, float g0, float b0,
                                  float r1,float g1,float b1, const float *MVP) {
@@ -726,6 +757,81 @@ GLuint GlesUtil::VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP) {
   
   *aP = gAP;
   *aC = gAC;
+  *uMVP = gUMVP;
+  return gProgram;
+}
+
+
+GLuint GlesUtil::GradientProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
+                                 GLuint *uCU0, GLuint *uCV0,
+                                 GLuint *uCU1, GLuint *uCV1, GLuint *uUVWidth) {
+  static bool gInitialized = false;             // WARNING: Static variables!
+  static GLuint gProgram = 0;
+  static GLuint gAP = 0, gAUV = 0, gUMVP = 0;
+  static GLuint gUCU0 = 0, gUCV0 = 0, gUCU1 = 0, gUCV1 = 0, gUUVWidth = 0;
+  if (!gInitialized) {
+    gInitialized = true;
+    
+    // Note: the program below is leaked and should be destroyed in _atexit()
+    static const char *vpCode =
+    "attribute vec4 aP;\n"
+    "attribute vec2 aUV;\n"
+    "uniform mat4 uMVP;\n"
+    "varying vec2 vUV;\n"
+    "void main() {\n"
+    "  vUV = aUV;\n"
+    "  gl_Position = uMVP * aP;\n"
+    "}\n";
+    static const char *fpCode =
+    "precision mediump float;\n"
+    "uniform vec4 uCU0, uCV0, uCU1, uCV1;\n"
+    "uniform vec4 uUVWidth;\n"
+    "varying vec2 vUV;\n"
+    "void main() {\n"
+    "  float s = 1.0, t = 1.0;\n"
+    "  if (vUV.x < uUVWidth.x)\n"
+    "    s = 1.0 - (uUVWidth.x - vUV.x) / uUVWidth.x;\n"
+    "  else if (vUV.x > uUVWidth.y)\n"
+    "    s = 1.0 - (vUV.x - uUVWidth.y) / (1.0 - uUVWidth.y);\n"
+    "  if (vUV.y < uUVWidth.z)\n"
+    "    t = 1.0 - (uUVWidth.z - vUV.y) / uUVWidth.z;\n"
+    "  else if (vUV.y > uUVWidth.w)\n"
+    "    t = 1.0 - (vUV.y - uUVWidth.w) / (1.0 - uUVWidth.w);\n"
+    "  vec4 CU = uCU0 + s * (uCU1 - uCU0);\n"   // FIXME: Pass dCU, dCV
+    "  vec4 CV = uCV0 + t * (uCV1 - uCV0);\n"
+    "  gl_FragColor = CU * CV;\n"
+    "}\n";
+    GLuint vp = CreateShader(GL_VERTEX_SHADER, vpCode);
+    if (!vp)
+      return false;
+    GLuint fp = CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    if (!fp)
+      return false;
+    gProgram = CreateProgram(vp, fp, "UVGradient");
+    if (!gProgram)
+      return false;
+    glDeleteShader(vp);
+    glDeleteShader(fp);
+    glUseProgram(gProgram);
+    gAP = glGetAttribLocation(gProgram, "aP");
+    gAUV = glGetAttribLocation(gProgram, "aUV");
+    gUCU0 = glGetUniformLocation(gProgram, "uCU0");
+    gUCV0 = glGetUniformLocation(gProgram, "uCV0");
+    gUCU1 = glGetUniformLocation(gProgram, "uCU1");
+    gUCV1 = glGetUniformLocation(gProgram, "uCV1");
+    gUUVWidth = glGetUniformLocation(gProgram, "uUVWidth");
+    gUMVP = glGetUniformLocation(gProgram, "uMVP");
+    if (Error())
+      return false;
+  }
+  
+  *aP = gAP;
+  *aUV = gAUV;
+  *uCU0 = gUCU0;
+  *uCV0 = gUCV0;
+  *uCU1 = gUCU1;
+  *uCV1 = gUCV1;
+  *uUVWidth = gUUVWidth;
   *uMVP = gUMVP;
   return gProgram;
 }
