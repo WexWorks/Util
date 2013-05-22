@@ -149,6 +149,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       }
       
       if (trackingPhase != TOUCH_MOVED) {
+        mTouchStart.clear();              // Avoid Viewport OnTouchTap
         mIsDragging = false;
         mIsScaling = false;
       }
@@ -180,7 +181,9 @@ int ViewportWidget::sDefaultCancelPad = 35;         // Points, not pixels!
 
 
 bool ViewportWidget::ProcessGestures(const Event &event) {
-  if (event.phase == TOUCH_ENDED) {
+  // Handle the viewport event, OnTouchTap.
+  // Consider adding a opaque viewport check here if needed.
+  if (event.phase == TOUCH_ENDED && !IsDragging() && !IsScaling()) {
     for (size_t i = 0; i < event.touchVec.size(); ++i) {
       const Event::Touch &t(event.touchVec[i]);
       for (size_t j = 0; j < TouchStartCount(); ++j) {
@@ -1281,8 +1284,11 @@ bool Group::Draw() {
 
 
 bool Group::Touch(const Event &event) {
+  if (mWidgetVec.empty())
+    return false;
   bool consumed = false;
-  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+  // Process events in reverse order of drawing for "visibility"
+  for (int i = mWidgetVec.size() - 1; i >= 0; --i) {
     if (mWidgetVec[i]->Touch(event)) {
       consumed = true;
       if (!mIsMultitouch) {
@@ -2451,8 +2457,8 @@ bool Frame::Step(float seconds) {
       const float scale = mTargetScale == 0 ? mScale : mTargetScale;
       const float x = scale * mTargetCenterUV[0] * ImageWidth();
       const float y = scale * mTargetCenterUV[1] * ImageHeight();
-      const float w2 = std::min(mScaleMin * ImageWidth(), float(Width())) / 2;
-      const float h2 = std::min(mScaleMin * ImageHeight(), float(Height())) / 2;
+      const float w2 = std::min(scale * ImageWidth(), float(Width())) / 2;
+      const float h2 = std::min(scale * ImageHeight(), float(Height())) / 2;
       const float tw = scale * ImageWidth();
       const float th = scale * ImageHeight();
       if (x < w2)
@@ -2473,7 +2479,7 @@ bool Frame::Step(float seconds) {
         mCenterVelocityUV[i] = 0;
       } else {
         isMoving = true;
-        float k = std::min(10 * seconds, 1.0f);
+        float k = std::min(7 * seconds, 1.0f);
         mCenterUV[i] += k * (double(mTargetCenterUV[i]) - mCenterUV[i]);
       }
     }
@@ -2565,16 +2571,27 @@ bool Frame::Step(float seconds) {
       dv = -(0.5 -(pix[1] - cpix[1])) / ih;
     }
 
-    if (fabsf(du) < dUVPixels * 0.5 * spu)                // Final movement
-      su = 1;
-    if (fabsf(dv) < dUVPixels * 0.5 * spv)
-      sv = 1;
+    // Snap target scale to computed final scale.
+    // This is a backup, and should not be needed if the target clamp
+    // math is correct above, but just in case we're wrong...
+    if (!mIsTargetScaleActive) {                          // At final scale?
+      if (du != 0)                                        // Clamping U?
+        mTargetCenterUV[0] = mCenterUV[0] + du;           // Target clamp U
+      if (dv != 0)                                        // Clamping V?
+        mTargetCenterUV[1] = mCenterUV[1] + dv;           // Target clamp V
+    }
+    
+    // Snap to the final target position if we are within the threshold
+    if (fabsf(du) < dUVPixels * 0.5 * spu)                // Within U thresh?
+      su = 1;                                             // Snap to target U
+    if (fabsf(dv) < dUVPixels * 0.5 * spv)                // Within V thresh?
+      sv = 1;                                             // Snap to target V
 
     // Adjust the center of the current window by moving toward target
     assert(du == 0 || !mIsLocked[0]);
     assert(dv == 0 || !mIsLocked[1]);
     assert(!isinf(du) && !isinf(dv) && !isinf(su) && !isinf(sv));
-    mCenterUV[0] += su * du;
+    mCenterUV[0] += su * du;                              // Move toward target
     mCenterUV[1] -= sv * dv;
     
     // Determine if we need to continue moving or if we've hit the target
