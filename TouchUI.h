@@ -117,7 +117,9 @@ namespace tui {
   // Base class for all rectangular widgets
   class ViewportWidget : public Widget {
   public:
-    ViewportWidget() {
+    static void SetDefaultCancelPad(int pad) { sDefaultCancelPad = pad; }
+    
+    ViewportWidget() : mCancelPad(sDefaultCancelPad) {
       mViewport[0] = mViewport[1] = mViewport[2] = mViewport[3] = 0;
     }
     virtual ~ViewportWidget() {}
@@ -135,9 +137,14 @@ namespace tui {
     int Top() const { return mViewport[1] + mViewport[3]; }
     int Width() const { return mViewport[2];}
     int Height() const { return mViewport[3];}
-    bool Inside(int x, int y) const {
-      return x >= Left() && x <= Right() && y >= Bottom() && y <= Top();
+    bool Inside(int x, int y, int pad = 0) const {
+      return x >= Left()   - pad && x <= Right() + pad &&
+             y >= Bottom() - pad && y <= Top()   + pad;
     }
+    bool Intersect(int x, int y, int w, int h) const {
+      return !(Left() > x+w || Right() < x) && !(Bottom() > y+h || Top() < y);
+    }
+    virtual void SetCancelPad(int pad) { mCancelPad = pad; }
     virtual void GetNDCRect(float *x0, float *y0, float *x1, float *y1) const {
       if (MVP()) {
         *x0 = Left(); *y0 = Bottom(); *x1 = Right(); *y1 = Top();
@@ -154,6 +161,10 @@ namespace tui {
     virtual bool TouchStartInside() const;
     
     int mViewport[4];                         // [x, y, w, h]
+    int mCancelPad;                           // Pixel pad around button
+    
+  private:
+    static int sDefaultCancelPad;             // Relax touch-up clipping
   };
   
   
@@ -309,14 +320,21 @@ namespace tui {
     Button() {}
     virtual ~Button() {}
     
-    // Viewport contains entire texture, toggled
     virtual bool Touch(const Event &event);
     virtual bool Pressed() const;
+    virtual bool WasPressed() const { return !mPressVec.empty(); }
+    virtual bool Canceled() const { return !Pressed() && WasPressed(); }
+    virtual void AverageTouchPosition(double *x, double *y) const;
     
     // Override with action
     virtual bool OnTouchTap(const Event::Touch &touch) { return false; };
     
   protected:
+    virtual bool InvokeTouchTap(const Event::Touch &touch) {
+      return OnTouchTap(touch);
+    }
+
+  private:
     struct Press {
       Press(size_t id, bool pressed, int x, int y) :
       id(id), pressed(pressed), x(x), y(y) {}
@@ -325,9 +343,6 @@ namespace tui {
       int x, y;                               // Press location
     };
     
-    virtual bool InvokeTouchTap(const Event::Touch &touch) {
-      return OnTouchTap(touch);
-    }
     int FindPress(size_t id) const;
     
     std::vector<Press> mPressVec;             // Support multiple touch events

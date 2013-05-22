@@ -176,13 +176,16 @@ bool Widget::ProcessGestures(const tui::Event &event) {
 // Viewport
 //
 
+int ViewportWidget::sDefaultCancelPad = 35;         // Points, not pixels!
+
+
 bool ViewportWidget::ProcessGestures(const Event &event) {
   if (event.phase == TOUCH_ENDED) {
     for (size_t i = 0; i < event.touchVec.size(); ++i) {
       const Event::Touch &t(event.touchVec[i]);
       for (size_t j = 0; j < TouchStartCount(); ++j) {
-        if (t.id == TouchStart(j).id && Inside(t.x, t.y) &&
-            Inside(TouchStart(j).x, TouchStart(j).y)) {
+        if (t.id == TouchStart(j).id && Inside(t.x, t.y, mCancelPad) &&
+            Inside(TouchStart(j).x, TouchStart(j).y, mCancelPad)) {
           if (OnTapTouch(t))
             break;
         }
@@ -554,12 +557,12 @@ bool Button::Touch(const Event &event) {
       case TOUCH_MOVED:
         idx = FindPress(touch.id);
         if (idx >= 0) {
-          mPressVec[idx].pressed = Inside(touch.x, touch.y);
+          mPressVec[idx].pressed = Inside(touch.x, touch.y, mCancelPad);
           mPressVec[idx].x = touch.x;       // Update current touch position
           mPressVec[idx].y = touch.y;
           if (OnDrag(TOUCH_MOVED, touch.x, touch.y, touch.timestamp))
             return true;
-          return false;
+          return WasPressed();
         }
         break;
       case TOUCH_ENDED:
@@ -567,7 +570,7 @@ bool Button::Touch(const Event &event) {
         if (idx >= 0) {
           std::vector<Press>::iterator i = mPressVec.begin() + idx;
           mPressVec.erase(i);
-          if (Inside(touch.x, touch.y)) {
+          if (Inside(touch.x, touch.y, mCancelPad)) {
             if (InvokeTouchTap(touch))
               return true;
             return false;
@@ -598,6 +601,17 @@ bool Button::Pressed() const {
     if (mPressVec[i].pressed)
       return true;
   return false;
+}
+
+
+void Button::AverageTouchPosition(double *x, double *y) const {
+  double px, py;
+  for (size_t i = 0; i < mPressVec.size(); ++i) {
+    px += mPressVec[i].x;
+    py += mPressVec[i].y;
+  }
+  *x = px / mPressVec.size();               // Average
+  *y = py / mPressVec.size();
 }
 
 
@@ -998,17 +1012,13 @@ bool Handle::Touch(const Event &event) {
   if (!Enabled() || Hidden())
     return false;
   bool consumed = Button::Touch(event);
-  bool drag = Pressed() || (Constrained() && !mPressVec.empty());
-  drag = !mPressVec.empty();
+  bool drag = Pressed() || (Constrained() && WasPressed());
+  drag = WasPressed();
   if (drag) {
     consumed = true;
+
     double px = 0, py = 0;                        // Average touch position
-    for (size_t i = 0; i < mPressVec.size(); ++i) {
-      px += mPressVec[i].x;
-      py += mPressVec[i].y;
-    }
-    px /= mPressVec.size();                       // Average
-    py /= mPressVec.size();
+    AverageTouchPosition(&px, &py);
     double vx, vy;
     if (Constrained()) {
       ClosestPoint(mLine[0], mLine[1], mLine[2], mLine[3], mIsSegment,
@@ -3187,8 +3197,6 @@ bool ButtonGridFrame::Draw() {
   if (ButtonCount() == 0)
     return true;
   
-  glViewport(mViewport[0], mViewport[1], mViewport[2], mViewport[3]);
-  
   // Compute the NDC & UV rectangle for the image and draw
   float x0, y0, x1, y1, u0, v0, u1, v1;
   ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
@@ -3198,6 +3206,7 @@ bool ButtonGridFrame::Draw() {
   VisibleButtonRange(u0, v0, u1, v1, &minIdx, &maxIdx);
   
   for (size_t i = minIdx; i <= maxIdx; ++i) {
+    glViewport(mViewport[0], mViewport[1], mViewport[2], mViewport[3]);    
     if (!mButtonVec[i]->Draw())
       return false;
   }
