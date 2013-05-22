@@ -426,6 +426,38 @@ bool GlesUtil::DrawTwoTexture2f(GLuint uvTex, float stTex,
 }
 
 
+bool GlesUtil::DrawTextureHighlight2f(GLuint tex,
+                                      float x0, float y0, float x1, float y1,
+                                      float u0, float v0, float u1, float v1,
+                                      float s0, float t0, float s1, float t1,
+                                      float r, float g, float b, float a,
+                                       const float *MVP) {
+  GLuint aP, aUV, uC, uMVP, uTex;
+  GLuint program = TextureHighlightProgram(&aP, &aUV, &uC, &uMVP, &uTex);
+  glUseProgram(program);
+  glUniform4f(uC, r, g, b, a);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, tex);
+  glUniform1i(uTex, 0);
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!MVP)
+    MVP = &I[0];
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+  
+  if (!DrawBox2f4uv(aP, x0, y0, x1, y1, aUV, u0, v0, u1, v1, s0, t0, s1, t1))
+    return false;
+  
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  if (Error())
+    return false;
+  
+  return true;
+}
+
+
 bool GlesUtil::DrawTextureStrip2f(GLuint tex, GLuint vcount, const float *P,
                                   const float *UV, float r, float g, float b,
                                   float a, const float *MVP) {
@@ -708,6 +740,56 @@ GLuint GlesUtil::ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP) {
   *uMVP = gUMVP;
   return gProgram;
 }
+
+
+GLuint GlesUtil::UVProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP) {
+  static bool gInitialized = false;             // WARNING: Static variables!
+  static GLuint gProgram = 0;
+  static GLuint gAP = 0, gAUV = 0, gUMVP = 0;
+  if (!gInitialized) {
+    gInitialized = true;
+    
+    // Note: the program below is leaked and should be destroyed in _atexit()
+    static const char *vpCode =
+    "attribute vec4 aP;\n"
+    "attribute vec2 aUV;\n"
+    "uniform mat4 uMVP;\n"
+    "varying vec2 vUV;\n"
+    "void main() {\n"
+    "  vUV = aUV;\n"
+    "  gl_Position = uMVP * aP;\n"
+    "}\n";
+    static const char *fpCode =
+    "precision mediump float;\n"
+    "varying vec2 vUV;\n"
+    "void main() {\n"
+    "  gl_FragColor = vec4(vUV.xy, 0.5, 1);\n"
+    "}\n";
+    GLuint vp = CreateShader(GL_VERTEX_SHADER, vpCode);
+    if (!vp)
+      return false;
+    GLuint fp = CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    if (!fp)
+      return false;
+    gProgram = CreateProgram(vp, fp, "Dropshadow");
+    if (!gProgram)
+      return false;
+    glDeleteShader(vp);
+    glDeleteShader(fp);
+    glUseProgram(gProgram);
+    gAP = glGetAttribLocation(gProgram, "aP");
+    gAUV = glGetAttribLocation(gProgram, "aUV");
+    gUMVP = glGetUniformLocation(gProgram, "uMVP");
+    if (Error())
+      return false;
+  }
+  
+  *aP = gAP;
+  *aUV = gAUV;
+  *uMVP = gUMVP;
+  return gProgram;
+}
+
 
 
 GLuint GlesUtil::VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP) {
@@ -1058,6 +1140,71 @@ GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
 }
 
 
+GLuint GlesUtil::TextureHighlightProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
+                                         GLuint *uMVP, GLuint *uTex){
+  static bool gInitialized = false;             // WARNING: Static variables!
+  static GLuint gProgram = 0;
+  static GLuint gAP=0, gAUV=0, gUC=0, gUMVP=0, gUTex=0;
+  if (!gInitialized) {
+    gInitialized = true;
+    
+    // Note: the program below is leaked and should be destroyed in _atexit()
+    static const char *vpCode =
+    "attribute vec4 aP;\n"
+    "attribute vec4 aUV;\n"
+    "uniform mat4 uMVP;\n"
+    "varying vec4 vUV;\n"
+    "void main() {\n"
+    "  vUV = aUV;\n"
+    "  gl_Position = uMVP * aP;\n"
+    "}\n";
+    static const char *fpCode =
+    "precision highp float;\n"
+    "uniform sampler2D uTex;\n"
+    "uniform vec4 uC;\n"
+    "varying vec4 vUV;\n"
+    "void main() {\n"
+    "  vec4 CTex = texture2D(uTex, vUV.zw);\n"
+    "  vec2 d = vUV.xy - vec2(0.5, 0.5);\n"
+    "  float t = 1.0 - length(d);\n"
+    "  float s = 1.0 - t;\n"
+    "  float t2 = t * t;"
+    "  t = t2/(t2 + s*s);\n"
+    "  vec4 CHighlight = t * uC + (CTex.x - 0.146484375);\n"
+    "  vec4 C = CHighlight + (1.0 - CHighlight.a) * CTex;\n"
+    "  gl_FragColor = C;\n"
+    "}\n";
+    GLuint vp = CreateShader(GL_VERTEX_SHADER, vpCode);
+    if (!vp)
+      return false;
+    GLuint fp = CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    if (!fp)
+      return false;
+    gProgram = CreateProgram(vp, fp, "Texture");
+    if (!gProgram)
+      return false;
+    glDeleteShader(vp);
+    glDeleteShader(fp);
+    glUseProgram(gProgram);
+    gAP = glGetAttribLocation(gProgram, "aP");
+    gAUV = glGetAttribLocation(gProgram, "aUV");
+    gUC = glGetUniformLocation(gProgram, "uC");
+    gUMVP = glGetUniformLocation(gProgram, "uMVP");
+    gUTex = glGetUniformLocation(gProgram, "uTex");
+    if (Error())
+      return false;
+  }
+  
+  *aP = gAP;
+  *aUV = gAUV;
+  *uC = gUC;
+  *uMVP = gUMVP;
+  *uTex = gUTex;
+  
+  return gProgram;
+}
+
+
 GLuint GlesUtil::CreateBuffer(GLenum target, GLsizeiptr bytes, void *data,
                               GLenum usage, const char *name) {
   GLuint buf;
@@ -1316,10 +1463,11 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   if (!MVP)
     MVP = &I[0];  
   glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
-  float r = style->C[0] * style->C[3];
-  float g = style->C[1] * style->C[3];
-  float b = style->C[2] * style->C[3];
-  glUniform4f(uC, r, g, b, style->C[3]);
+  const float a = style->C[3];
+  const float r = style->C[0] * a;
+  const float g = style->C[1] * a;
+  const float b = style->C[2] * a;
+  glUniform4f(uC, r, g, b, a);
 
   // Draw the tristrip with all the character rectangles
   glDrawElements(GL_TRIANGLE_STRIP, idxCount, GL_UNSIGNED_SHORT, &idx[0]);

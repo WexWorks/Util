@@ -79,6 +79,11 @@ bool DrawTwoTexture2f(GLuint uvTex, float stTex,
                       float s0, float t0, float s1, float t1,
                       float r, float g, float b, float a,
                       const float *MVP = 0);
+bool DrawTextureHighlight2f(GLuint tex, float x0, float y0, float x1, float y1,
+                            float u0, float v0, float u1, float v1,
+                            float s0, float t0, float s1, float t1,
+                            float r, float g, float b, float a,
+                            const float *MVP = 0);
 bool DrawTextureStrip2f(GLuint tex, unsigned int vcount, const float *P,
                         const float *UV, float r, float g, float b, float a,
                         const float *MVP = 0);
@@ -217,6 +222,7 @@ GLuint CreateShader(GLenum type, const char *source);
 GLuint CreateProgram(GLuint vp, GLuint fp, const char *name=0);
   
 GLuint ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP);
+GLuint UVProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP);
 GLuint VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP);
 GLuint GradientProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
                        GLuint *uCU0, GLuint *uCV0,
@@ -228,6 +234,8 @@ GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC, GLuint *uMVP,
 GLuint ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP, GLuint *uTex);
 GLuint TwoTextureProgram(GLuint *aP, GLuint *aUVST, GLuint *uC, GLuint *uMVP,
                          GLuint *uUVTex, GLuint *uSTTex);
+GLuint TextureHighlightProgram(GLuint *aP, GLuint *aUVST, GLuint *uC,
+                               GLuint *uMVP, GLuint *uTex);
 
 // Buffer functions:
 //   Target: GL_ARRAY_BUFFER, GL_ELEMNT_ARRAY_BUFFER
