@@ -1565,27 +1565,28 @@ bool FlinglistImpl::Init(int frameDim, bool vertical, float pixelsPerCm) {
 }
 
 
-bool FlinglistImpl::SetViewport(int x, int y, int w, int h) {
-  if (!AnimatedViewport::SetViewport(x, y, w, h))
-    return false;
+void FlinglistImpl::ClampScrollableDim() {
   if (mScrollableDim)
     mScrollableDim = std::max(mScrollableDim, mFrameDim);
   else
     mScrollableDim = mFrameDim;
   if (mVertical)
-    mScrollableDim = std::min(mScrollableDim, h);
+    mScrollableDim = std::min(mScrollableDim, Height());
   else
-    mScrollableDim = std::min(mScrollableDim, w);
+    mScrollableDim = std::min(mScrollableDim, Width());
+}
+
+bool FlinglistImpl::SetViewport(int x, int y, int w, int h) {
+  if (!AnimatedViewport::SetViewport(x, y, w, h))
+    return false;
+  ClampScrollableDim();
   return true;
 }
 
 
 void FlinglistImpl::SetFrameDim(int dim) {
   mFrameDim = dim;
-  if (mScrollableDim)
-    mScrollableDim = std::max(mScrollableDim, mFrameDim);
-  else
-    mScrollableDim = std::min(mFrameDim, Height());
+  ClampScrollableDim();
 }
 
 
@@ -2798,8 +2799,8 @@ void Frame::SnapToFitHeight(float u, bool isAnimated) {
     return;
   if (ImageHeight() != 0)
     mScale = Height() / float(ImageHeight());
-  const float u2 = std::min(0.5f *Width() / (mScale * ImageWidth()), 0.5f);
-  mCenterUV[0] = clamp(u, u2, 1-u2);
+  const float w2 = std::min(0.5f * Width() / (mScale * ImageWidth()), 0.5f);
+  mCenterUV[0] = clamp(u, w2, 1 - w2);
 }
 
 
@@ -2807,12 +2808,16 @@ void Frame::SnapToUVCenter(float u, float v, bool isAnimated) {
   ComputeScaleRange();
   if (isAnimated) {
     mIsTargetCenterActive = true;
-    mTargetCenterUV[0] = u;
+    mTargetCenterUV[0] = u;                   // Clamped in step w/target scale
     mTargetCenterUV[1] = v;
     mIsSnapDirty = true;
-  } else {
-    mCenterUV[0] = u;
-    mCenterUV[1] = v;
+  } else {                                    // Clamp now with current scale
+    const float w2 = std::min(0.5f * Width() / (mScale * ImageWidth()), 0.5f);
+    const float h2 = std::min(0.5f * Height() / (mScale * ImageHeight()), 0.5f);
+    float u2 = clamp(u, w2, 1 - w2);
+    float v2 = clamp(v, h2, 1 - h2);
+    mCenterUV[0] = u2;
+    mCenterUV[1] = v2;
     CancelMotion();
   }
 }
@@ -3160,24 +3165,32 @@ bool ButtonGridFrame::Touch(const Event &event) {
   
   float x0, y0, x1, y1, u0, v0, u1, v1;
   ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
-  Imath::M44f t;
+  Imath::M44f T;
   const float w = ImageWidth(), h = ImageHeight();
-  RegionToM44f(t.getValue(), w, h, x0, y0, x1, y1, u0, v0, u1, v1);
-  t.invert();
+  RegionToM44f(T.getValue(), w, h, x0, y0, x1, y1, u0, v0, u1, v1);
+  T.invert();
 
-  tui::Event e(event);
-  for (size_t i = 0; i < e.touchVec.size(); ++i) {
+  Imath::V3f pmin(-1, -1, 0), pmax(1, 1, 0);              // Frame bounds
+  Imath::V3f qmin = pmin * T, qmax = pmax * T;            // Transformed to NDC
+  
+  tui::Event e(event.phase);
+  for (size_t i = 0; i < event.touchVec.size(); ++i) {
     // Touch location in NDC coordinates
-    Imath::V3f p(2.0 * (e.touchVec[i].x - Left()) / Width() - 1,
-                 2.0 * (e.touchVec[i].y - Bottom()) / Height() - 1, 0);
-    Imath::V3f q = p * t;         // Convert to pixel coords for all widgets
-    e.touchVec[i].x = q.x;
-    e.touchVec[i].y = q.y;
+    Imath::V3f p(2.0 * (event.touchVec[i].x - Left()) / Width() - 1,
+                 2.0 * (event.touchVec[i].y - Bottom()) / Height() - 1, 0);
+    Imath::V3f q = p * T;         // Convert to pixel coords for all widgets
+    bool outside = q.x < qmin.x || q.y < qmin.y || q.x > qmax.x || q.y > qmax.y;
+    if (event.phase == tui::TOUCH_BEGAN && outside)       // Not move/end/cancel
+      continue;                                           // Clip to bounds
+    e.touchVec.push_back(Event::Touch(event.touchVec[i].id, q.x, q.y,
+                                      event.touchVec[i].timestamp));
   }
 
-  for (size_t i = 0; i < mButtonVec.size(); ++i) {
-    if (mButtonVec[i]->Touch(e))
-      return true;
+  if (!e.touchVec.empty()) {                              // Any unclipped?
+    for (size_t i = 0; i < mButtonVec.size(); ++i) {
+      if (mButtonVec[i]->Touch(e))
+        return true;
+    }
   }
   
   return false;
