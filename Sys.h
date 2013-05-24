@@ -77,12 +77,14 @@ struct SetAlert {
 
 struct SetShareOptions {
   enum ResMode { Source, Fixed, Percent };
+  enum Format { JPEG, TIFF, PNG };
   virtual ~SetShareOptions() {}
-  virtual bool operator()(const char *service, const char *comment,
-                          ResMode resMode, int w, int h,
-                          const char *nameRegex, const char *album,
-                          const char *author, const char *copyright,
-                          bool setKeywords, bool stripLocation, bool stripCamera) = 0;
+  virtual bool operator()(const char *service, const char *filenameTemplate,
+                          const char *comment, ResMode resMode, float dim,
+                          const char *shot, const char *album, Format format,
+                          float quality, const char *author,
+                          const char *copyright, bool setKeywords,bool stripAll,
+                          bool stripLocation, bool stripCamera) = 0;
 };
 
   
