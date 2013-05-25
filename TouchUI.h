@@ -61,7 +61,7 @@ namespace tui {
     
     // Return true if event is consumed and no further processing should occur
     virtual bool Touch(const Event &event) {
-      if (!Enabled()) return false;
+      if (!Enabled() || Hidden()) return false;
       return ProcessGestures(event);
     }
     
