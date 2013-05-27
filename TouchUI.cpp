@@ -196,7 +196,12 @@ bool ViewportWidget::ProcessGestures(const Event &event) {
     }
   }
   
-  return Widget::ProcessGestures(event);
+  if (Widget::ProcessGestures(event))
+    return true;
+  if (mEventOpaque && TouchStartInside())
+    return true;
+  
+  return false;
 }
 
 
@@ -1441,9 +1446,11 @@ bool Toolbar::Touch(const tui::Event &event) {
   bool consumed = false;
   for (size_t i = 0; i < mWidgetVec.size(); ++i) {
     if (mWidgetVec[i]->Touch(event))
-      consumed = true;
+      consumed = true;                          // FIXME: Consider return?
   }
-  return consumed;
+  if (consumed)
+    return true;
+  return tui::AnimatedViewport::Touch(event);
 }
 
 
@@ -2378,14 +2385,14 @@ void Frame::ComputeScaleRange() {
   // Compute the scale so that the entire image fits within
   // the screen boundary, comparing the aspect ratios of the
   // screen and the image and fitting to the proper axis.
-  const float frameAspect = Width()/float(Height());
+  const float frameAspect = Width() / float(Height());
   const float imageAspect = ImageWidth() / float(ImageHeight());
   const float frameToImageRatio = frameAspect / imageAspect;
   
   if (frameToImageRatio < 1) {                // Frame narrower than image
-    mScaleMin = Width() / float(ImageWidth());
+    mScaleMin = (Width() - 2 * mViewportMinScalePad) / float(ImageWidth());
   } else {                                    // Image narrower than frame
-    mScaleMin = Height() / float(ImageHeight());
+    mScaleMin = (Height() - 2 * mViewportMinScalePad) / float(ImageHeight());
   }
   
   mScaleMax = std::max(32.0f, mScaleMin * 4); // Increase past 32 smoothly
