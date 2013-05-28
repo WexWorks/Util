@@ -119,7 +119,7 @@ namespace tui {
   public:
     static void SetDefaultCancelPad(int pad) { sDefaultCancelPad = pad; }
     
-    ViewportWidget() : mCancelPad(sDefaultCancelPad) {
+    ViewportWidget() : mCancelPad(sDefaultCancelPad), mEventOpaque(false) {
       mViewport[0] = mViewport[1] = mViewport[2] = mViewport[3] = 0;
     }
     virtual ~ViewportWidget() {}
@@ -145,6 +145,7 @@ namespace tui {
       return !(Left() > x+w || Right() < x) && !(Bottom() > y+h || Top() < y);
     }
     virtual void SetCancelPad(int pad) { mCancelPad = pad; }
+    virtual void SetEventOpaque(bool status) { mEventOpaque = status; }
     virtual void GetNDCRect(float *x0, float *y0, float *x1, float *y1) const {
       if (MVP()) {
         *x0 = Left(); *y0 = Bottom(); *x1 = Right(); *y1 = Top();
@@ -164,6 +165,7 @@ namespace tui {
     
   private:
     static int sDefaultCancelPad;             // Relax touch-up clipping
+    int mEventOpaque;                         // Consume event that start inside
   };
   
   
@@ -487,6 +489,7 @@ namespace tui {
     RadioButton() : mIsNoneAllowed(false) {}
     virtual ~RadioButton();
     virtual void Add(CheckboxButton *button);
+    virtual size_t Count() const { return mButtonVec.size(); }
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
     virtual bool Touch(const Event &event);
@@ -903,6 +906,7 @@ namespace tui {
               mIsTargetCenterActive(false),
               mIsDirty(false),
               mScaleMin(0), mScaleMax(0),
+              mViewportMinScalePad(0),
               mIsSnapDirty(false) {
       memset(mDim, 0, sizeof(mDim));
       memset(mIsLocked, 0, sizeof(mIsLocked));
@@ -925,6 +929,8 @@ namespace tui {
     virtual bool IsYLocked() const { return mIsLocked[1]; }
     virtual float UCenter() const { return mCenterUV[0]; }
     virtual float VCenter() const { return mCenterUV[1]; }
+    virtual void SetViewportMinScalePad(int pix) { mViewportMinScalePad = pix; }
+    virtual int ViewportMinScalePad() const { return mViewportMinScalePad; }
     virtual void SetSnapModeCenter() { mSnapMode = SNAP_CENTER; }
     virtual void SetSnapModeUpperLeft() { mSnapMode = SNAP_UPPER_LEFT; }
     virtual void SetSnapModePixelCenter() { mSnapMode = SNAP_PIXEL; }
@@ -1006,6 +1012,7 @@ namespace tui {
     float mTargetCenterUV[2];                 // Window center target
     bool mIsDirty;                            // True if we need to repaint
     float mScaleMin, mScaleMax;               // Valid scale range
+    int mViewportMinScalePad;                 // Pad to inset for fit-to-frame
     bool mIsSnapDirty;                        // True after snap for clip
   };
   
