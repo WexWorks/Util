@@ -60,7 +60,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
   
   EventPhase trackingPhase = event.phase; // Change if touch ids change
   size_t idx[mTouchStart.size()];         // Vector indices of start touches
-  if (mTouchStart.size() != event.touchVec.size()) {
+  if (!mTouchStart.empty() && mTouchStart.size() != event.touchVec.size()) {
     trackingPhase = TOUCH_BEGAN;          // Restart when # touches changes
     if (event.touchVec.size() > mTouchStart.size())
       OnTouchBegan(event.touchVec[0]);    // Stop momentum on single touch
@@ -128,7 +128,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
         if (mIsScaling &&
             OnScale(gesturePhase, scale, mid[0], mid[1], t0.timestamp))
             consumed = true;
-      } else if (!event.touchVec.empty()) {                     // Single-touch
+      } else if (!mTouchStart.empty()) {                     // Single-touch
         
         // Translate by the difference between the previous and
         // the current touch locations, accounting for scale.
@@ -1450,7 +1450,7 @@ bool Toolbar::Touch(const tui::Event &event) {
   }
   if (consumed)
     return true;
-  return tui::AnimatedViewport::Touch(event);
+  return AnimatedViewport::Touch(event);
 }
 
 
