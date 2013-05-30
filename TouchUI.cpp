@@ -1144,6 +1144,8 @@ bool Slider::Draw() {
 
 
 bool Slider::SetValue(float value) {
+  if (mHandleT == value)
+    return true;
   mHandleT = value;
   assert(value >= 0 && value <= 1);
   int hx = Left() + mHandleT * Width() - mHandle->Width() / 2.0;
