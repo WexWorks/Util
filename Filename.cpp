@@ -2,6 +2,7 @@
 
 #include "Filename.h"
 
+#include <sys/stat.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -43,4 +44,13 @@ bool Filename::Access(const char *filename, bool isForWriting) {
   if (access(filename, state) == -1)
     return false;
   return true;
+}
+
+
+double Filename::EpochSec(const char *filename) {
+  struct stat sbuf;
+  if (stat(filename, &sbuf) < 0)
+    return 0;
+  double sec = sbuf.st_mtimespec.tv_sec + 1e-9 * sbuf.st_mtimespec.tv_nsec;
+  return sec;
 }

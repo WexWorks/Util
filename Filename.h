@@ -24,6 +24,8 @@ void Split(const char *full, char dir[PATH_MAX], char base[NAME_MAX],
 // Tests to see if we can access the specified filename.
 bool Access(const char *filename, bool isForWriting=false);
 
+// Return seconds since Epoch (1 Jan 1970) for file, or 0 on failure
+double EpochSec(const char *filename);
   
 };      // namespace Filename
 #endif  // defined(FILENAME_H)

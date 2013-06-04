@@ -60,6 +60,10 @@ struct SetImageThumbnail {
                           const unsigned char *thumb) = 0;
 };
 
+struct SetImageDate {
+  virtual bool operator()(const char *url, double epochSec) = 0;
+};
+
 struct SetImageMetadata {
   virtual bool operator()(const char *url, const OIIO::ParamValueList &meta) =0;
 };
@@ -120,6 +124,9 @@ public:
   
   // Load a all the image names in an album
   virtual bool LoadAlbumImageNames(const char *url, AddImage *addImage) = 0;
+
+  // Return the last modification time of the image
+  virtual bool LoadImageDate(const char *url, SetImageDate *setDate) = 0;
   
   // Load the thumbnail representation of the image
   virtual bool LoadImageThumbnail(const char *url,
