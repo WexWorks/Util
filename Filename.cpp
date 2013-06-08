@@ -2,9 +2,12 @@
 
 #include "Filename.h"
 
+#include <dirent.h>
 #include <sys/stat.h>
+#include <string>
 #include <string.h>
 #include <unistd.h>
+#include <vector>
 
 
 void Filename::Split(const char *full, char dir[PATH_MAX], char base[NAME_MAX],
@@ -39,7 +42,7 @@ void Filename::Split(const char *full, char dir[PATH_MAX], char base[NAME_MAX],
 }
 
 
-bool Filename::Access(const char *filename, bool isForWriting) {
+bool Filename::IsAccessible(const char *filename, bool isForWriting) {
   int state = isForWriting ? W_OK : R_OK;
   if (access(filename, state) == -1)
     return false;
@@ -47,10 +50,42 @@ bool Filename::Access(const char *filename, bool isForWriting) {
 }
 
 
-double Filename::EpochSec(const char *filename) {
+double Filename::ModEpochSec(const char *filename) {
   struct stat sbuf;
   if (stat(filename, &sbuf) < 0)
     return 0;
   double sec = sbuf.st_mtimespec.tv_sec + 1e-9 * sbuf.st_mtimespec.tv_nsec;
   return sec;
+}
+
+
+double Filename::AccessEpochSec(const char *filename) {
+  struct stat sbuf;
+  if (stat(filename, &sbuf) < 0)
+    return 0;
+  double sec = sbuf.st_atimespec.tv_sec + 1e-9 * sbuf.st_atimespec.tv_nsec;
+  return sec;
+}
+
+
+size_t Filename::FileSize(const char *filename) {
+  struct stat sbuf;
+  if (stat(filename, &sbuf) < 0)
+    return 0;
+  return sbuf.st_size;
+}
+
+
+bool Filename::ListDirectory(const char *dirname,
+                             std::vector<std::string> &filenameVec) {
+  DIR *dir = opendir(dirname);
+  if (!dir)
+    return false;
+  for (struct dirent *f = readdir(dir); f != NULL; f = readdir(dir)) {
+    if (f->d_type == DT_REG)
+      filenameVec.push_back(f->d_name);
+  }
+  closedir(dir);
+  
+  return true;
 }
