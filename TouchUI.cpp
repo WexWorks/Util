@@ -1088,16 +1088,23 @@ Slider::~Slider() {
 }
 
 
-bool Slider::Init(unsigned int sliderTex, size_t handleW, size_t handleH,
-                  unsigned int handleTex, unsigned int handlePressedTex) {
+bool Slider::Init(unsigned int sliderTex, tui::Handle *handle) {
   mSliderTex = sliderTex;
   mHandleT = 0.5;
-  
-  mHandle = new ImageHandle;
-  if (!mHandle->Init(handleTex, handlePressedTex))
-    return false;
-  mHandle->SetViewport(0, 0, handleW, handleH);
+  mHandle = handle;
   mHandle->SetYConstrained(true);
+  return true;
+}
+
+
+bool Slider::Init(unsigned int sliderTex, size_t handleW, size_t handleH,
+                  unsigned int handleTex, unsigned int handlePressedTex) {
+  ImageHandle *handle = new ImageHandle;
+  if (!handle->Init(handleTex, handlePressedTex))
+    return false;
+  handle->SetViewport(0, 0, handleW, handleH);
+  if (!Init(sliderTex, handle))
+    return false;
   
   return true;
 }
@@ -1146,7 +1153,8 @@ bool Slider::Draw() {
 bool Slider::SetValue(float value) {
   mHandleT = value;
   assert(value >= 0 && value <= 1);
-  int hx = Left() + mHandleT * Width() - mHandle->Width() / 2.0;
+  float sw = Width() - mHandle->Width();
+  int hx = Left() + mHandleT * sw;
   int hy = Bottom() + (Height() - mHandle->Height()) / 2;
   if (!mHandle->SetViewport(hx, hy, mHandle->Width(), mHandle->Height()))
     return false;
