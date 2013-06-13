@@ -568,9 +568,10 @@ namespace tui {
     virtual bool SetValue(float value);
     virtual float Value() const { return mHandleT; }
     virtual bool OnValueChanged(float value) { return false; }
+    virtual const Handle *Handle() const { return mHandle; }
     
   private:
-    Handle *mHandle;
+    class Handle *mHandle;
     unsigned int mSliderTex;
     float mHandleT;
     float mBkgTexColor[4];                      // Texture multiplier

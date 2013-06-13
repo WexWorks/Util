@@ -163,6 +163,9 @@ public:
   // Share the named file in the background without opening any dialogs
   virtual bool ShareImage(const char *service, const ShareImage &image) = 0;
 
+  // Open the product store for the specified item
+  virtual bool ShowStore(const char *product, const int fromRect[4]) = 0;
+  
   // Bring the app out of paused mode, if enabled, and force at least one redraw
   virtual void ForceRedraw() = 0;
 };
@@ -177,7 +180,9 @@ public:
                        AlbumInserted,                 // URLs in data
                        AlbumUpdated,                  // URLs in data
                        AlbumDeleted,                  // URLs in data
-                       ReloadAll };                   // Data is empty
+                       ReloadAll,                     // Data is empty
+                       StoreError,                    // Data is message
+                       StoreItemPurchased };          // Product ID in data
   
   virtual ~App() {}
   

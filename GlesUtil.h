@@ -77,7 +77,8 @@ bool DrawTwoTexture2f(GLuint uvTex, float stTex,
                       float x0, float y0, float x1, float y1,
                       float u0, float v0, float u1, float v1,
                       float s0, float t0, float s1, float t1,
-                      float r, float g, float b, float a,
+                      float r0, float g0, float b0, float a0,
+                      float r1, float g1, float b1, float a1,
                       const float *MVP = 0);
 bool DrawTextureHighlight2f(GLuint tex, float x0, float y0, float x1, float y1,
                             float u0, float v0, float u1, float v1,
@@ -232,8 +233,8 @@ GLuint DropshadowFrameProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
 GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC, GLuint *uMVP,
                       GLuint *uTex);
 GLuint ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP, GLuint *uTex);
-GLuint TwoTextureProgram(GLuint *aP, GLuint *aUVST, GLuint *uC, GLuint *uMVP,
-                         GLuint *uUVTex, GLuint *uSTTex);
+GLuint TwoTextureProgram(GLuint *aP, GLuint *aUVST, GLuint *uC0, GLuint *uC1,
+                         GLuint *uMVP, GLuint *uUVTex, GLuint *uSTTex);
 GLuint TextureHighlightProgram(GLuint *aP, GLuint *aUVST, GLuint *uC,
                                GLuint *uMVP, GLuint *uTex);
 
