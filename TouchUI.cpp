@@ -3115,6 +3115,7 @@ void ButtonGridFrame::VisibleButtonRange(float u0, float v0, float u1, float v1,
 
 void ButtonGridFrame::Sort(const CompareButton &compare) {
   std::sort(mButtonVec.begin(), mButtonVec.end(), compare);
+  SetViewport(Left(), Bottom(), Width(), Height());
 }
 
 
@@ -3139,6 +3140,8 @@ bool ButtonGridFrame::Snap(size_t i, bool isAnimated) {
       SnapToFitWidth(vtop, isAnimated);
     else if (VCenter() < vbot)
       SnapToFitWidth(vbot, isAnimated);
+    else
+      SnapToUVCenter(UCenter(), VCenter(), isAnimated);   // Clamp to limits
   } else if (IsYLocked()) {
     int plft = b->Left() - mButtonPad + Width() / 2;
     int prgt = b->Right() + mButtonPad - Width() / 2;
@@ -3148,6 +3151,8 @@ bool ButtonGridFrame::Snap(size_t i, bool isAnimated) {
       SnapToFitHeight(ulft, isAnimated);
     else if (UCenter() < urgt)
       SnapToFitHeight(urgt, isAnimated);
+    else
+      SnapToUVCenter(UCenter(), VCenter(), isAnimated);   // Clamp to limits
   }
   return true;
 }
