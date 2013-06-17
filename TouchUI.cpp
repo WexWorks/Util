@@ -1144,8 +1144,6 @@ bool Slider::Draw() {
 
 
 bool Slider::SetValue(float value) {
-  if (mHandleT == value)
-    return true;
   mHandleT = value;
   assert(value >= 0 && value <= 1);
   int hx = Left() + mHandleT * Width() - mHandle->Width() / 2.0;
@@ -2825,14 +2823,21 @@ void Frame::SnapToFitWidth(float v, bool isAnimated) {
 
 
 void Frame::SnapToFitHeight(float u, bool isAnimated) {
-  assert(!isAnimated);
-  SnapToFitFrame();
-  if (!Height() || !ImageHeight() || mScale == 0)
+  ComputeScaleRange();
+  CancelMotion();
+  if (!Height() || !ImageHeight()) {
+    ResetView();
     return;
-  if (ImageHeight() != 0)
-    mScale = Height() / float(ImageHeight());
+  }
+  mScale = Height() / float(ImageHeight());
   const float w2 = std::min(0.5f * Width() / (mScale * ImageWidth()), 0.5f);
-  mCenterUV[0] = clamp(u, w2, 1 - w2);
+  float u2 = clamp(u, w2, 1 - w2);
+  if (isAnimated) {
+    SnapToUVCenter(u2, mCenterUV[1]);
+  } else {
+    mCenterUV[0] = u2;
+    mCenterUV[1] = 0.5;
+  }
 }
 
 
@@ -3121,24 +3126,28 @@ bool ButtonGridFrame::Snap(size_t i, bool isAnimated) {
   ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   int minIdx, maxIdx;
   VisibleButtonRange(u0, v0, u1, v1, &minIdx, &maxIdx);
-  if (i >= minIdx && i <= maxIdx)
-    return true;
 
   tui::Button *b = Button(i);
   if (!b)
     return false;
   if (IsXLocked()) {
-    int py;
-    if (i < minIdx) {       // Scroll to place button at top of screen
-      py = b->Top() + mButtonPad + mTopPad - Height() / 2;
-    } else {                // Scroll to place button at bottom of screen
-      py = b->Bottom() - mButtonPad - mBottomPad + Height() / 2;
-    }
-    float v = (ImageHeight() - py) / float(ImageHeight());
-    SnapToFitWidth(v, isAnimated);
+    int ptop = b->Top() + mButtonPad + mTopPad - Height() / 2;
+    int pbot = b->Bottom() - mButtonPad - mBottomPad + Height() / 2;
+    float vtop = (int(ImageHeight()) - ptop) / float(ImageHeight());
+    float vbot = (int(ImageHeight()) - pbot) / float(ImageHeight());
+    if (VCenter() > vtop)
+      SnapToFitWidth(vtop, isAnimated);
+    else if (VCenter() < vbot)
+      SnapToFitWidth(vbot, isAnimated);
   } else if (IsYLocked()) {
-    float u = b->Right() / float(ImageWidth());
-    SnapToFitHeight(u, isAnimated);
+    int plft = b->Left() - mButtonPad + Width() / 2;
+    int prgt = b->Right() + mButtonPad - Width() / 2;
+    float ulft = plft / float(ImageWidth());
+    float urgt = prgt / float(ImageWidth());
+    if (UCenter() > ulft)
+      SnapToFitHeight(ulft, isAnimated);
+    else if (UCenter() < urgt)
+      SnapToFitHeight(urgt, isAnimated);
   }
   return true;
 }
