@@ -108,6 +108,9 @@ public:
   // Returns a URL to a file in the app's local documents folder
   virtual bool FindAppCachePath(const char *name, char path[1024]) = 0;
   
+  // Returns the requested user default setting, returned as string
+  virtual bool FindUserDefault(const char *name, char value[1024]) = 0;
+  
   // Load an image from the app's resource bundle (blocking)
   virtual bool LoadImageResource(const char *name, size_t *w, size_t *h,
                                  size_t *channelCount,
