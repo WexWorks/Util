@@ -555,6 +555,7 @@ namespace tui {
     }
     virtual ~Slider();
     
+    virtual bool Init(unsigned int sliderTex, Handle *handle);
     virtual bool Init(unsigned int sliderTex, size_t handleW, size_t handleH,
                       unsigned int handleTex, unsigned int handlePressedTex);
     virtual bool SetViewport(int x, int y, int w, int h);
@@ -569,7 +570,7 @@ namespace tui {
     virtual bool OnValueChanged(float value) { return false; }
     
   private:
-    ImageHandle *mHandle;
+    Handle *mHandle;
     unsigned int mSliderTex;
     float mHandleT;
     float mBkgTexColor[4];                      // Texture multiplier
