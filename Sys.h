@@ -65,7 +65,7 @@ struct SetImageDate {
 };
 
 struct SetImageMetadata {
-  virtual bool operator()(const char *url, const OIIO::ParamValueList &meta) =0;
+  virtual bool operator()(const char *url, const OIIO::ParamValueList *meta) =0;
 };
 
 struct SetImagePixels {
