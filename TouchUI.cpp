@@ -1071,7 +1071,8 @@ bool ImageHandle::Draw() {
   GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
-  if (!GlesUtil::DrawTexture2f(tex, x0, y0, x1, y1, 0, 1, 1, 0, MVP()))
+  float g = Enabled() ? 1 : 0.5;
+  if (!GlesUtil::DrawTexture2f(tex, x0, y0, x1, y1, 0, 1, 1, 0, g,g,g,1, MVP()))
     return false;
   glDisable(GL_BLEND);
   
@@ -1139,9 +1140,10 @@ bool Slider::Draw() {
   glBlendEquation(GL_FUNC_ADD);
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
+  float g = Enabled() ? 1 : 0.5;
   if (!GlesUtil::DrawTexture2f(mSliderTex, x0, y0, x1, y1, 0, 1, 1, 0,
-                               mBkgTexColor[0], mBkgTexColor[1],
-                               mBkgTexColor[2], mBkgTexColor[3], MVP()))
+                               g * mBkgTexColor[0], g * mBkgTexColor[1],
+                               g * mBkgTexColor[2], mBkgTexColor[3], MVP()))
     return false;
   glDisable(GL_BLEND);
   if (!mHandle->Draw())
