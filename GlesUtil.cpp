@@ -123,14 +123,20 @@ bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
 }
 
 
-bool GlesUtil::DrawBox2f4uv(GLuint aP,  float x0, float y0, float x1, float y1,
-                            GLuint aUV, float u0, float v0, float u1, float v1,
-                                        float s0, float t0, float s1, float t1){
+bool GlesUtil::DrawBox2fuvst(GLuint aP,  float x0, float y0, float x1, float y1,
+                             GLuint aUV, float u0, float v0, float u1, float v1,
+                             GLuint aST, float s0, float t0, float s1, float t1) {
   const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
+  // Pass UV & ST in separate vec2 arguments to avoid dependent texture reads
   if (aUV != -1) {
-    const float UV[16] = { u0,v0,s0,t0, u0,v1,s0,t1, u1,v0,s1,t0, u1,v1,s1,t1 };
+    const float UV[8] = { u0,v0, u0,v1, u1,v0, u1,v1 };
     glEnableVertexAttribArray(aUV);
-    glVertexAttribPointer(aUV, 4, GL_FLOAT, GL_FALSE, 0, UV);
+    glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
+  }
+  if (aST != -1) {
+    const float ST[8] = { s0,t0, s0,t1, s1,t0, s1,t1 };
+    glEnableVertexAttribArray(aST);
+    glVertexAttribPointer(aST, 2, GL_FLOAT, GL_FALSE, 0, ST);
   }
   glEnableVertexAttribArray(aP);
   glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
@@ -398,8 +404,9 @@ bool GlesUtil::DrawTwoTexture2f(GLuint uvTex, float stTex,
                                 float r0, float g0, float b0, float a0,
                                 float r1, float g1, float b1, float a1,
                                 const float *MVP) {
-  GLuint aP, aUV, uC0, uC1, uMVP, uUVTex, uSTTex;
-  GLuint program = TwoTextureProgram(&aP, &aUV, &uC0, &uC1, &uMVP, &uUVTex, &uSTTex);
+  GLuint aP, aUV, aST, uC0, uC1, uMVP, uUVTex, uSTTex;
+  GLuint program = TwoTextureProgram(&aP, &aUV, &aST, &uC0, &uC1, &uMVP,
+                                     &uUVTex, &uSTTex);
   glUseProgram(program);
   glUniform4f(uC0, r0, g0, b0, a0);
   glUniform4f(uC1, r1, g1, b1, a1);
@@ -414,7 +421,7 @@ bool GlesUtil::DrawTwoTexture2f(GLuint uvTex, float stTex,
     MVP = &I[0];
   glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
   
-  if (!DrawBox2f4uv(aP, x0, y0, x1, y1, aUV, u0, v0, u1, v1, s0, t0, s1, t1))
+  if (!DrawBox2fuvst(aP, x0, y0, x1, y1, aUV, u0,v0,u1,v1, aST, s0,t0,s1,t1))
     return false;
   
   glActiveTexture(GL_TEXTURE0);
@@ -434,8 +441,8 @@ bool GlesUtil::DrawTextureHighlight2f(GLuint tex,
                                       float s0, float t0, float s1, float t1,
                                       float r, float g, float b, float a,
                                        const float *MVP) {
-  GLuint aP, aUV, uC, uMVP, uTex;
-  GLuint program = TextureHighlightProgram(&aP, &aUV, &uC, &uMVP, &uTex);
+  GLuint aP, aUV, aST, uC, uMVP, uTex;
+  GLuint program = TextureHighlightProgram(&aP, &aUV, &aST, &uC, &uMVP, &uTex);
   glUseProgram(program);
   glUniform4f(uC, r, g, b, a);
   glActiveTexture(GL_TEXTURE0);
@@ -446,7 +453,7 @@ bool GlesUtil::DrawTextureHighlight2f(GLuint tex,
     MVP = &I[0];
   glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
   
-  if (!DrawBox2f4uv(aP, x0, y0, x1, y1, aUV, u0, v0, u1, v1, s0, t0, s1, t1))
+  if (!DrawBox2fuvst(aP, x0, y0, x1, y1, aUV, u0,v0,u1,v1, aST, s0,t0,s1,t1))
     return false;
   
   glActiveTexture(GL_TEXTURE0);
@@ -1079,23 +1086,24 @@ GLuint GlesUtil::ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP,
 }
 
 
-GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC0,
-                                   GLuint *uC1, GLuint *uMVP, GLuint *uUVTex,
-                                   GLuint *uSTTex) {
+GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *aST,
+                                   GLuint *uC0, GLuint *uC1, GLuint *uMVP,
+                                   GLuint *uUVTex, GLuint *uSTTex) {
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
-  static GLuint gAP=0, gAUV=0, gUC0=0, gUC1=0, gUMVP=0, gUUVTex=0, gUSTTex=0;
+  static GLuint gAP=0, gAUV=0, gAST=0,gUC0=0,gUC1=0,gUMVP=0,gUUVTex=0,gUSTTex=0;
   if (!gInitialized) {
     gInitialized = true;
     
     // Note: the program below is leaked and should be destroyed in _atexit()
     static const char *vpCode =
     "attribute vec4 aP;\n"
-    "attribute vec4 aUV;\n"
+    "attribute vec2 aUV, aST;\n"
     "uniform mat4 uMVP;\n"
-    "varying vec4 vUV;\n"
+    "varying vec2 vUV, vST;\n"
     "void main() {\n"
     "  vUV = aUV;\n"
+    "  vST = aST;\n"
     "  gl_Position = uMVP * aP;\n"
     "}\n";
     static const char *fpCode =
@@ -1103,10 +1111,10 @@ GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC0,
     "uniform sampler2D uUVTex;\n"
     "uniform sampler2D uSTTex;\n"
     "uniform vec4 uC0, uC1;\n"
-    "varying vec4 vUV;\n"
+    "varying vec2 vUV, vST;\n"
     "void main() {\n"
-    "  vec4 cUV = uC0 * texture2D(uUVTex, vUV.xy);\n"
-    "  vec4 cST = uC1 * texture2D(uSTTex, vUV.zw);\n"
+    "  vec4 cUV = uC0 * texture2D(uUVTex, vUV);\n"
+    "  vec4 cST = uC1 * texture2D(uSTTex, vST);\n"
     "  vec3 C = cUV.a * cUV.rgb + cST.a * cST.rgb;\n"
     "  gl_FragColor = vec4(C, cUV.a + cST.a);\n"
     "}\n";
@@ -1116,7 +1124,7 @@ GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC0,
     GLuint fp = CreateShader(GL_FRAGMENT_SHADER, fpCode);
     if (!fp)
       return false;
-    gProgram = CreateProgram(vp, fp, "Texture");
+    gProgram = CreateProgram(vp, fp, "TwoTexture");
     if (!gProgram)
       return false;
     glDeleteShader(vp);
@@ -1124,6 +1132,7 @@ GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC0,
     glUseProgram(gProgram);
     gAP = glGetAttribLocation(gProgram, "aP");
     gAUV = glGetAttribLocation(gProgram, "aUV");
+    gAST = glGetAttribLocation(gProgram, "aST");
     gUC0 = glGetUniformLocation(gProgram, "uC0");
     gUC1 = glGetUniformLocation(gProgram, "uC1");
     gUMVP = glGetUniformLocation(gProgram, "uMVP");
@@ -1135,6 +1144,7 @@ GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC0,
   
   *aP = gAP;
   *aUV = gAUV;
+  *aST = gAST;
   *uC0 = gUC0;
   *uC1 = gUC1;
   *uMVP = gUMVP;
@@ -1145,32 +1155,33 @@ GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC0,
 }
 
 
-GLuint GlesUtil::TextureHighlightProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
-                                         GLuint *uMVP, GLuint *uTex){
+GLuint GlesUtil::TextureHighlightProgram(GLuint *aP, GLuint *aUV, GLuint *aST,
+                                         GLuint *uC, GLuint *uMVP,GLuint *uTex){
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
-  static GLuint gAP=0, gAUV=0, gUC=0, gUMVP=0, gUTex=0;
+  static GLuint gAP=0, gAUV=0, gAST=0, gUC=0, gUMVP=0, gUTex=0;
   if (!gInitialized) {
     gInitialized = true;
     
     // Note: the program below is leaked and should be destroyed in _atexit()
     static const char *vpCode =
     "attribute vec4 aP;\n"
-    "attribute vec4 aUV;\n"
+    "attribute vec2 aUV, aST;\n"
     "uniform mat4 uMVP;\n"
-    "varying vec4 vUV;\n"
+    "varying vec2 vUV, vST;\n"
     "void main() {\n"
     "  vUV = aUV;\n"
+    "  vST = aST;\n"
     "  gl_Position = uMVP * aP;\n"
     "}\n";
     static const char *fpCode =
     "precision highp float;\n"
     "uniform sampler2D uTex;\n"
     "uniform vec4 uC;\n"
-    "varying vec4 vUV;\n"
+    "varying vec2 vUV, vST;\n"
     "void main() {\n"
-    "  vec4 CTex = texture2D(uTex, vUV.zw);\n"
-    "  vec2 d = vUV.xy - vec2(0.5, 0.5);\n"
+    "  vec4 CTex = texture2D(uTex, vST);\n"
+    "  vec2 d = vUV - vec2(0.5, 0.5);\n"
     "  float t = 1.0 - length(d);\n"
     "  float s = 1.0 - t;\n"
     "  float t2 = t * t;"
@@ -1185,7 +1196,7 @@ GLuint GlesUtil::TextureHighlightProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
     GLuint fp = CreateShader(GL_FRAGMENT_SHADER, fpCode);
     if (!fp)
       return false;
-    gProgram = CreateProgram(vp, fp, "Texture");
+    gProgram = CreateProgram(vp, fp, "TextureHighlight");
     if (!gProgram)
       return false;
     glDeleteShader(vp);
@@ -1193,6 +1204,7 @@ GLuint GlesUtil::TextureHighlightProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
     glUseProgram(gProgram);
     gAP = glGetAttribLocation(gProgram, "aP");
     gAUV = glGetAttribLocation(gProgram, "aUV");
+    gAST = glGetAttribLocation(gProgram, "aST");
     gUC = glGetUniformLocation(gProgram, "uC");
     gUMVP = glGetUniformLocation(gProgram, "uMVP");
     gUTex = glGetUniformLocation(gProgram, "uTex");
@@ -1202,6 +1214,7 @@ GLuint GlesUtil::TextureHighlightProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
   
   *aP = gAP;
   *aUV = gAUV;
+  *aST = gAST;
   *uC = gUC;
   *uMVP = gUMVP;
   *uTex = gUTex;

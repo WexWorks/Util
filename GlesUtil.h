@@ -34,9 +34,9 @@ bool DrawColorLines2f(unsigned int count, const float *P,
                       float r, float g, float b, float a, const float *MVP = 0);
 bool DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
                GLuint aUV, float u0, float v0, float u1, float v1);
-bool DrawBox2f4uv(GLuint aP, float x0, float y0, float x1, float y1,
-                 GLuint aUVST, float u0, float v0, float u1, float v1,
-                               float s0, float t0, float s1, float t1);
+bool DrawBox2fuvst(GLuint aP, float x0, float y0, float x1, float y1,
+                   GLuint aUV, float u0, float v0, float u1, float v1,
+                   GLuint aST, float s0, float t0, float s1, float t1);
 bool DrawColorBox2f(float x0, float y0, float x1, float y1,
                     float r, float g, float b, float a, const float *MVP = 0);
 bool DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
@@ -233,9 +233,9 @@ GLuint DropshadowFrameProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
 GLuint TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC, GLuint *uMVP,
                       GLuint *uTex);
 GLuint ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP, GLuint *uTex);
-GLuint TwoTextureProgram(GLuint *aP, GLuint *aUVST, GLuint *uC0, GLuint *uC1,
-                         GLuint *uMVP, GLuint *uUVTex, GLuint *uSTTex);
-GLuint TextureHighlightProgram(GLuint *aP, GLuint *aUVST, GLuint *uC,
+GLuint TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *aST, GLuint *uC0,
+                         GLuint *uC1, GLuint *uMVP, GLuint *uUVTex, GLuint *uSTTex);
+GLuint TextureHighlightProgram(GLuint *aP, GLuint *aUV, GLuint *aST, GLuint *uC,
                                GLuint *uMVP, GLuint *uTex);
 
 // Buffer functions:
