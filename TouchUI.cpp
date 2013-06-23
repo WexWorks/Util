@@ -2386,12 +2386,7 @@ bool Frame::Reset() {
 }
 
 
-void Frame::ComputeScaleRange() {
-  if (!ImageWidth() || !ImageHeight()) {
-    mScaleMin = mScaleMax = 0;                // Zero to force reset on load
-    return;
-  }
-  
+float Frame::FitScale() const {
   // Compute the scale so that the entire image fits within
   // the screen boundary, comparing the aspect ratios of the
   // screen and the image and fitting to the proper axis.
@@ -2399,13 +2394,26 @@ void Frame::ComputeScaleRange() {
   const float imageAspect = ImageWidth() / float(ImageHeight());
   const float frameToImageRatio = frameAspect / imageAspect;
   
-  if (frameToImageRatio < 1) {                // Frame narrower than image
-    mScaleMin = (Width() - 2 * mViewportMinScalePad) / float(ImageWidth());
-  } else {                                    // Image narrower than frame
-    mScaleMin = (Height() - 2 * mViewportMinScalePad) / float(ImageHeight());
+  float scale;
+  if (frameToImageRatio < 1)                  // Frame narrower than image
+    scale = (Width() - 2 * mViewportMinScalePad) / float(ImageWidth());
+  else                                        // Image narrower than frame
+    scale = (Height() - 2 * mViewportMinScalePad) / float(ImageHeight());
+  return scale;
+}
+
+
+void Frame::ComputeScaleRange() {
+  if (!ImageWidth() || !ImageHeight()) {
+    mScaleMin = mScaleMax = 0;                // Zero to force reset on load
+    return;
   }
   
+  mScaleMin = FitScale();
   mScaleMax = std::max(32.0f, mScaleMin * 4); // Increase past 32 smoothly
+  if (mScaleMin > 1)
+    mScaleMin = 1;
+
   assert(mScaleMin < mScaleMax);
 }
 
@@ -2780,7 +2788,7 @@ void Frame::SnapToFitFrame(bool isAnimated) {
   if (isAnimated) {
     mTargetCenterUV[0] = 0.5;
     mTargetCenterUV[1] = 0.5;
-    mTargetScale = mScaleMin;
+    mTargetScale = FitScale();
     mIsTargetCenterActive = true;
     mIsTargetScaleActive = true;
     mIsSnapDirty = true;
@@ -2794,7 +2802,7 @@ void Frame::SnapToFitFrame(bool isAnimated) {
 void Frame::ResetView() {
   mCenterUV[0] = 0.5;                         // Center image
   mCenterUV[1] = 0.5;
-  mScale = mScaleMin == 0 ? 1 : mScaleMin;    // Fit image to screen
+  mScale = mScaleMin == 0 ? 1 : FitScale();   // Fit image to screen
 }
 
 
