@@ -529,6 +529,68 @@ bool Sprite::SetTarget(int x, int y, int w, int h, float opacity, float sec) {
 
 
 //
+// Spinner
+//
+
+bool Spinner::Init(unsigned int texture, float incAngle, float incMinSec) {
+  mTex = texture;
+  mIncAngle = incAngle;
+  mIncSec = incMinSec;
+  return true;
+}
+
+
+bool Spinner::Step(float seconds) {
+  if (!IsAnimating())
+    return true;
+  float sec = mLastUpdateSec + seconds;
+  if (sec > mIncSec) {
+    mLastUpdateSec = 0;
+    mAngle += mIncAngle;
+  } else {
+    mLastUpdateSec = sec;
+  }
+  return true;
+}
+
+
+bool Spinner::Draw() {
+  if (Hidden())
+    return true;
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
+  
+  const float *mvp = MVP();
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!mvp)
+    mvp = &I[0];
+  Imath::M44f M(mvp[0],mvp[1],mvp[2], mvp[3],  mvp[4], mvp[5], mvp[6], mvp[7],
+                mvp[8],mvp[9],mvp[10],mvp[11], mvp[12],mvp[13],mvp[14],mvp[15]);
+
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
+  const float cx = 0.5 * (x0 + x1);
+  const float cy = 0.5 * (y0 + y1);
+  Imath::M44f R, T0, T1;
+  T0.translate(Imath::V3f(-cx, -cy, 0));
+  T1.translate(Imath::V3f(cx, cy, 0));
+  R.rotate(Imath::V3f(0, 0, -mAngle));
+  Imath::M44f T = T0 * R * T1 * M;
+  mvp = T.getValue();
+  
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  const float g = Enabled() ? 1 : 0.5;
+  if (!GlesUtil::DrawTexture2f(mTex, x0,y0,x1,y1, 0,1,1,0, g,g,g,1, mvp))
+    return false;
+  glDisable(GL_BLEND);
+  
+  return true;
+}
+
+
+//
 // Button
 //
 
