@@ -13,7 +13,6 @@
 
 using namespace tui;
 
-const float tui::FlinglistImpl::kLongPressSeconds = 1.0;
 const float tui::FlinglistImpl::kJiggleSeconds = 0.2;
 
 unsigned int FlinglistImpl::mFlingProgram = 0;
@@ -2149,15 +2148,16 @@ bool FlinglistImpl::Step(float seconds) {
   if (!MovedAfterDown() && mTouchFrameIdx >= 0 &&
       mScrollOffset == initialScrollOffset) {
     // Only call long touch when we first cross the threshold
-    if (mLongPressSeconds < kLongPressSeconds) {
+    if (mLongPressSeconds < mLongPressTimeout) {
       if (mLongPressSeconds == 0)
         mLongPressSeconds = 0.001;  // non-zero, first touch down, start count
       else
         mLongPressSeconds += seconds;
-      if (mLongPressSeconds >= kLongPressSeconds) {
+      if (mLongPressSeconds >= mLongPressTimeout) {
         // If long touch returns true, eat the next touch event,
         // otherwise, reset for another long touch after a delay
-        if (mFrameVec[mTouchFrameIdx]->OnLongTouch(mTouchStart[0],
+        if (OnLongTouch(mTouchStart[0], mTouchStart[1]) ||
+            mFrameVec[mTouchFrameIdx]->OnLongTouch(mTouchStart[0],
                                                    mTouchStart[1])) {
           mTouchFrameIdx = -1;
           mMovedAfterDown = false;
