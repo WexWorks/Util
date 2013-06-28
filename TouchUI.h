@@ -948,6 +948,7 @@ namespace tui {
     virtual float Scale() const { return mScale; }
     virtual float MinScale() const { return mScaleMin; }
     virtual float MaxScale() const { return mScaleMax; }
+    virtual float FitScale() const;
     virtual bool OnScale(EventPhase phase, float scale, float x, float y,
                          double timestamp);
     virtual bool OnDrag(EventPhase phase, float x, float y, double timestamp);
