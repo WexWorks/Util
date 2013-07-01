@@ -68,11 +68,8 @@ struct SetImageMetadata {
   virtual bool operator()(const char *url, const OIIO::ParamValueList *meta) =0;
 };
 
-struct SetImagePixels {
-  virtual bool operator()(const char *url, size_t w, size_t h,
-                          size_t channelCount, size_t bytesPerChannel,
-                          const unsigned char *pixel,
-                          size_t histogramCount, unsigned long *histogram) = 0;
+struct SetImageCache {
+  virtual bool operator()(const char *url, const char *cachePath) = 0;
 };
 
 struct SetAlert {
@@ -139,11 +136,14 @@ public:
   virtual bool LoadImageMetadata(const char *url,
                                  SetImageMetadata *setMetadata) = 0;
   
-  // Load the full image of pixels into memory
-  virtual bool LoadImagePixels(const char *url, size_t histogramCount,
-                               unsigned long *histogram,
-                               SetImagePixels *setPixels) = 0;
+  // Convert a file URL into a local file path that we can open in C++
+  virtual bool CacheImage(const char *url, const char *cachePath,
+                          SetImageCache *setCache) = 0;
 
+  // Compute an image histogram for a block of pixels
+  virtual bool ComputeHistogram(size_t w, size_t h, const unsigned char *rgba,
+                                size_t hCount,unsigned long *hBuf) = 0;
+  
   // Return the "scaling factor" for this display (poorly defined!)
   virtual float PixelScale() const = 0;
   
