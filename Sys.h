@@ -140,9 +140,10 @@ public:
   virtual bool CacheImage(const char *url, const char *cachePath,
                           SetImageCache *setCache) = 0;
 
-  // Compute an image histogram for a block of pixels
-  virtual bool ComputeHistogram(size_t w, size_t h, const unsigned char *rgba,
-                                size_t hCount,unsigned long *hBuf) = 0;
+  // Compute an image histogram for a block of pixels using background render
+  virtual bool ComputeHistogram(const char *url, size_t w, size_t h,
+                                const unsigned char *rgba,
+                                size_t hCount, unsigned long *histogram) = 0;
   
   // Return the "scaling factor" for this display (poorly defined!)
   virtual float PixelScale() const = 0;
