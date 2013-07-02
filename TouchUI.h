@@ -169,20 +169,6 @@ namespace tui {
   };
   
   
-  // Progress bar
-  class ProgressBar : public ViewportWidget {
-  public:
-    ProgressBar() : mValue(0) { mRange[0] = 0; mRange[1] = 100; }
-    virtual bool SetRange(float min, float max);
-    virtual void SetValue(float value) { mValue = value; }
-    virtual bool Draw();
-    
-  private:
-    float mRange[2];                          // [min, max] value
-    float mValue;                             // Current value
-  };
-  
-  
   // Base class for any animated widgets
   class AnimatedViewport : public ViewportWidget {
   public:
@@ -190,6 +176,31 @@ namespace tui {
     virtual ~AnimatedViewport() {}
     virtual bool Step(float seconds) = 0;     // Update animated components
     virtual bool Dormant() const = 0;         // True if Step can be skipped
+  };
+  
+  
+  // Progress bar
+  class ProgressBar : public AnimatedViewport {
+  public:
+    ProgressBar() : mValue(0), mSeconds(0) {
+      mRange[0] = 0; mRange[1] = 100;
+      mRGBA[0] = 0.3; mRGBA[1] = 0.7; mRGBA[2] = 1; mRGBA[3] = 1;
+    }
+    virtual bool SetRange(float min, float max);
+    virtual void SetValue(float value) { mValue = value; }
+    virtual float Value() const { return mValue; }
+    virtual void SetColor(float r, float g, float b, float a) {
+      mRGBA[0] = r; mRGBA[1] = g; mRGBA[2] = b; mRGBA[3] = a;
+    }
+    virtual bool Draw();
+    virtual bool Step(float seconds) { mSeconds += seconds; return true; }
+    virtual bool Dormant() const { return Hidden(); }
+    
+  private:
+    float mRange[2];                          // [min, max] value
+    float mValue;                             // Current value
+    float mRGBA[4];                           // Value color
+    float mSeconds;
   };
   
   
