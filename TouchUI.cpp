@@ -390,7 +390,9 @@ bool ProgressBar::Draw() {
   float t = (mValue - mRange[0]) / (mRange[1] - mRange[0]);
   t = std::max(std::min(t, 1.0f), 0.0f);
   float x = x0 + t * (x1 - x0);
-  if (!GlesUtil::DrawColorBox2f(x0, y0, x, y1, 0.3, 0.7, 1, 1))
+  float k = 0.1 * sinf(mSeconds*3) + 1;
+  if (!GlesUtil::DrawColorBox2f(x0, y0, x, y1, k * mRGBA[0], k * mRGBA[1],
+                                k * mRGBA[2], mRGBA[3]))
     return false;
   return true;
 }
