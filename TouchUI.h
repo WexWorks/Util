@@ -311,6 +311,27 @@ namespace tui {
   };
   
   
+  // Spinning activity monitor used to indicate actions of unknown duration
+  class Spinner : public AnimatedViewport {
+  public:
+    Spinner() : mTex(0), mIncAngle(0), mIncSec(0), mIsAnimating(false),
+                mAngle(0), mLastUpdateSec(0) {}
+    virtual bool Init(unsigned int texture, float incAngle, float incMinSec);
+    virtual bool Step(float seconds);
+    virtual bool Draw();
+    virtual bool Touch(const Event &event) { return false; }
+    virtual bool Dormant() const { return IsAnimating(); }
+    virtual void Animate(bool status) { mIsAnimating = status; }
+    virtual bool IsAnimating() const { return mIsAnimating; }
+    
+  private:
+    unsigned int mTex;                        // Texture to rotate & display
+    float mIncAngle, mIncSec;                 // Amount to increment and when
+    bool mIsAnimating;                        // True when spinning
+    float mAngle, mLastUpdateSec;             // Current angle and sec
+  };
+  
+  
   //
   // Buttons
   //
