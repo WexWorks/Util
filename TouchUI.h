@@ -740,7 +740,8 @@ namespace tui {
                       mSnapLocationOffset(0),
                       mOverpullOffTex(0), mOverpullOnTex(0),
                       mDragHandleTex(0), mGlowDragHandle(false),mGlowSeconds(0),
-                      mLongPressSeconds(0), mSingleFrameFling(false) {
+                      mLongPressSeconds(0), mLongPressTimeout(1),
+                      mSingleFrameFling(false) {
       mTouchStart[0] = mTouchStart[1] = 0;
       mOverpullDim[0] = mOverpullDim[1] = 0;
       mOverpullColor[0] = 0; mOverpullColor[1] = 0.75;
@@ -761,6 +762,7 @@ namespace tui {
       mOverpullColor[2] = b; mOverpullColor[3] = a;
     }
     virtual void SetScrollableDim(int dim) { mScrollableDim = dim; }
+    virtual void SetLongPressTimeout(float sec) { mLongPressTimeout = sec; }
     virtual void GlowDragHandle(bool status) { mGlowDragHandle = status; }
     virtual bool Clear();
     virtual bool Draw();
@@ -781,6 +783,7 @@ namespace tui {
     virtual Frame *operator[](size_t i) { return mFrameVec[i]; }
     
     virtual void OnOverpullRelease() {}
+    virtual bool OnLongTouch(int x, int y) { return false; }
     virtual void OnMove() {}
     virtual bool OnOffAxisMove(const Event::Touch &touch,
                                int x, int y) { return false; }
@@ -790,7 +793,6 @@ namespace tui {
     static const int kDragMm = 4;             // Threshold for drag events
     static const int kJiggleMm = 10;          // Offset 
     static const int kSnapVelocity = 10;      // In pixels/sec
-    static const float kLongPressSeconds;     // Threshold for timeout
     static const float kJiggleSeconds;        // Length of jiggle
 
     virtual bool Append(Frame *frame);        // Do not allow generic frames,
@@ -844,6 +846,7 @@ namespace tui {
     bool mGlowDragHandle;                     // Pulsating glow if true
     float mGlowSeconds;                       // Track for pulsating glow
     float mLongPressSeconds;                  // Seconds since not moved
+    float mLongPressTimeout;                  // Seconds to trigger long press
     bool mSingleFrameFling;                   // Fling interaction mode
     static unsigned int mFlingProgram;        // Non-item drawing
     static unsigned int mGlowProgram;         // Drag handle glow

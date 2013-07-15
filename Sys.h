@@ -81,7 +81,7 @@ struct SetAlert {
 
 struct SetShareOptions {
   enum ResMode { Source, Fixed, Percent };
-  enum Format { JPEG, TIFF, PNG };
+  enum Format { ORIGINAL, JPEG, PNG, TIFF };
   virtual ~SetShareOptions() {}
   virtual bool operator()(const char *service, const char *filenameTemplate,
                           const char *comment, ResMode resMode, float dim,
