@@ -123,7 +123,8 @@ public:
   virtual bool LoadAlbum(const char *url, AddAlbum *addAlbum) = 0;
   
   // Load a all the image names in an album
-  virtual bool LoadAlbumImageNames(const char *url, AddImage *addImage) = 0;
+  virtual bool LoadAlbumImageNames(const char *url, bool reverseOrder,
+                                   AddImage *addImage) = 0;
 
   // Return the last modification time of the image
   virtual bool LoadImageDate(const char *url, SetImageDate *setDate) = 0;
