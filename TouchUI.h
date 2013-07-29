@@ -434,6 +434,28 @@ namespace tui {
   };
   
   
+  // Checkbox button that toggles on touch down with long-press to lock
+  class ToggleLockCheckbox : public CheckboxImageButton {
+  public:
+    virtual void OnTouchBegan(const Event::Touch &touch) {
+      mToggleStartTimestamp = touch.timestamp;
+      SetSelected(true);
+    }
+
+  protected:
+    const double kLongTouchSec = 2;
+    virtual bool InvokeTouchTap(const Event::Touch &touch) {
+      double dt = touch.timestamp - mToggleStartTimestamp;
+      if (dt < kLongTouchSec)
+        SetSelected(false);
+      return Button::InvokeTouchTap(touch);
+    }
+    
+  private:
+    double mToggleStartTimestamp;
+  };
+  
+  
   // Button drawn by extending (scaling middle, but not edges) of the
   // background textures with a string centered on top
   class TextButton : public Button {
