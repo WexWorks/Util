@@ -61,8 +61,6 @@ bool Widget::ProcessGestures(const tui::Event &event) {
   size_t idx[mTouchStart.size()];         // Vector indices of start touches
   if (!mTouchStart.empty() && mTouchStart.size() != event.touchVec.size()) {
     trackingPhase = TOUCH_BEGAN;          // Restart when # touches changes
-    if (event.touchVec.size() > mTouchStart.size())
-      OnTouchBegan(event.touchVec[0]);    // Stop momentum on single touch
   } else {
     for (size_t i = 0; i < mTouchStart.size(); ++i) {
       size_t j = 0;
@@ -90,6 +88,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       mTouchStart = event.touchVec;       // Save initial touch down info
       mIsDragging = false;                // Avoid jump due to mPrevPan tracking
       mIsScaling = false;
+      OnTouchBegan(t0);
       break;
     case TOUCH_MOVED:
     case TOUCH_ENDED:     /*FALLTHRU*/
@@ -622,6 +621,7 @@ bool Button::Touch(const Event &event) {
         }
         if (Inside(touch.x, touch.y)) {
           mPressVec.push_back(Press(touch.id, true, touch.x, touch.y));
+          OnTouchBegan(touch);              // Buttons ignore ProcessGestures
           return false;
         }
         break;
@@ -1013,10 +1013,11 @@ bool RadioButton::Touch(const Event &event) {
     CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
     if (!mIsNoneAllowed && cb->Selected())
       continue;                               // Don't deselect if selected
-    if (cb->Touch(event)) {
+    bool oldStatus = cb->Selected();
+    if (cb->Touch(event))
       consumed = true;
-      if (cb->Selected())
-        SetSelected(cb);
+    if (oldStatus != cb->Selected() && cb->Selected()) {      // State changed
+      SetSelected(cb);
       break;
     }
   }
