@@ -123,7 +123,7 @@ public:
   virtual bool LoadAlbum(const char *url, AddAlbum *addAlbum) = 0;
   
   // Load a all the image names in an album
-  virtual bool LoadAlbumImageNames(const char *url, bool reverseOrder,
+  virtual bool LoadAlbumImageNames(const char *url, int firstIdx, int lastIdx,
                                    AddImage *addImage) = 0;
 
   // Return the last modification time of the image
@@ -178,14 +178,6 @@ public:
 
 class App {
 public:
-  enum NotifyMessage { ImageUpdated,                  // URLs in data
-                       AlbumInserted,                 // URLs in data
-                       AlbumUpdated,                  // URLs in data
-                       AlbumDeleted,                  // URLs in data
-                       ReloadAll,                     // Data is empty
-                       StoreError,                    // Data is message
-                       StoreItemPurchased };          // Product ID in data
-  
   virtual ~App() {}
   
   static App *Create();                               // Factory
@@ -196,8 +188,17 @@ public:
   virtual bool Dormant() = 0;                         // True = no refresh
   virtual bool Draw() = 0;                            // Draw UI & images
   virtual bool SetDeviceResolution(int w, int h) = 0; // Startup & orientation
-  virtual bool Notify(NotifyMessage msg, const std::vector<std::string> &data)=0;
+  virtual void ReduceMemory() = 0;                    // Low mem warning
+  virtual void ReportError(const std::string &msg) = 0;
+  virtual bool PurchaseItem(const std::vector<std::string> &idVec) = 0;
   
+  // Changes to the device gallery typically made in external apps
+  virtual bool UpdateImage(const std::vector<std::string> &urlVec) = 0;
+  virtual bool InsertAlbum(const std::vector<std::string> &urlVec) = 0;
+  virtual bool UpdateAlbum(const std::vector<std::string> &urlVec) = 0;
+  virtual bool DeleteAlbum(const std::vector<std::string> &urlVec) = 0;
+  virtual bool ReloadAllAlbums() = 0;
+
 protected:
   App() {}                                            // Derived class factory
 
