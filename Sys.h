@@ -47,7 +47,7 @@ struct ShareImage {
 
 struct AddImage {
   virtual bool operator()(const char *album, const char *name,
-                          const char *url) = 0;
+                          const char *url, int index) = 0;
 };
 
 struct AddAlbum {
