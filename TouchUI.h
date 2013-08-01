@@ -485,6 +485,7 @@ namespace tui {
     virtual void SetViewportPad(float xPts, float yPts) {
       mLabel.SetViewportPad(xPts, yPts);
     }
+    virtual void SetWrapLines(bool status) { mLabel.SetWrapLines(status); }
     virtual const char *Text() const { return mLabel.Text(); }
     virtual bool Draw();
     
@@ -522,6 +523,7 @@ namespace tui {
     virtual void SetViewportPad(float xPts, float yPts) {
       mLabel.SetViewportPad(xPts, yPts);
     }
+    virtual void SetWrapLines(bool status) { mLabel.SetWrapLines(status); }
     virtual const char *Text() const { return mLabel.Text(); }
     virtual bool Draw();
     
