@@ -384,15 +384,33 @@ bool ProgressBar::Draw() {
     glViewport(Left(), Bottom(), Width(), Height());
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
-  if (!GlesUtil::DrawColorBox2f(x0, y0, x1, y1, 0.8, 0.8, 0.8, 1))
+  if (mCoreTex || mShellTex) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
+  }
+  
+  if (mShellTex) {
+    if (!GlesUtil::Draw3SliceTexture2f(mShellTex, x0, y0, x1, y1, 0, 1, 1, 0,
+                                       mTexDim[0], mTexDim[1], Width(),Height(),
+                                       1, 1, 1, 1))
+      return false;
+  } else if (!GlesUtil::DrawColorBox2f(x0, y0, x1, y1, 0.8, 0.8, 0.8, 1))
     return false;
   float t = (mValue - mRange[0]) / (mRange[1] - mRange[0]);
-  t = std::max(std::min(t, 1.0f), 0.0f);
   float x = x0 + t * (x1 - x0);
   float k = 0.1 * sinf(mSeconds*3) + 1;
-  if (!GlesUtil::DrawColorBox2f(x0, y0, x, y1, k * mRGBA[0], k * mRGBA[1],
-                                k * mRGBA[2], mRGBA[3]))
+  if (mCoreTex) {
+    if (!GlesUtil::Draw3SliceTexture2f(mCoreTex, x0, y0, x, y1, 0, 1, 1, 0,
+                                       mTexDim[0], mTexDim[1], Width(),Height(),
+                                       1, 1, 1, 1))
+      return false;
+  } else if (!GlesUtil::DrawColorBox2f(x0, y0, x, y1, k * mRGBA[0], k * mRGBA[1],
+                                       k * mRGBA[2], mRGBA[3]))
     return false;
+
+  glDisable(GL_BLEND);
+  
   return true;
 }
 
@@ -940,6 +958,11 @@ void RadioButton::Add(CheckboxButton *button) {
     h = std::max(h, mButtonVec[i]->Height());
   }
   SetViewport(Left(), Bottom(), w, h);
+}
+
+
+void RadioButton::Clear() {
+  mButtonVec.clear();
 }
 
 
