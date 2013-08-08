@@ -1138,6 +1138,7 @@ namespace tui {
     int mButtonDim;                           // Size in pixels
     int mButtonPad;                           // Pixels between buttons
     int mTopPad, mBottomPad;                  // Pixels above and below
+    bool mIsViewportDirty;                    // Call SetViewport if true
   };
   
   
