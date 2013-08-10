@@ -1553,7 +1553,7 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
     } else {
       str.push_back(c);
       w += ptW * font->charWidthPt[(unsigned char)c];
-      if (w <= wrapW + eps) {
+      if (w <= wrapW + eps || text[i+1] == '\0' || text[i+1] == '\n') {
         continue;
       } else if (!wrapLines || w - lastSepW > wrapW) {
         const size_t n = str.size();
