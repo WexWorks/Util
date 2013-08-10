@@ -193,6 +193,7 @@ public:
   virtual bool Draw() = 0;                            // Draw UI & images
   virtual bool SetDeviceResolution(int w, int h) = 0; // Startup & orientation
   virtual void ReduceMemory() = 0;                    // Low mem warning
+  virtual void DeleteCache(int level) = 0;            // level=0..2
   virtual void ReportError(const std::string &msg) = 0;
   virtual bool PurchaseItem(const std::vector<std::string> &idVec) = 0;
   
