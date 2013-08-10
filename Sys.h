@@ -52,7 +52,7 @@ struct AddImage {
 
 struct AddAlbum {
   virtual bool operator()(const char *name, const char *url,
-                          size_t assetCount) = 0;
+                          size_t assetCount, int libraryId) = 0;
 };
 
 struct SetImageThumbnail {
