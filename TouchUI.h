@@ -182,9 +182,14 @@ namespace tui {
   // Progress bar
   class ProgressBar : public AnimatedViewport {
   public:
-    ProgressBar() : mValue(0), mSeconds(0) {
+    ProgressBar() : mValue(0), mSeconds(0), mCoreTex(0), mShellTex(0) {
       mRange[0] = 0; mRange[1] = 100;
       mRGBA[0] = 0.3; mRGBA[1] = 0.7; mRGBA[2] = 1; mRGBA[3] = 1;
+      mTexDim[0] = mTexDim[1] = 0;
+    }
+    virtual void SetTextures(unsigned int coreTex, unsigned int shellTex,
+                             size_t w, size_t h) {
+      mCoreTex = coreTex; mShellTex = shellTex; mTexDim[0] = w; mTexDim[1] = h;
     }
     virtual bool SetRange(float min, float max);
     virtual void SetValue(float value) { mValue = value; }
@@ -201,6 +206,8 @@ namespace tui {
     float mValue;                             // Current value
     float mRGBA[4];                           // Value color
     float mSeconds;
+    unsigned int mCoreTex, mShellTex;         // Inner/outer textures
+    size_t mTexDim[2];                        // Size of both textures
   };
   
   
@@ -472,6 +479,9 @@ namespace tui {
     virtual void Enable(bool status) {
       Button::Enable(status); mLabel.Enable(status);
     }
+    virtual void SetText(const char *text) {
+      mLabel.SetText(text, mLabel.Points());
+    }
     virtual void SetTextColor(float r, float g, float b, float a) {
       mLabel.SetTextColor(r, g, b, a);
     }
@@ -545,6 +555,7 @@ namespace tui {
     RadioButton() : mIsNoneAllowed(false) {}
     virtual ~RadioButton();
     virtual void Add(CheckboxButton *button);
+    virtual void Clear();
     virtual size_t Count() const { return mButtonVec.size(); }
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
@@ -552,6 +563,7 @@ namespace tui {
     virtual bool Draw();
     virtual void Hide(bool status);
     virtual CheckboxButton *Selected() const;
+    virtual CheckboxButton *Button(int i) { return mButtonVec[i]; }
     virtual int SelectedIdx() const;
     virtual void SetSelected(CheckboxButton *button);
     virtual void SetSelectedIdx(int idx) { SetSelected(mButtonVec[idx]);}
