@@ -83,6 +83,9 @@ bool GlesUtil::IsFramebufferComplete() {
 bool GlesUtil::DrawColorLines2f(unsigned int count, const float *P,
                                 float r, float g, float b, float a,
                                 const float *MVP) {
+  GLint buf = 0;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
   GLuint aP, uC, uMVP;
   GLuint program = GlesUtil::ConstantProgram(&aP, &uC, &uMVP);
   if (!program)
@@ -97,6 +100,7 @@ bool GlesUtil::DrawColorLines2f(unsigned int count, const float *P,
   glEnableVertexAttribArray(aP);
   glVertexAttribPointer(aP, 2, GL_FLOAT, GL_FALSE, 0, P);
   glDrawArrays(GL_LINES, 0, count);
+  glBindBuffer(GL_ARRAY_BUFFER, buf);
   if (Error())
     return false;
   return true;
@@ -105,9 +109,12 @@ bool GlesUtil::DrawColorLines2f(unsigned int count, const float *P,
 
 bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
                          GLuint aUV, float u0, float v0, float u1, float v1) {
+  GLint buf = 0;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
   const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
+  const float UV[8] = { u0, v0,  u0, v1,  u1, v0,  u1, v1 };
   if (aUV != -1) {
-    const float UV[8] = { u0, v0,  u0, v1,  u1, v0,  u1, v1 };
     glEnableVertexAttribArray(aUV);
     glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
   }
@@ -117,6 +124,7 @@ bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
   if (aUV != -1)
     glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
+  glBindBuffer(GL_ARRAY_BUFFER, buf);
   if (Error())
     return false;
   return true;
@@ -126,15 +134,18 @@ bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
 bool GlesUtil::DrawBox2fuvst(GLuint aP,  float x0, float y0, float x1, float y1,
                              GLuint aUV, float u0, float v0, float u1, float v1,
                              GLuint aST, float s0, float t0, float s1, float t1) {
+  GLint buf = 0;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
   const float P[8] = { x0, y0,  x0, y1,  x1, y0,  x1, y1 };
   // Pass UV & ST in separate vec2 arguments to avoid dependent texture reads
+  const float UV[8] = { u0,v0, u0,v1, u1,v0, u1,v1 };
   if (aUV != -1) {
-    const float UV[8] = { u0,v0, u0,v1, u1,v0, u1,v1 };
     glEnableVertexAttribArray(aUV);
     glVertexAttribPointer(aUV, 2, GL_FLOAT, GL_FALSE, 0, UV);
   }
+  const float ST[8] = { s0,t0, s0,t1, s1,t0, s1,t1 };
   if (aST != -1) {
-    const float ST[8] = { s0,t0, s0,t1, s1,t0, s1,t1 };
     glEnableVertexAttribArray(aST);
     glVertexAttribPointer(aST, 2, GL_FLOAT, GL_FALSE, 0, ST);
   }
@@ -144,6 +155,7 @@ bool GlesUtil::DrawBox2fuvst(GLuint aP,  float x0, float y0, float x1, float y1,
   if (aUV != -1)
     glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
+  glBindBuffer(GL_ARRAY_BUFFER, buf);
   if (Error())
     return false;
   return true;
@@ -173,6 +185,11 @@ bool GlesUtil::DrawColorBox2f(float x0, float y0, float x1, float y1,
 
 bool GlesUtil::DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
                               float w, float h, GLuint aUV) {
+  GLint buf = 0, ibuf = 0;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
+  glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &ibuf);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   float xi0 = x0 + w;                        // inner box
   float yi0 = y0 + h;
   float xi1 = x1 - w;
@@ -192,6 +209,8 @@ bool GlesUtil::DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
   glDisableVertexAttribArray(aP);
   if (aUV != -1)
     glDisableVertexAttribArray(aUV);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
+  glBindBuffer(GL_ARRAY_BUFFER, buf);
   if (Error())
     return false;
   return true;
@@ -253,6 +272,9 @@ bool GlesUtil::DrawGradientBoxFrame2f(float x0, float y0, float x1, float y1,
 bool GlesUtil::DrawGradientBox2f(float x0, float y0, float x1, float y1,
                                  bool isVertical, float r0, float g0, float b0,
                                  float r1,float g1,float b1, const float *MVP) {
+  GLint buf = 0;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
   GLuint aP, aC, uMVP;
   GLuint program = VertexColorProgram(&aP, &aC, &uMVP);
   if (!program)
@@ -270,6 +292,7 @@ bool GlesUtil::DrawGradientBox2f(float x0, float y0, float x1, float y1,
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   glDisableVertexAttribArray(aP);
   glDisableVertexAttribArray(aC);
+  glBindBuffer(GL_ARRAY_BUFFER, buf);
   if (Error())
     return false;
   return true;
@@ -279,6 +302,9 @@ bool GlesUtil::DrawGradientBox2f(float x0, float y0, float x1, float y1,
 bool GlesUtil::DrawDropshadowBox2f(float x0, float y0, float x1, float y1,
                                    float r, float g, float b, float a,
                                    bool isVertical, const float *MVP) {
+  GLint buf = 0;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   GLuint aP, aUV, uC, uMVP;
@@ -302,6 +328,7 @@ bool GlesUtil::DrawDropshadowBox2f(float x0, float y0, float x1, float y1,
   glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
   glDisable(GL_BLEND);
+  glBindBuffer(GL_ARRAY_BUFFER, buf);
   if (Error())
     return false;
   
@@ -480,6 +507,9 @@ bool GlesUtil::DrawTextureHighlight2f(GLuint tex,
 bool GlesUtil::DrawTextureStrip2f(GLuint tex, GLuint vcount, const float *P,
                                   const float *UV, float r, float g, float b,
                                   float a, const float *MVP) {
+  GLint buf = 0;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
   GLuint aP, aUV, uC, uMVP, uTex;
   GLuint program = TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
   glUseProgram(program);
@@ -499,6 +529,7 @@ bool GlesUtil::DrawTextureStrip2f(GLuint tex, GLuint vcount, const float *P,
   glDrawArrays(GL_TRIANGLE_STRIP, 0, vcount);
   glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
+  glBindBuffer(GL_ARRAY_BUFFER, buf);
   if (Error())
     return false;
 
@@ -510,6 +541,11 @@ bool GlesUtil::DrawTextureStrip2fi(GLuint tex, unsigned short icount,
                                    const float *P, const float *UV,
                                    const unsigned short *idx, float r, float g,
                                    float b, float a, const float *MVP) {
+  GLint buf = 0, ibuf = 0;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
+  glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &ibuf);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   GLuint aP, aUV, uC, uMVP, uTex;
   GLuint program = TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
   glUseProgram(program);
@@ -529,6 +565,8 @@ bool GlesUtil::DrawTextureStrip2fi(GLuint tex, unsigned short icount,
   glDrawElements(GL_TRIANGLE_STRIP, icount, GL_UNSIGNED_SHORT, idx);
   glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
+  glBindBuffer(GL_ARRAY_BUFFER, buf);
   if (Error())
     return false;
   
@@ -540,6 +578,11 @@ bool GlesUtil::DrawDropshadowStrip2fi(unsigned short icount, const float *P,
                                       const float *UV, const unsigned short *idx,
                                       float r, float g, float b, float a,
                                       const float *MVP) {
+  GLint buf = 0, ibuf = 0;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
+  glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &ibuf);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   GLuint aP, aUV, uC, uMVP;
   GLuint program = GlesUtil::DropshadowFrameProgram(&aP, &aUV, &uC, &uMVP);
   if (!program)
@@ -557,6 +600,8 @@ bool GlesUtil::DrawDropshadowStrip2fi(unsigned short icount, const float *P,
   glDrawElements(GL_TRIANGLE_STRIP, icount, GL_UNSIGNED_SHORT, idx);
   glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
+  glBindBuffer(GL_ARRAY_BUFFER, buf);
   if (Error())
     return false;
 
@@ -1469,6 +1514,12 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   glBindTexture(GL_TEXTURE_2D, font->tex);
   glUniform1i(uTex, 0);
   
+  GLint buf = 0, ibuf = 0;
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
+  glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &ibuf);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  
   if (style->dropshadowOffsetPts[0] != 0 || style->dropshadowOffsetPts[1] != 0){
     const float tx = ptW * style->dropshadowOffsetPts[0];
     const float ty = ptH * style->dropshadowOffsetPts[1];
@@ -1503,7 +1554,9 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   glDisableVertexAttribArray(aUV);
   glDisableVertexAttribArray(aP);
   glBindTexture(GL_TEXTURE_2D, 0);
-  
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
+  glBindBuffer(GL_ARRAY_BUFFER, buf);
+
   if (Error())
     return false;
   
