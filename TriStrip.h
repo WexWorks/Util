@@ -22,12 +22,10 @@ public:
   ~TriStrip() {}
   enum Flags { ATTR_0_FLAG=1, ATTR_1_FLAG=2, ATTR_2_FLAG=4, MATERIAL_FLAG=8 };
   void Init(size_t vertexCount, size_t indexCount, unsigned long flags);
-  void VertexResize(size_t newSize);
-  void IndexResize(size_t newSize);
-  void SetIndexCapacity(size_t newCapacity);
-  void SetVertexCapacity(size_t newCapacity);
   void InitTransform(const TriStrip &src, const Imath::M44f &T);
   void Clear();
+  void Reserve(size_t vertexCapacity, size_t indexCapacity);
+  void Resize(size_t vertexCount, size_t indexCount);
   bool Append(const TriStrip &tristrip);
   void ToLines(std::vector<unsigned short> &lineIdx) const;
   
@@ -42,8 +40,7 @@ public:
   // Constant access
   size_t VertexCount() const { return mVertexCount; }
   size_t IndexCount() const { return mIndexCount; }
-  bool VertexEmpty() const { return VertexCount() == 0; }
-  bool IndexEmpty() const { return IndexCount() == 0; }
+  bool Empty() const { return IndexEmpty(); }
   const Imath::V3f &P(size_t i) const { assert(i < mVertexCount); return mP[i]; }
   const Imath::V4f &Attr(size_t a, size_t v) const {
     assert(a < kMaxAttr); assert(v < mVertexCount); return mA[a][v]; }
@@ -55,11 +52,17 @@ public:
     assert(i < mVertexCount);return mMaterial[i]; }
   
 private:
-  
+
+  void VertexResize(size_t newSize);
+  void IndexResize(size_t newSize);
+  void SetIndexCapacity(size_t newCapacity);
+  void SetVertexCapacity(size_t newCapacity);
   size_t VertexCapacity() const;
-  size_t MaxCapacity() const;
   size_t IndexCapacity() const;
-  
+  size_t MaxCapacity() const;
+  bool VertexEmpty() const { return VertexCount() == 0; }
+  bool IndexEmpty() const { return IndexCount() == 0; }
+
   static const size_t kMaxAttr = 3;
   
   size_t mVertexCount;

@@ -9,6 +9,18 @@
 using Imath::V3f;
 using Imath::V4f;
 
+void TriStrip::Reserve(size_t vertexCount, size_t indexCount) {
+  SetVertexCapacity(vertexCount);
+  SetIndexCapacity(indexCount);
+}
+
+
+void TriStrip::Resize(size_t vertexCount, size_t indexCount) {
+  VertexResize(vertexCount);
+  IndexResize(indexCount);
+}
+
+
 void TriStrip::SetVertexCapacity(size_t newCapacity) {
   if (newCapacity > VertexCapacity()) {
     mP.resize(newCapacity);
