@@ -24,6 +24,8 @@ public:
   void Init(size_t vertexCount, size_t indexCount, unsigned long flags);
   void VertexResize(size_t newSize);
   void IndexResize(size_t newSize);
+  void SetIndexCapacity(size_t newCapacity);
+  void SetVertexCapacity(size_t newCapacity);
   void InitTransform(const TriStrip &src, const Imath::M44f &T);
   void Clear();
   bool Append(const TriStrip &tristrip);
@@ -54,11 +56,9 @@ public:
   
 private:
   
-  void SetVertexCapacity(size_t newCapacity);  
   size_t VertexCapacity() const;
   size_t MaxCapacity() const;
   size_t IndexCapacity() const;
-  void SetIndexCapacity(size_t newCapacity);  
   
   static const size_t kMaxAttr = 3;
   

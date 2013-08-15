@@ -66,8 +66,8 @@ void TriStrip::Clear() {
 void TriStrip::Init(size_t vertexCount, size_t indexCount, unsigned long flags){
   Clear();
   mFlags = flags;
-  SetVertexCapacity(vertexCount);
-  SetIndexCapacity(indexCount);
+  VertexResize(vertexCount);
+  IndexResize(indexCount);
 }
 
 
