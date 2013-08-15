@@ -61,8 +61,6 @@ bool Widget::ProcessGestures(const tui::Event &event) {
   size_t idx[mTouchStart.size()];         // Vector indices of start touches
   if (!mTouchStart.empty() && mTouchStart.size() != event.touchVec.size()) {
     trackingPhase = TOUCH_BEGAN;          // Restart when # touches changes
-    if (event.touchVec.size() > mTouchStart.size())
-      OnTouchBegan(event.touchVec[0]);    // Stop momentum on single touch
   } else {
     for (size_t i = 0; i < mTouchStart.size(); ++i) {
       size_t j = 0;
@@ -90,6 +88,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       mTouchStart = event.touchVec;       // Save initial touch down info
       mIsDragging = false;                // Avoid jump due to mPrevPan tracking
       mIsScaling = false;
+      OnTouchBegan(t0);
       break;
     case TOUCH_MOVED:
     case TOUCH_ENDED:     /*FALLTHRU*/
@@ -385,15 +384,33 @@ bool ProgressBar::Draw() {
     glViewport(Left(), Bottom(), Width(), Height());
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
-  if (!GlesUtil::DrawColorBox2f(x0, y0, x1, y1, 0.8, 0.8, 0.8, 1))
+  if (mCoreTex || mShellTex) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquation(GL_FUNC_ADD);
+  }
+  
+  if (mShellTex) {
+    if (!GlesUtil::Draw3SliceTexture2f(mShellTex, x0, y0, x1, y1, 0, 1, 1, 0,
+                                       mTexDim[0], mTexDim[1], Width(),Height(),
+                                       1, 1, 1, 1))
+      return false;
+  } else if (!GlesUtil::DrawColorBox2f(x0, y0, x1, y1, 0.8, 0.8, 0.8, 1))
     return false;
   float t = (mValue - mRange[0]) / (mRange[1] - mRange[0]);
-  t = std::max(std::min(t, 1.0f), 0.0f);
   float x = x0 + t * (x1 - x0);
-  float k = 0.07 * sinf(mSeconds*3) + 1;
-  if (!GlesUtil::DrawColorBox2f(x0, y0, x, y1, k * mRGBA[0], k * mRGBA[1],
-                                k * mRGBA[2], mRGBA[3]))
+  float k = 0.1 * sinf(mSeconds*3) + 1;
+  if (mCoreTex) {
+    if (!GlesUtil::Draw3SliceTexture2f(mCoreTex, x0, y0, x, y1, 0, 1, 1, 0,
+                                       mTexDim[0], mTexDim[1], Width(),Height(),
+                                       1, 1, 1, 1))
+      return false;
+  } else if (!GlesUtil::DrawColorBox2f(x0, y0, x, y1, k * mRGBA[0], k * mRGBA[1],
+                                       k * mRGBA[2], mRGBA[3]))
     return false;
+
+  glDisable(GL_BLEND);
+  
   return true;
 }
 
@@ -622,6 +639,7 @@ bool Button::Touch(const Event &event) {
         }
         if (Inside(touch.x, touch.y)) {
           mPressVec.push_back(Press(touch.id, true, touch.x, touch.y));
+          OnTouchBegan(touch);              // Buttons ignore ProcessGestures
           return false;
         }
         break;
@@ -943,6 +961,11 @@ void RadioButton::Add(CheckboxButton *button) {
 }
 
 
+void RadioButton::Clear() {
+  mButtonVec.clear();
+}
+
+
 CheckboxButton *RadioButton::Selected() const {
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
     CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
@@ -1013,10 +1036,11 @@ bool RadioButton::Touch(const Event &event) {
     CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
     if (!mIsNoneAllowed && cb->Selected())
       continue;                               // Don't deselect if selected
-    if (cb->Touch(event)) {
+    bool oldStatus = cb->Selected();
+    if (cb->Touch(event))
       consumed = true;
-      if (cb->Selected())
-        SetSelected(cb);
+    if (oldStatus != cb->Selected() && cb->Selected()) {      // State changed
+      SetSelected(cb);
       break;
     }
   }

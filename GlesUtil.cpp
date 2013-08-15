@@ -350,14 +350,24 @@ bool GlesUtil::Draw3SliceTexture2f(GLuint tex,
                                    float r, float g, float b, float a,
                                    const float *MVP) {
   const int pw = vpH * texW / (2 * texH);
-  const float ew = std::min(pw / float(MVP ? 1 : 0.5 * vpW), 0.5f * (x1 - x0));
+  const float ew = pw / float(MVP ? 1 : 0.5 * vpW);
+  const float ex = 0.5 * (x1 - x0);
   const float mu = 0.5 * (u0 + u1);
-  if (!GlesUtil::DrawTexture2f(tex, x0,y0,x0+ew,y1, u0,v0,mu,v1, r,g,b,a, MVP))
-    return false;
-  if (!GlesUtil::DrawTexture2f(tex, x0+ew,y0,x1-ew,y1,mu,v0,mu,v1,r,g,b,a, MVP))
-    return false;
-  if (!GlesUtil::DrawTexture2f(tex, x1-ew,y0,x1,y1, mu,v0,u1,v1, r,g,b,a, MVP))
-    return false;
+  if (ew > ex) {
+    const float eu = ex / ew;
+    const float mx = 0.5 * (x0 + x1);
+    if (!GlesUtil::DrawTexture2f(tex, x0,y0,mx,y1, u0,v0,mu-eu,v1, r,g,b,a,MVP))
+      return false;
+    if (!GlesUtil::DrawTexture2f(tex, mx,y0,x1,y1, mu+eu,v0,u1,v1, r,g,b,a,MVP))
+      return false;
+  } else {
+    if (!GlesUtil::DrawTexture2f(tex, x0,y0,x0+ew,y1, u0,v0,mu,v1, r,g,b,a,MVP))
+      return false;
+    if (!GlesUtil::DrawTexture2f(tex,x0+ew,y0,x1-ew,y1,mu,v0,mu,v1,r,g,b,a,MVP))
+      return false;
+    if (!GlesUtil::DrawTexture2f(tex, x1-ew,y0,x1,y1, mu,v0,u1,v1, r,g,b,a,MVP))
+      return false;
+  }
   return true;
 }
 
@@ -1553,7 +1563,7 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
     } else {
       str.push_back(c);
       w += ptW * font->charWidthPt[(unsigned char)c];
-      if (w <= wrapW + eps) {
+      if (w <= wrapW + eps || text[i+1] == '\0' || text[i+1] == '\n') {
         continue;
       } else if (!wrapLines || w - lastSepW > wrapW) {
         const size_t n = str.size();
