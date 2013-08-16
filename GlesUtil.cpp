@@ -1450,6 +1450,8 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
   const size_t idxCount = (4 + 2) * n - 2;            // 4/quad + 2 degen - last
   std::vector<unsigned short> idx(idxCount);
   const int colCount = floor(1 / font->charDimUV[0]);
+  if (colCount < 16)
+    return true;
   
   // Build a tristrip of characters with point coordinates and UVs.
   // Characters are drawn as quads with UV coordinates that map into

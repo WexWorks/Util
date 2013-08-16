@@ -748,7 +748,7 @@ namespace tui {
     virtual void Add(ViewportWidget *widget) { mWidgetVec.push_back(widget); }
     virtual bool AddFixedSpacer(int w);
     virtual bool AddFlexibleSpacer();
-    virtual void Clear() { mWidgetVec.clear(); }
+    virtual void Clear();
     virtual bool Touch(const Event &event);
     virtual bool Step(float seconds);
     virtual bool Dormant() const;

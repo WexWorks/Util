@@ -109,11 +109,6 @@ public:
   // Returns the requested user default setting, returned as string
   virtual bool FindUserDefault(const char *name, char value[1024]) = 0;
   
-  // Load an image from the app's resource bundle (blocking)
-  virtual bool LoadImageResource(const char *name, size_t *w, size_t *h,
-                                 size_t *channelCount,
-                                 const unsigned char **texel) = 0;
-  
   // Load a text file from the app's resource bundle (blocking)
   virtual bool LoadText(const char *name, const char **text) = 0;
   
