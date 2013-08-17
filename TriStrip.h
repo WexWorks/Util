@@ -67,7 +67,6 @@ private:
   
   size_t mVertexCount;
   size_t mIndexCount;
-  
   unsigned long mFlags;
   std::vector<Imath::V3f> mP;
   std::vector<unsigned short> mIdx;

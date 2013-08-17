@@ -37,13 +37,16 @@ void TriStrip::SetVertexCapacity(size_t newCapacity) {
     mVertexCount = newCapacity;
 }
 
+
 size_t TriStrip::VertexCapacity() const {
   return mP.size();
 }
 
+
 size_t TriStrip::MaxCapacity() const {
   return std::numeric_limits<unsigned short>::max();
 }
+
 
 void TriStrip::VertexResize(size_t newSize) {
   if (newSize > VertexCapacity())
@@ -51,9 +54,11 @@ void TriStrip::VertexResize(size_t newSize) {
   mVertexCount = newSize;
 }
 
+
 size_t TriStrip::IndexCapacity() const {
   return mIdx.size();
 }
+
 
 void TriStrip::SetIndexCapacity(size_t newCapacity) {
   if (newCapacity > mIdx.size()) {
@@ -64,16 +69,19 @@ void TriStrip::SetIndexCapacity(size_t newCapacity) {
     mIndexCount = newCapacity;
 }
 
+
 void TriStrip::IndexResize(size_t newSize) {
   if (newSize > IndexCapacity())
     SetIndexCapacity(newSize);
   mIndexCount = newSize;
 }
 
+
 void TriStrip::Clear() {
   mVertexCount = 0;
   mIndexCount = 0;
 }
+
 
 void TriStrip::Init(size_t vertexCount, size_t indexCount, unsigned long flags){
   Clear();
