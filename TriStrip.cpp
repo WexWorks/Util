@@ -9,9 +9,24 @@
 using Imath::V3f;
 using Imath::V4f;
 
-void TriStrip::Reserve(size_t vertexCount, size_t indexCount) {
-  SetVertexCapacity(vertexCount);
-  SetIndexCapacity(indexCount);
+
+void TriStrip::Clear() {
+  mVertexCount = 0;
+  mIndexCount = 0;
+}
+
+
+void TriStrip::Init(size_t vertexCount, size_t indexCount, unsigned long flags){
+  Clear();
+  mFlags = flags;
+  VertexResize(vertexCount);
+  IndexResize(indexCount);
+}
+
+
+void TriStrip::Reserve(size_t vertexCapacity, size_t indexCapacity) {
+  SetVertexCapacity(vertexCapacity);
+  SetIndexCapacity(indexCapacity);
 }
 
 
@@ -74,20 +89,6 @@ void TriStrip::IndexResize(size_t newSize) {
   if (newSize > IndexCapacity())
     SetIndexCapacity(newSize);
   mIndexCount = newSize;
-}
-
-
-void TriStrip::Clear() {
-  mVertexCount = 0;
-  mIndexCount = 0;
-}
-
-
-void TriStrip::Init(size_t vertexCount, size_t indexCount, unsigned long flags){
-  Clear();
-  mFlags = flags;
-  VertexResize(vertexCount);
-  IndexResize(indexCount);
 }
 
 
