@@ -354,7 +354,7 @@ bool GlesUtil::Draw3SliceTexture2f(GLuint tex,
   const float ex = 0.5 * (x1 - x0);
   const float mu = 0.5 * (u0 + u1);
   if (ew > ex) {
-    const float eu = ex / ew;
+    const float eu = 1.0 - fabsf(u1 - u0) * ex / ew;
     const float mx = 0.5 * (x0 + x1);
     if (!GlesUtil::DrawTexture2f(tex, x0,y0,mx,y1, u0,v0,mu-eu,v1, r,g,b,a,MVP))
       return false;

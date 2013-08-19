@@ -398,12 +398,16 @@ bool ProgressBar::Draw() {
   } else if (!GlesUtil::DrawColorBox2f(x0, y0, x1, y1, 0.8, 0.8, 0.8, 1))
     return false;
   float t = (mValue - mRange[0]) / (mRange[1] - mRange[0]);
+  if (t > 0)
+    t = std::max(t, 0.05f);
+  else
+    t = 0;
   float x = x0 + t * (x1 - x0);
   float k = 0.1 * sinf(mSeconds*3) + 1;
   if (mCoreTex) {
     if (!GlesUtil::Draw3SliceTexture2f(mCoreTex, x0, y0, x, y1, 0, 1, 1, 0,
                                        mTexDim[0], mTexDim[1], Width(),Height(),
-                                       1, 1, 1, 1))
+                                       k, k, k, 1))
       return false;
   } else if (!GlesUtil::DrawColorBox2f(x0, y0, x, y1, k * mRGBA[0], k * mRGBA[1],
                                        k * mRGBA[2], mRGBA[3]))
@@ -3144,7 +3148,8 @@ void Frame::RegionToM44f(float dst[16], int imageWidth, int imageHeight,
 //
 
 ButtonGridFrame::ButtonGridFrame() : mButtonHorizCountIdx(0), mButtonDim(0),
-                                     mButtonPad(0), mTopPad(0), mBottomPad(0) {
+                                     mButtonPad(0), mTopPad(0), mBottomPad(0),
+                                     mIsViewportDirty(false) {
   memset(mButtonHorizCount, 0, sizeof(mButtonHorizCount));
   memset(mMVPBuf, 0, sizeof(mMVPBuf));
 }
@@ -3165,7 +3170,7 @@ bool ButtonGridFrame::Init(int wideCount, int narrowCount,
 
 void ButtonGridFrame::Add(tui::Button *button) {
   mButtonVec.push_back(button);
-  SetViewport(Left(), Bottom(), Width(), Height());
+  mIsViewportDirty = true;
 }
 
 
@@ -3174,7 +3179,7 @@ bool ButtonGridFrame::Remove(tui::Button *button) {
        i != mButtonVec.end(); ++i) {
     if (*i == button) {
       mButtonVec.erase(i);
-      SetViewport(Left(), Bottom(), Width(), Height()); // re-layout
+      mIsViewportDirty = true;
       return true;
     }
   }
@@ -3191,12 +3196,16 @@ void ButtonGridFrame::Destroy() {
 
 void ButtonGridFrame::Clear() {
   mButtonVec.clear();
+  mIsViewportDirty = true;
 }
 
 
 void ButtonGridFrame::VisibleButtonRange(float u0, float v0, float u1, float v1,
                                          int *minIdx, int *maxIdx) {
   assert(u0 == 0 && u1 == 1);                                 // Later...
+  
+  if (mIsViewportDirty)
+    SetViewport(Left(), Bottom(), Width(), Height());         // re-layout
 
   if (u0 > u1)
     std::swap(u0, u1);
@@ -3221,14 +3230,16 @@ void ButtonGridFrame::VisibleButtonRange(float u0, float v0, float u1, float v1,
 
 void ButtonGridFrame::Sort(const CompareButton &compare) {
   std::sort(mButtonVec.begin(), mButtonVec.end(), compare);
-  SetViewport(Left(), Bottom(), Width(), Height());
+  mIsViewportDirty = true;
 }
 
 
 bool ButtonGridFrame::Snap(size_t i, bool isAnimated) {
   if (i >= ButtonCount())
     return false;
-  
+  if (mIsViewportDirty)
+    SetViewport(Left(), Bottom(), Width(), Height());         // re-layout
+
   float x0, y0, x1, y1, u0, v0, u1, v1;
   ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
   int minIdx, maxIdx;
@@ -3290,6 +3301,7 @@ bool ButtonGridFrame::SetViewport(int x, int y, int w, int h) {
     }
   }
   
+  mIsViewportDirty = false;
   
   return true;
 }
@@ -3306,6 +3318,9 @@ bool ButtonGridFrame::Touch(const Event &event) {
   if (!Enabled() || Hidden())
     return false;
   
+  if (mIsViewportDirty)
+    SetViewport(Left(), Bottom(), Width(), Height());         // re-layout
+
   if (Frame::Touch(event)) {
     for (size_t i = 0; i < mButtonVec.size(); ++i)        // Cancel checkboxes
       mButtonVec[i]->Touch(tui::Event(tui::TOUCH_CANCELLED));
@@ -3362,6 +3377,9 @@ bool ButtonGridFrame::Draw() {
   if (ButtonCount() == 0)
     return true;
   
+  if (mIsViewportDirty)
+    SetViewport(Left(), Bottom(), Width(), Height());         // re-layout
+
   // Compute the NDC & UV rectangle for the image and draw
   float x0, y0, x1, y1, u0, v0, u1, v1;
   ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
