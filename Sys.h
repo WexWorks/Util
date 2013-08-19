@@ -58,6 +58,7 @@ struct AddAlbum {
 
 struct SetImageThumbnail {
   virtual bool operator()(const char *url, size_t w, size_t h,
+                          size_t bytesPerRow, size_t bitsPerPixel,
                           const unsigned char *thumb) = 0;
 };
 
@@ -186,6 +187,7 @@ public:
   virtual bool Step(float seconds) = 0;               // Animate widgets
   virtual bool Dormant() = 0;                         // True = no refresh
   virtual bool Draw() = 0;                            // Draw UI & images
+  virtual void SetDeviceName(const char *name) = 0;   // Device-specific fixes
   virtual bool SetDeviceResolution(int w, int h) = 0; // Startup & orientation
   virtual void ReduceMemory() = 0;                    // Low mem warning
   virtual void DeleteCache(int level) = 0;            // level=0..2
