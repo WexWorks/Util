@@ -970,6 +970,13 @@ void RadioButton::Clear() {
 }
 
 
+void RadioButton::Destroy() {
+  for (size_t i = 0; i < mButtonVec.size(); ++i)
+    delete mButtonVec[i];
+  Clear();
+}
+
+
 CheckboxButton *RadioButton::Selected() const {
   for (size_t i = 0; i < mButtonVec.size(); ++i) {
     CheckboxButton *cb = dynamic_cast<CheckboxButton *>(mButtonVec[i]);
