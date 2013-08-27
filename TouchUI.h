@@ -556,6 +556,7 @@ namespace tui {
     virtual ~RadioButton();
     virtual void Add(CheckboxButton *button);
     virtual void Clear();
+    virtual void Destroy();
     virtual size_t Count() const { return mButtonVec.size(); }
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetMVP(const float *mvp);
@@ -1138,6 +1139,7 @@ namespace tui {
     int mButtonDim;                           // Size in pixels
     int mButtonPad;                           // Pixels between buttons
     int mTopPad, mBottomPad;                  // Pixels above and below
+    bool mIsViewportDirty;                    // Call SetViewport if true
   };
   
   

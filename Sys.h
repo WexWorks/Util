@@ -46,8 +46,9 @@ struct ShareImage {
 // Callback functors, executed asynchronously, e.g. from system blocks
 
 struct AddImage {
+  enum Type { Unknown, Image, Video };
   virtual bool operator()(const char *album, const char *name,
-                          const char *url, int index) = 0;
+                          const char *url, int index, Type type) = 0;
 };
 
 struct AddAlbum {
@@ -168,6 +169,9 @@ public:
   // Open the product store for the specified item
   virtual bool ShowStore(const char *product, const int fromRect[4]) = 0;
   
+  // Open a window and show a video playback
+  virtual bool ShowVideo(const char *url, size_t w, size_t h) = 0;
+  
   // Bring the app out of paused mode, if enabled, and force at least one redraw
   virtual void ForceRedraw() = 0;
 };
@@ -189,6 +193,7 @@ public:
   virtual bool Draw() = 0;                            // Draw UI & images
   virtual bool SetDeviceResolution(int w, int h) = 0; // Startup & orientation
   virtual void ReduceMemory() = 0;                    // Low mem warning
+  virtual void DeleteCache(int level) = 0;            // level=0..2
   virtual void ReportError(const std::string &msg) = 0;
   virtual bool PurchaseItem(const std::vector<std::string> &idVec) = 0;
   
