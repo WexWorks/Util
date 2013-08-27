@@ -22,6 +22,15 @@ public:
   ~TriStrip() {}
   enum Flags { ATTR_0_FLAG=1, ATTR_1_FLAG=2, ATTR_2_FLAG=4, MATERIAL_FLAG=8 };
   void Init(size_t vertexCount, size_t indexCount, unsigned long flags);
+#if 0
+  void InitDisc(const Imath::V3f &center, const Imath::V3f &N, float radius,
+                size_t vertexCount, unsigned long flags, int uvAttrIdx);
+  void InitExtrusion(size_t vertexCount, const Imath::V3f *face,
+                     size_t segmentCount, const Imath::V3f *scale,
+                     unsigned long attrNFlag);
+  void InitBox(const Imath::V3f &min, const Imath::V3f &max,
+               unsigned long attrNFlag, unsigned long attrUVFlag);
+#endif
   void InitTransform(const TriStrip &src, const Imath::M44f &T);
   void Clear();
   void Reserve(size_t vertexCapacity, size_t indexCapacity);

@@ -184,3 +184,163 @@ void TriStrip::InitTransform(const TriStrip &src, const Imath::M44f &T) {
   IndexResize(mIdx.size());  
 }
 
+#if 0
+void TriStrip::InitDisc(const V3f &center, const V3f &N,
+                        float radius, size_t vertexCount,
+                        unsigned long flags, int uvAttrIdx) {
+  mFlags = flags;
+  V3f X = N.cross(V3f(1, 0, 0));
+  if (X.length() < 0.001)
+    X = N.cross(V3f(0, 0, 1));
+  V3f Y = N.cross(V3f(0, 1, 0));
+  if (Y.length() < 0.001)
+    Y = N.cross(V3f(0, 0, 1));
+  mP.push_back(center);
+  V3f P = radius * Y;
+  mP.push_back(P);
+  const float k = 1.0 / (vertexCount - 1);
+  for (size_t i = 1; i < vertexCount; ++i) {
+    float theta = 2 * M_PI * k * i;
+    float u = sinf(theta);
+    float v = cosf(theta);
+    P = radius * (u * X + v * Y);
+    mP.push_back(P);
+    
+    mIdx.push_back(i);
+    mIdx.push_back(0);
+    mIdx.push_back(i+1);
+  }
+  
+  mIdx.push_back(1);
+  assert(vertexCount == mP.size() - 1);
+  for (size_t i = 0; i < kMaxAttr; ++i) {
+    if (AttrEnabled(i))
+      mA[i].resize(mP.size());
+    if (i == uvAttrIdx) {
+      for (size_t j = 0; j < vertexCount; ++j) {
+        float theta = 2 * M_PI * k * i;
+        mA[i][j].x = sinf(theta);
+        mA[i][j].y = cosf(theta);
+      }
+    }
+  }
+}
+
+
+void TriStrip::InitExtrusion(size_t vertexCount, const V3f *face,
+                             size_t segmentCount, const V3f *scale,
+                             unsigned long attrNFlag){
+  if (vertexCount < 3)
+    return;
+  if (segmentCount < 1)
+    return;
+  
+  mFlags = attrNFlag;
+  
+  int attrNIdx = attrNFlag == ATTR_0_FLAG ? 0 :
+  attrNFlag == ATTR_1_FLAG ? 1 :
+  attrNFlag == ATTR_2_FLAG ? 2 : -1;
+  
+  // Walk around each segment, adding a tristrip loop
+  for (int i = 0; i < segmentCount; ++i) {
+    for (int j = 0; j < vertexCount; ++j) {
+      V3f P(scale[i].x * face[j].x, scale[i].y * face[j].y, scale[i].z);
+      mP.push_back(P);
+      V4f N(0, 1, 0, 0);
+      if (attrNFlag)
+        mA[attrNIdx].push_back(N);
+      if (i) {
+        int k0 = (i - 1) * vertexCount;
+        int k1 = i * vertexCount;
+        unsigned short vidx[6] = { k0+j, k1+j, k1+j+1, k0+j+1, k0+j, k1+j+1 };
+        if (j == vertexCount - 1) {
+          vidx[2] = vidx[5] = k1;
+          vidx[3] = k0;
+        };
+        for (int k = 0; k < 6; ++k)
+          mIdx.push_back(vidx[k]);
+      }
+    }
+  }
+  
+  // Special case triangle and quad cases, which are tristrips without
+  // degeneracies, and place a vertex in the center for larger polygons.
+  int k0 = (segmentCount - 1) * vertexCount;
+  int k1 = k0 + vertexCount;
+  switch (vertexCount) {
+    case 3: {
+      int idx[9] = { k1, 0, 0, 1, 2, 2, k0, k0+1, k0+2 };
+      for (int i = 0; i < 9; ++i)
+        mIdx.push_back(idx[i]);
+      break;
+    }
+    case 4: {
+      int idx[11] = { k1, 0, 0, 1, 2, 3, 3, k0, k0+1, k0+2, k0+3 };
+      for (int i = 0; i < 11; ++i)
+        mIdx.push_back(idx[i]);
+      break;
+    }
+      
+    default: {
+      abort();
+    }
+  }
+}
+
+
+void TriStrip::InitBox(const V3f &min, const V3f &max,
+                       unsigned long attrNFlag, unsigned long attrUVFlag) {
+  V3f face[4] = { V3f(min.x, min.y, 0), V3f(max.x, min.y, 0),
+    V3f(max.x, max.y, 0), V3f(min.x, max.y, 0) };
+  V3f scale[2] = { V3f(1, 1, min.z), V3f(1, 1, max.z) };
+  InitExtrusion(4, face, 2, scale, attrNFlag);
+}
+
+
+const float kCubeVertexData[216] = {
+  // posX, posY, posZ,       nX, nY, nZ,
+  0.5f, -0.5f, -0.5f,        1.0f, 0.0f, 0.0f,
+  0.5f, 0.5f, -0.5f,         1.0f, 0.0f, 0.0f,
+  0.5f, -0.5f, 0.5f,         1.0f, 0.0f, 0.0f,
+  0.5f, -0.5f, 0.5f,         1.0f, 0.0f, 0.0f,
+  0.5f, 0.5f, -0.5f,         1.0f, 0.0f, 0.0f,
+  0.5f, 0.5f, 0.5f,          1.0f, 0.0f, 0.0f,
+  
+  0.5f, 0.5f, -0.5f,         0.0f, 1.0f, 0.0f,
+  -0.5f, 0.5f, -0.5f,        0.0f, 1.0f, 0.0f,
+  0.5f, 0.5f, 0.5f,          0.0f, 1.0f, 0.0f,
+  0.5f, 0.5f, 0.5f,          0.0f, 1.0f, 0.0f,
+  -0.5f, 0.5f, -0.5f,        0.0f, 1.0f, 0.0f,
+  -0.5f, 0.5f, 0.5f,         0.0f, 1.0f, 0.0f,
+  
+  -0.5f, 0.5f, -0.5f,        -1.0f, 0.0f, 0.0f,
+  -0.5f, -0.5f, -0.5f,       -1.0f, 0.0f, 0.0f,
+  -0.5f, 0.5f, 0.5f,         -1.0f, 0.0f, 0.0f,
+  -0.5f, 0.5f, 0.5f,         -1.0f, 0.0f, 0.0f,
+  -0.5f, -0.5f, -0.5f,       -1.0f, 0.0f, 0.0f,
+  -0.5f, -0.5f, 0.5f,        -1.0f, 0.0f, 0.0f,
+  
+  -0.5f, -0.5f, -0.5f,       0.0f, -1.0f, 0.0f,
+  0.5f, -0.5f, -0.5f,        0.0f, -1.0f, 0.0f,
+  -0.5f, -0.5f, 0.5f,        0.0f, -1.0f, 0.0f,
+  -0.5f, -0.5f, 0.5f,        0.0f, -1.0f, 0.0f,
+  0.5f, -0.5f, -0.5f,        0.0f, -1.0f, 0.0f,
+  0.5f, -0.5f, 0.5f,         0.0f, -1.0f, 0.0f,
+  
+  0.5f, 0.5f, 0.5f,          0.0f, 0.0f, 1.0f,
+  -0.5f, 0.5f, 0.5f,         0.0f, 0.0f, 1.0f,
+  0.5f, -0.5f, 0.5f,         0.0f, 0.0f, 1.0f,
+  0.5f, -0.5f, 0.5f,         0.0f, 0.0f, 1.0f,
+  -0.5f, 0.5f, 0.5f,         0.0f, 0.0f, 1.0f,
+  -0.5f, -0.5f, 0.5f,        0.0f, 0.0f, 1.0f,
+  
+  0.5f, -0.5f, -0.5f,        0.0f, 0.0f, -1.0f,
+  -0.5f, -0.5f, -0.5f,       0.0f, 0.0f, -1.0f,
+  0.5f, 0.5f, -0.5f,         0.0f, 0.0f, -1.0f,
+  0.5f, 0.5f, -0.5f,         0.0f, 0.0f, -1.0f,
+  -0.5f, -0.5f, -0.5f,       0.0f, 0.0f, -1.0f,
+  -0.5f, 0.5f, -0.5f,        0.0f, 0.0f, -1.0f
+};
+
+#endif
+
