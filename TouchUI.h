@@ -98,7 +98,7 @@ namespace tui {
     }
     
   private:
-    static const float kMinScale = 0.03;      // Min scaling amount before event
+    const float kMinScale = 0.03;      // Min scaling amount before event
     static const int kMinPanPix = 40;         // Min pan motion before event
 
     Widget(const Widget&);                    // Disallow copy ctor
@@ -1049,10 +1049,10 @@ namespace tui {
                              float u0, float v0, float u1, float v1);
     
   private:
-    static const float kDragDamping = 0.9;
-    static const float kDragFling = 2;
-    static const float kScaleDamping = 0.9;
-    static const float kScaleFling = 1;
+    const float kDragDamping = 0.9;
+    const float kDragFling = 2;
+    const float kScaleDamping = 0.9;
+    const float kScaleFling = 1;
     
     Frame(const Frame &);                     // Disallow copy ctor
     void operator=(const Frame &);            // Disallow assignment
