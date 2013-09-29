@@ -618,6 +618,9 @@ bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
                             GLenum clampS, GLenum clampT,
                             GLsizei w, GLsizei h, GLenum format, GLenum type,
                             const void *pix, const char *name) {
+  
+  printf("GlesUtil::StoreTexture tex %d size: %d %d\n", tex, w, h);
+  
   if (magFilter != GL_NEAREST && magFilter != GL_LINEAR)
     return false;
   GLenum bindTarget = target == GL_TEXTURE_2D ? GL_TEXTURE_2D :
