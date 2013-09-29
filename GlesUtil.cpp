@@ -617,14 +617,17 @@ bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
                             GLenum minFilter, GLenum magFilter,
                             GLenum clampS, GLenum clampT,
                             GLsizei w, GLsizei h, GLenum format, GLenum type,
-                            const void *pix, const char *name) {
+                            const void *pix, const char *name,
+                            GLuint pixelFormat) {
   if (magFilter != GL_NEAREST && magFilter != GL_LINEAR)
     return false;
   GLenum bindTarget = target == GL_TEXTURE_2D ? GL_TEXTURE_2D :
                                                 GL_TEXTURE_CUBE_MAP;
   glBindTexture(bindTarget, tex);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  glTexImage2D(target, 0, format, w, h, 0, format, type, pix);
+  if (!pixelFormat)
+    pixelFormat = format;
+  glTexImage2D(target, 0, format, w, h, 0, pixelFormat, type, pix);
   if (Error())
     return false;
   

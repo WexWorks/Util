@@ -16,7 +16,7 @@ namespace sys {
 // Save the image data in file with the metadata copied from url but with
 // the fields below modified (i.e. replace keywords in original url metadata)
 struct ShareImage {
-  ShareImage(const char *url,const char *file,const char *name,
+  ShareImage(const char *url,const char *file, const char *name,
              const char *album, const char *albumURL,
              int w, int h, const std::vector<std::string> &keywords,
              bool isFlagged, bool stripLocationInfo, bool stripCameraInfo,
@@ -56,10 +56,11 @@ struct AddAlbum {
                           size_t assetCount, int libraryId) = 0;
 };
 
-struct SetImageThumbnail {
-  virtual bool operator()(const char *url, size_t w, size_t h,
+struct SetThumbnail {
+  virtual bool operator()(const char *url, size_t w, size_t h, int orientation,
+                          size_t thumbW, size_t thumbH, bool swizzle,
                           size_t bytesPerRow, size_t bitsPerPixel,
-                          const unsigned char *thumb) = 0;
+                          const unsigned char *pixel) = 0;
 };
 
 struct SetImageDate {
@@ -127,8 +128,8 @@ public:
   virtual bool LoadImageDate(const char *url, SetImageDate *setDate) = 0;
   
   // Load the thumbnail representation of the image
-  virtual bool LoadImageThumbnail(const char *url,
-                                  SetImageThumbnail *setThumb) = 0;
+  virtual bool LoadImageThumbnail(const char *url, size_t maxDim,
+                                  SetThumbnail *setThumb) = 0;
   
   // Load only the metadata, not the pixels, from an image
   virtual bool LoadImageMetadata(const char *url,
@@ -168,10 +169,45 @@ public:
   // Open a window and show a video playback
   virtual bool ShowVideo(const char *url, size_t w, size_t h) = 0;
   
+  // Create a new OpenGL context, sharing optionally. Context 0 is UI thread.
+  virtual bool CreateGLContext(int id, int shareId = -1) = 0;
+  
+  // Make the named OpenGL context active in the current thread
+  virtual bool SetGLContext(int id) = 0;
+  
+  // Destroy the named OpenGL context
+  virtual bool DeleteGLContext(int id) = 0;
+  
+  // Return the OpenGL context for the current thread, or -1 for none
+  virtual int CurrentGLContext() = 0;
+  
   // Bring the app out of paused mode, if enabled, and force at least one redraw
   virtual void ForceRedraw() = 0;
 };
 
+
+//
+// GLContextGuard
+//
+
+class GLContextGuard {
+public:
+  GLContextGuard(int id, Callbacks *callbacks) : mId(id), mCallbacks(callbacks){
+    mLastId = mCallbacks->CurrentGLContext();
+    mCallbacks->SetGLContext(mId);
+  }
+  ~GLContextGuard() { mCallbacks->SetGLContext(mLastId); }
+  
+private:
+  int mId;
+  int mLastId;
+  Callbacks *mCallbacks;
+};
+
+
+//
+// App
+//
 
 // Implement this class to provide a standard framework invoked from OS-side
 // code to pass system events from the OS down to C++ code.
