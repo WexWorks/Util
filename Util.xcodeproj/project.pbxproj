@@ -276,6 +276,7 @@
 					"$(ILM_BASE_DIR)/Iex",
 					"$(ILM_BASE_DIR)/Imath",
 				);
+				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = "-DDEBUG=1";
 				OTHER_CPLUSPLUSFLAGS = "-DDEBUG=1";
 				OTHER_LDFLAGS = "-ObjC";
