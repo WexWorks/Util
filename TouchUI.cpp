@@ -569,7 +569,6 @@ bool Spinner::Step(float seconds) {
   if (sec > mIncSec) {
     mLastUpdateSec = 0;
     mAngle += mIncAngle;
-    printf("Spinner::Step mAngle = %g\n", mAngle);
   } else {
     mLastUpdateSec = sec;
   }
@@ -597,8 +596,8 @@ bool Spinner::Draw() {
   Imath::M44f R, T0, T1;
   T0.translate(Imath::V3f(-cx, -cy, 0));
   T1.translate(Imath::V3f(cx, cy, 0));
-  printf("Spinner::Draw mAngle = %g\n", mAngle);
   R.rotate(Imath::V3f(0, 0, -mAngle));
+  
   Imath::M44f T = T0 * R * T1 * M;
   mvp = T.getValue();
   
