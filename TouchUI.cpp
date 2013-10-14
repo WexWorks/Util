@@ -15,8 +15,9 @@ using namespace tui;
 
 const float Widget::kMinScale = 0.03;
 const int Widget::kMinPanPix = 40;
+const float ViewportWidget::kDoubleTapSec = 0.25;
 const size_t Toolbar::kStdHeight = 44;
-const int FlinglistImpl::kDragMm = 4;
+const int FlinglistImpl::kDragMm = 10;
 const int FlinglistImpl::kJiggleMm = 10;
 const float FlinglistImpl::kJiggleSeconds = 0.2;
 const int FlinglistImpl::kSnapVelocity = 10;
@@ -39,10 +40,28 @@ template <class T> inline T clamp (T a, T l, T h){
 }
 
 
+//
+// Event
+//
 
-//
-// Widget
-//
+void Event::Init(tui::EventPhase phase) {
+  // Now remove any events in the END phase from the active lists
+  // so we properly handle transitions from multi- to single-touch.
+  for (size_t i = 0; i < mEndTouchVec.size(); ++i) {
+    for (size_t j = 0; j < ActiveTouchCount(); ++j) {
+      if (mEndTouchVec[i].id == mCurTouchVec[j].id) {
+        mCurTouchVec.erase(mCurTouchVec.begin() + j);
+        mStartTouchVec.erase(mStartTouchVec.begin() + j);
+        break;
+      }
+    }
+  }
+  mEndTouchVec.clear();
+
+  this->phase = phase;
+  this->touchVec.clear();
+}
+
 
 static float length(int ax, int ay, int bx, int by) {
   float dx = ax - bx;
@@ -51,115 +70,181 @@ static float length(int ax, int ay, int bx, int by) {
 }
 
 
+void Event::PrepareToSend() {
+  // Touch events can be sent in groups or subsets of the active group.
+  // E.g.: Ab, Bb, ABm, ABm, Bm, ABm, Am, Cb, ABCm, ABCm, BCe, Ae
+  // for event ids A, B & C, and suffixes b = began, m = moved, and e = ended.
+  // We track the starting position for each touch id along with the
+  // current position for all active touches. Touches are added to the
+  // active set on a 'start' and removed on 'end' or 'cancelT'.
+  
+  // Run through this event's touches, adding new entries to the start
+  // and cur tracking vectors and updating existing entries. After this
+  // loop, the active set will include all current and ending touches.
+  mBeginTouchVec.clear();
+  for (size_t i = 0; i < TouchCount(); ++i) {
+    const Event::Touch &touch(touchVec[i]);
+    
+    size_t j = 0;                         // Find entry in active lists
+    for (/*EMPTY*/; j < ActiveTouchCount(); ++j) {
+      if (touch.id == mStartTouchVec[j].id)
+        break;
+    }
+    if (j < ActiveTouchCount()) {         // Found! Remove or update
+      if (phase == TOUCH_BEGAN)           // Happens occasionally
+        mStartTouchVec[j] = touch;        // Update start position
+      if (phase == TOUCH_MOVED)           // End & Cancel handled below
+        mCurTouchVec[j] = touch;          // Update current position
+    } else if (phase == TOUCH_BEGAN) {
+      assert(mStartTouchVec.size() == mCurTouchVec.size());
+      mStartTouchVec.push_back(touch);
+      mCurTouchVec.push_back(touch);
+      mBeginTouchVec.push_back(touch);
+    } else {
+      // Moving a canceled point, ignore
+    }
+  }
+  
+  // Single touch events are simple and use the position of the one
+  // active set member for all actions. Multiple touch events use the
+  // centroid of all active touches for panning and the average distance
+  // from each touch to the centroid for scaling. Compute the centroid
+  // for all active points (including ones that are on their END phase).
+  mStartCentroid[0] = mStartCentroid[1] = 0;
+  mCurCentroid[0] = 0; mCurCentroid[1] = 0;
+  for (size_t i = 0; i < ActiveTouchCount(); ++i) {
+    mStartCentroid[0] += mStartTouchVec[i].x;
+    mStartCentroid[1] += mStartTouchVec[i].y;
+    mCurCentroid[0] += mCurTouchVec[i].x;
+    mCurCentroid[1] += mCurTouchVec[i].y;
+  }
+  mStartCentroid[0] /= ActiveTouchCount();
+  mStartCentroid[1] /= ActiveTouchCount();
+  mCurCentroid[0] /= ActiveTouchCount();
+  mCurCentroid[1] /= ActiveTouchCount();
+  
+  mPan[0] = mCurCentroid[0] - mStartCentroid[0];
+  mPan[1] = mCurCentroid[1] - mStartCentroid[1];
+  
+  // Compute the average distance from each touch to the centroid for
+  // all active points (including ones that are on their END phase).
+  mStartRadius = mCurRadius = 0;
+  for (size_t i = 0; i < ActiveTouchCount(); ++i) {
+    mStartRadius += length(mStartCentroid[0], mStartCentroid[1],
+                           mStartTouchVec[i].x, mStartTouchVec[i].y);
+    mCurRadius += length(mCurCentroid[0], mCurCentroid[1],
+                         mCurTouchVec[i].x, mCurTouchVec[i].y);
+  }
+  mStartRadius /= ActiveTouchCount();
+  mCurRadius /= ActiveTouchCount();
+  mScale = mCurRadius / mStartRadius;
+  
+  if (this->phase == TOUCH_ENDED || this->phase == TOUCH_CANCELLED) {
+    mEndTouchVec = touchVec;
+    // Special case foor cancel events that have no touches -- all done!
+    if (this->phase == TOUCH_CANCELLED && touchVec.empty())
+      mEndTouchVec = mCurTouchVec;
+  }
+}
+
+
+void Event::OnTouchBegan(Widget *widget) const {
+  for (size_t i = 0; i < mBeginTouchVec.size(); ++i)
+    widget->OnTouchBegan(mBeginTouchVec[i]);
+}
+
+
+void Event::OnTouchEnded(Widget *widget) const {
+  for (size_t i = 0; i < mEndTouchVec.size(); ++i)
+    widget->OnTouchEnded(mEndTouchVec[i]);
+}
+
+
+void Event::Print() const {
+  const char *phaseName[4] = { "Began", "Moved", "Ended", "Canceled" };
+  printf("%s %zd touches and %zd active: ", phaseName[int(phase)],
+         touchVec.size(), ActiveTouchCount());
+  for (size_t i = 0; i < touchVec.size(); ++i)
+    printf("%zd, ", touchVec[i].id);
+  printf("  - starts: ");
+  for (size_t i = 0; i < ActiveTouchCount(); ++i)
+    printf("%zd, ", mStartTouchVec[i].id);
+  printf("\n");
+}
+
+
+//
+// Widget
+//
+
 // Should be called by all Widgets that support gestures.
-// Filter the event scream tracking the supported gestures,
+// Filter the event stream tracking the supported gestures,
 // including scale and pan, invoking callbacks and passing
 // coordinates in screen pixel units.
 
 bool Widget::ProcessGestures(const tui::Event &event) {
-  if (event.phase == TOUCH_BEGAN) {
-    if (mIsDragging)
-      OnDrag(TOUCH_CANCELLED, 0, 0, 0);
-    if (mIsScaling)
-      OnDrag(TOUCH_CANCELLED, 0, 0, 0);
-    mTouchStart.clear();
-    mIsDragging = false;
-    mIsScaling = false;
-  }
+  bool consumed = false;                            // Return value default
+  const float timestamp = event.touchVec.empty() ?0:event.touchVec[0].timestamp;
   
-  EventPhase trackingPhase = event.phase; // Change if touch ids change
-  size_t idx[mTouchStart.size()];         // Vector indices of start touches
-  if (!mTouchStart.empty() && mTouchStart.size() != event.touchVec.size()) {
-    trackingPhase = TOUCH_BEGAN;          // Restart when # touches changes
-  } else {
-    for (size_t i = 0; i < mTouchStart.size(); ++i) {
-      size_t j = 0;
-      for (/*EMPTY*/; j < event.touchVec.size(); ++j) {
-        if (event.touchVec[j].id == mTouchStart[i].id)
-          break;
-      }
-      if (j < event.touchVec.size()) {
-        idx[i] = j;                       // Identify touch index in vector
-      } else {
-        trackingPhase = TOUCH_BEGAN;      // Restart if we lose a touch
-        break; // Can't find previous touch, start over?
-      }
-    }
-  }
+  event.OnTouchBegan(this);                         // Invoke OnTouchBegan
   
-  // Localize the two touch events we track
-  const Event::Touch &t0(event.touchVec[idx[0]]), &t1(event.touchVec[idx[1]]);
-
-  bool consumed = false;
-  
-  switch (trackingPhase) {
+  switch (event.phase) {
     case TOUCH_BEGAN:
-      mTouchStart.clear();                // Unnecessary?
-      mTouchStart = event.touchVec;       // Save initial touch down info
-      mIsDragging = false;                // Avoid jump due to mPrevPan tracking
+      if (mIsDragging)
+        OnDrag(TOUCH_CANCELLED, 0, 0, 0);
+      if (mIsScaling)
+        OnDrag(TOUCH_CANCELLED, 0, 0, 0);
+      mIsDragging = false;                          // Reset on new touches
       mIsScaling = false;
-      OnTouchBegan(t0);
+      mIsCanceled = false;
       break;
     case TOUCH_MOVED:
     case TOUCH_ENDED:     /*FALLTHRU*/
-      if (mTouchStart.size() > 1 && !event.touchVec.empty()) {  // Multitouch
+      assert(!event.touchVec.empty());
+      if (mIsCanceled) {
+        /*EMPTY*/
+      } else if (event.ActiveTouchCount() > 1) {    // Multitouch
         // Compute the pan based on the distance between the segment midpoints
-        const float mid0[2] = { 0.5 * (mTouchStart[0].x + mTouchStart[1].x),
-                                0.5 * (mTouchStart[0].y + mTouchStart[1].y) };
-        float mid[2] = { 0.5 * (t0.x + t1.x), 0.5 * (t0.y + t1.y) };
-        float pan[2] = { mid[0] - mid0[0], mid[1] - mid0[1] };
-        EventPhase gesturePhase = trackingPhase;
-        if (!mIsDragging) {
-          if (fabsf(pan[0]) > kMinPanPix) {
+        EventPhase phase = event.phase;
+        if (!mIsDragging && TouchStartInside(event)) {
+          if (fabsf(event.Pan()[0]) > kMinPanPix) {
             mIsDragging = true;
             mIsHorizontalDrag = true;
-          } else if (fabsf(pan[1]) > kMinPanPix) {
+          } else if (fabsf(event.Pan()[1]) > kMinPanPix) {
             mIsDragging = true;
             mIsHorizontalDrag = false;
           }
           if (mIsDragging)
-            gesturePhase = TOUCH_BEGAN;
+            phase = TOUCH_BEGAN;
         }
-        if (mIsDragging && OnDrag(gesturePhase, pan[0], pan[1], t0.timestamp))
+        if (mIsDragging &&
+            OnDrag(phase, event.Pan()[0], event.Pan()[1], timestamp))
             consumed = true;
 
         // Compute the scale based on the ratio of the segment lengths
-        float len0 = length(mTouchStart[0].x, mTouchStart[0].y,
-                            mTouchStart[1].x, mTouchStart[1].y);
-        float len1 = length(t0.x, t0.y, t1.x, t1.y);
-        float scale = len1 / len0;        // Relative scale change
-        gesturePhase = trackingPhase;     // Default to current
-        if (!mIsScaling && (scale > 1+kMinScale || scale < 1-kMinScale)) {
+        phase = event.phase;                        // Default to current
+        if (!mIsScaling && TouchStartInside(event) &&
+            (event.Scale() > 1+kMinScale || event.Scale() < 1-kMinScale)) {
           mIsScaling = true;
-          gesturePhase = TOUCH_BEGAN;     // First scale event,
+          phase = TOUCH_BEGAN;                      // First scale event,
         }
-        if (mIsScaling &&
-            OnScale(gesturePhase, scale, mid[0], mid[1], t0.timestamp))
+        if (mIsScaling && OnScale(phase, event.Scale(), event.CurCentroid()[0],
+                                  event.CurCentroid()[1], timestamp))
             consumed = true;
-      } else if (!mTouchStart.empty()) {                     // Single-touch
-        
-        // Translate by the difference between the previous and
-        // the current touch locations, accounting for scale.
-        const float pan[2] = {t0.x - mTouchStart[0].x, t0.y - mTouchStart[0].y};
-        EventPhase gesturePhase = trackingPhase;
-        if (!mIsDragging) {
-          if (fabsf(pan[0]) > kMinPanPix) {
+      } else if (event.ActiveTouchCount() == 1) {   // Single-touch
+        EventPhase phase = event.phase;
+        if (!mIsDragging && TouchStartInside(event)) {
+          if (fabsf(event.Pan()[0]) > kMinPanPix) {
             mIsDragging = true;
             mIsHorizontalDrag = true;
-          } else if (fabsf(pan[1]) > kMinPanPix) {
+          } else if (fabsf(event.Pan()[1]) > kMinPanPix) {
             mIsDragging = true;
             mIsHorizontalDrag = false;
           }
-          gesturePhase = TOUCH_BEGAN;
+          phase = TOUCH_BEGAN;
         }
-        if (mIsDragging && OnDrag(gesturePhase, pan[0], pan[1], t0.timestamp))
+        if (mIsDragging && OnDrag(phase, event.Pan()[0], event.Pan()[1], timestamp))
             consumed = true;
-      }
-      
-      if (trackingPhase != TOUCH_MOVED) {
-        mTouchStart.clear();              // Avoid Viewport OnTouchTap
-        mIsDragging = false;
-        mIsScaling = false;
       }
       
       break;
@@ -171,10 +256,16 @@ bool Widget::ProcessGestures(const tui::Event &event) {
       if (mIsScaling)
         if (OnDrag(TOUCH_CANCELLED, 0, 0, 0))
           consumed = true;
-      mTouchStart.clear();
-      mIsDragging = false;
-      mIsScaling = false;
+      mIsCanceled = true;
       break;
+  }                                                 // switch (event.phase)
+  
+  event.OnTouchEnded(this);                         // Invoke OnTouchEnded
+  
+  if (event.Done()) {                               // All done!
+    mIsDragging = false;
+    mIsScaling = false;
+    mIsCanceled = false;
   }
   
   return consumed;
@@ -189,34 +280,40 @@ int ViewportWidget::sDefaultCancelPad = 35;         // Points, not pixels!
 
 
 bool ViewportWidget::ProcessGestures(const Event &event) {
-  // Handle the viewport event, OnTouchTap.
-  // Consider adding a opaque viewport check here if needed.
-  if (event.phase == TOUCH_ENDED && !IsDragging() && !IsScaling()) {
-    for (size_t i = 0; i < event.touchVec.size(); ++i) {
+  // Handle the viewport events, OnTouchTap and OnDoubleTap
+  bool consumed = false;
+  if (event.phase == TOUCH_ENDED && !IsDragging() && !IsScaling() &&
+      event.ActiveTouchCount() == 1) {
+    for (size_t i = 0; !consumed && i < event.touchVec.size(); ++i) {
       const Event::Touch &t(event.touchVec[i]);
-      for (size_t j = 0; j < TouchStartCount(); ++j) {
-        if (t.id == TouchStart(j).id && Inside(t.x, t.y, mCancelPad) &&
-            Inside(TouchStart(j).x, TouchStart(j).y, mCancelPad)) {
-          if (OnTouchTap(t))
-            return true;
+      for (size_t j = 0; j < event.ActiveTouchCount(); ++j) {
+        if (t.id == event.StartTouch(j).id && Inside(t.x, t.y, mCancelPad) &&
+            Inside(event.StartTouch(j).x, event.StartTouch(j).y, mCancelPad)) {
+          if (t.timestamp - mLastTapTimestamp < kDoubleTapSec) {
+            consumed = OnDoubleTap(t);
+          } else {
+            mLastTapTimestamp = t.timestamp;
+            consumed = OnTouchTap(t);
+          }
+          break;
         }
       }
     }
   }
   
-  if (Widget::ProcessGestures(event))
+  if (Widget::ProcessGestures(event) || consumed)
     return true;
-  if (mEventOpaque && TouchStartInside())
+  if (mEventOpaque && TouchStartInside(event))      // Hide events behind vp
     return true;
   
   return false;
 }
 
 
-bool ViewportWidget::TouchStartInside() const {
+bool ViewportWidget::TouchStartInside(const Event &event) const {
   bool touchInside = false;
-  for (size_t i = 0; i < TouchStartCount(); ++i) {
-    if (Inside(TouchStart(i).x, TouchStart(i).y)) {
+  for (size_t i = 0; i < event.ActiveTouchCount(); ++i) {
+    if (Inside(event.StartTouch(i).x, event.StartTouch(i).y)) {
       touchInside = true;
       break;
     }
@@ -1897,6 +1994,40 @@ bool FlinglistImpl::Clear() {
 }
 
 
+bool FlinglistImpl::DrawFrame(FlinglistImpl::Frame *frame) {
+  int frameViewport[4] = { 0 };
+  if (!Viewport(frame, frameViewport))
+    return false;
+  const int vp[4] = { mViewport[0] + mViewportInset,
+                      mViewport[1] + mViewportInset,
+                      mViewport[2] - 2 * mViewportInset,
+                      mViewport[3] - 2 * mViewportInset };
+  int scissor[4] = { frameViewport[0], frameViewport[1],
+                     frameViewport[2], frameViewport[3] };
+  if (scissor[0] < vp[0]) scissor[0] = vp[0];
+  if (scissor[1] < vp[1]) scissor[1] = vp[1];
+  if (scissor[0] + scissor[2] > vp[0] + vp[2])
+    scissor[2] -= scissor[0] + scissor[2] - vp[0] - vp[2];
+  if (scissor[1] + scissor[3] > vp[1] + vp[3])
+    scissor[3] -= scissor[1] + scissor[3] - vp[1] - vp[3];
+  if (scissor[2] <= 0 || scissor[3] <= 0)
+    return true;;
+  glViewport(frameViewport[0], frameViewport[1],
+             frameViewport[2], frameViewport[3]);
+  glScissor(scissor[0], scissor[1], scissor[2], scissor[3]);
+  glEnable(GL_SCISSOR_TEST);
+  if (GlesUtil::Error())
+    return false;
+  
+  if (!frame->Draw())
+    return false;
+  
+  glDisable(GL_SCISSOR_TEST);
+  
+  return true;
+}
+
+
 // Draw the visible frames, the over-scrolled region and the scroll thumb.
 
 bool FlinglistImpl::Draw() {
@@ -1908,6 +2039,11 @@ bool FlinglistImpl::Draw() {
   if (!VisibleFrameRange(&minIdx, &maxIdx))
     return true;
 
+  for (size_t i = minIdx; i <= maxIdx; ++i) {
+    if (!DrawFrame(mFrameVec[i]))
+      return false;
+  }
+
   glEnable(GL_SCISSOR_TEST);
 
   // Use an inset viewport to allow the strip to draw chrome outside the
@@ -1917,29 +2053,6 @@ bool FlinglistImpl::Draw() {
                       mViewport[1] + mViewportInset,
                       mViewport[2] - 2 * mViewportInset,
                       mViewport[3] - 2 * mViewportInset };
-  
-  for (size_t i = minIdx; i <= maxIdx; ++i) {
-    int frameViewport[4] = { 0 };
-    if (!Viewport(mFrameVec[i], frameViewport))
-      return false;
-    int scissor[4] = { frameViewport[0], frameViewport[1],
-      frameViewport[2], frameViewport[3] };
-    if (scissor[0] < vp[0]) scissor[0] = vp[0];
-    if (scissor[1] < vp[1]) scissor[1] = vp[1];
-    if (scissor[0] + scissor[2] > vp[0] + vp[2])
-      scissor[2] -= scissor[0] + scissor[2] - vp[0] - vp[2];
-    if (scissor[1] + scissor[3] > vp[1] + vp[3])
-      scissor[3] -= scissor[1] + scissor[3] - vp[1] - vp[3];
-    if (scissor[2] <= 0 || scissor[3] <= 0)
-      continue;
-    glViewport(frameViewport[0], frameViewport[1],
-               frameViewport[2], frameViewport[3]);
-    glScissor(scissor[0], scissor[1], scissor[2], scissor[3]);
-    if (GlesUtil::Error())
-      return false;
-    if (!mFrameVec[i]->Draw())
-      return false;
-  }
   
   // Draw the over-scrolled region with a tinted blue highlight
   if (mScrollBounce != 0) {
@@ -2157,7 +2270,7 @@ bool FlinglistImpl::Step(float seconds) {
   } else if (mSnapToCenter && mTouchFrameIdx < 0 && mSnapSeconds == 0 &&
              mScrollVelocity != 0 && fabsf(mScrollVelocity) < kSnapVelocity) {
     // Snap after flinging to handle the !mSingleFrameFling mode
-    assert(!mSingleFrameFling);
+//    assert(!mSingleFrameFling);
     SnapIdx(FlingingSnapIdx(), 0.15);
   }
 
@@ -2296,8 +2409,21 @@ bool FlinglistImpl::Touch(const Event &event) {
   if (!Enabled() || Hidden() || Size() == 0)
     return false;
   
-  for (size_t t = 0; t < event.touchVec.size(); ++t) {
-    int xy[2] = { event.touchVec[t].x, event.touchVec[t].y };
+  // Only process single-touch events for flinglists
+  if (event.touchVec.empty()) {
+    assert(event.phase == TOUCH_CANCELLED);
+    mTouchFrameIdx = -1;
+    mMovedAfterDown = false;
+    mMovedOffAxisAfterDown = false;
+    mLongPressSeconds = 0;
+    if (fabsf(mScrollVelocity) < 0.1)
+      mScrollVelocity = 0;
+  } else if (event.touchVec.size() > 1) {
+    mMovedAfterDown = false;
+    mMovedOffAxisAfterDown = false;
+  } else {
+    
+    int xy[2] = { event.touchVec[0].x, event.touchVec[0].y };
     int xory = mVertical ? 1 : 0;
     switch (event.phase) {
       case TOUCH_BEGAN:
@@ -2313,8 +2439,8 @@ bool FlinglistImpl::Touch(const Event &event) {
           mSnapSeconds = mSnapRemainingSeconds = 0;
           mSnapOriginalOffset = mSnapTargetOffset = 0;
           mLongPressSeconds = 0;
-          OnTouchBegan(event.touchVec[t]);
-          mFrameVec[mTouchFrameIdx]->OnTouchBegan(event.touchVec[t]);
+          OnTouchBegan(event.touchVec[0]);
+          mFrameVec[mTouchFrameIdx]->OnTouchBegan(event.touchVec[0]);
         }
         break;
       case TOUCH_MOVED: {
@@ -2328,56 +2454,58 @@ bool FlinglistImpl::Touch(const Event &event) {
         int dOffAxis = abs(xy[!xory] - mTouchStart[!xory]);
         if (!mMovedAfterDown && dOffAxis > mPixelsPerCm / 10 * kDragMm)
           mMovedOffAxisAfterDown = true;
-        if (mMovedOffAxisAfterDown && 
-            OnOffAxisMove(event.touchVec[t], mTouchStart[0], mTouchStart[1]))
-            return true;
+        if (mMovedOffAxisAfterDown &&
+            OnOffAxisMove(event.touchVec[0], mTouchStart[0], mTouchStart[1]))
+          return true;
         if (!mMovedAfterDown)
           break;
-        mScrollVelocity = 0.5 * (d + mScrollVelocity);
-        if (mScrollVelocity > mFrameDim / 2)
-          mScrollVelocity = mFrameDim / 2;
-        else if (mScrollVelocity < -mFrameDim / 2)
-          mScrollVelocity = -mFrameDim / 2;
-        int offset = mScrollOffset + d;
-        const bool scrollback = false; // allow bounce scrolling
-        if (offset < ScrollMin()) {
-          mScrollOffset = ScrollMin();
-          if (scrollback && offset - ScrollMin() > mScrollBounce) {
-            mScrollBounce = mScrollVelocity = mThumbFade = 0;
+        if (!mIsLocked) {
+          mScrollVelocity = 0.5 * (d + mScrollVelocity);
+          if (mScrollVelocity > mFrameDim / 2)
+            mScrollVelocity = mFrameDim / 2;
+          else if (mScrollVelocity < -mFrameDim / 2)
+            mScrollVelocity = -mFrameDim / 2;
+          float offset = mScrollOffset + d;
+          const bool scrollback = false; // allow bounce scrolling
+          if (offset < ScrollMin()) {
+            mScrollOffset = ScrollMin();
+            if (scrollback && offset - ScrollMin() > mScrollBounce) {
+              mScrollBounce = mScrollVelocity = mThumbFade = 0;
+              mTouchStart[0] = xy[0];
+              mTouchStart[1] = xy[1];
+            } else {
+              mScrollBounce = offset - ScrollMin();
+              mThumbFade = 1;
+              mScrollVelocity = 0;
+            }
+          } else if (offset > ScrollMax()) {
+            mScrollOffset = ScrollMax();
+            if (scrollback && offset - ScrollMax() < mScrollBounce) {
+              mScrollBounce = mScrollVelocity = mThumbFade = 0;
+              mTouchStart[0] = xy[0];
+              mTouchStart[1] = xy[1];
+            } else {
+              mScrollBounce = offset - ScrollMax();
+              mThumbFade = 1;
+              mScrollVelocity = 0;
+            }
+          } else {
+            mScrollOffset = offset;
             mTouchStart[0] = xy[0];
             mTouchStart[1] = xy[1];
-          } else {
-            mScrollBounce = offset - ScrollMin();
-            mThumbFade = 1;
-            mScrollVelocity = 0;
           }
-        } else if (offset > ScrollMax()) {
-          mScrollOffset = ScrollMax();
-          if (scrollback && offset - ScrollMax() < mScrollBounce) {
-            mScrollBounce = mScrollVelocity = mThumbFade = 0;
-            mTouchStart[0] = xy[0];
-            mTouchStart[1] = xy[1];
-          } else {
-            mScrollBounce = offset - ScrollMax();
-            mThumbFade = 1;
-            mScrollVelocity = 0;
-          }
-        } else {
-          mScrollOffset = offset;
-          mTouchStart[0] = xy[0];
-          mTouchStart[1] = xy[1];
         }
         if (!mMovedAfterDown)
           mScrollBounce  = mScrollVelocity = 0;
         OnMove();
-      }
         break;
+      }
       case TOUCH_CANCELLED: /*FALLTHRU*/
       case TOUCH_ENDED: {
         bool tapStatus = mTouchFrameIdx >= 0;
         if (mTouchFrameIdx >= 0 && !MovedAfterDown())
-          tapStatus = mFrameVec[mTouchFrameIdx]->OnTouchTap(event.touchVec[t]);
-        if (mOverpullOnTex && mScrollBounce < OverpullPixels()){
+          tapStatus = mFrameVec[mTouchFrameIdx]->OnTouchTap(event.touchVec[0]);
+        if (mOverpullOnTex && mScrollBounce < OverpullPixels()) {
           OnOverpullRelease();
           mScrollBounce = 0;
         }
@@ -2395,8 +2523,8 @@ bool FlinglistImpl::Touch(const Event &event) {
         }
         if (tapStatus)
           return true;
-      }
         break;
+      }
     }
   }
   
@@ -2463,19 +2591,175 @@ int FlinglistImpl::FlingingSnapIdx() const {
 }
 
 
-bool FilmstripImpl::Prepend(Frame *frame) {
+//
+// FilmstripImpl
+//
+
+bool FilmstripImpl::SetViewport(int x, int y, int w, int h) {
+  if (!FlinglistImpl::SetViewport(x, y, w, h))
+    return false;
+  if (mPZFrame)
+    mPZFrame->SetViewport(x, y, w, h);
+  return true;
+}
+
+
+void FilmstripImpl::SetPinchAndZoom(tui::Frame *frame) {
+  mPZFrame = frame;
+  if (mPZFrame) {
+    mPZFrame->SetViewport(Left(), Bottom(), Width(), Height());
+    mPZFrame->SetOverpullDeceleration(1);
+    mPZFrame->Lock(mVertical, !mVertical, false);
+  }
+}
+
+
+bool FilmstripImpl::Touch(const tui::Event &event) {
+  if (Hidden() || !Enabled())
+    return false;
+  
+  if (mPZFrame && mPZFrame->Enabled() && !mMovedAfterDown &&
+      !mMovedOffAxisAfterDown) {
+    float ds = mPZFrame->Scale() - mPZFrame->FitScale();
+    bool isFit = fabs(ds) < 0.001;
+    if (!isFit)
+      mPZFrame->Lock(false, false, false);
+    else
+      mPZFrame->Lock(false, true, false);
+    mIsPZEvent = mPZFrame->Touch(event);
+
+    switch (event.phase) {
+      case TOUCH_BEGAN:
+        mPZStartScrollOffset = mScrollOffset;
+        break;
+        
+      case TOUCH_MOVED:
+        if (mIsPZEvent && mPZFrame->IsDragging() && !mPZFrame->IsScaling() && isFit) {
+          mPZFrame->SnapToFitFrame();
+          mPZFrame->Touch(Event(TOUCH_CANCELLED));
+          mIsPZEvent = false;
+        } else if (mIsPZEvent) {
+          FlinglistImpl::Touch(Event(TOUCH_CANCELLED));
+          mScrollVelocity = 0;
+          if (!mIsLocked) {
+            float overpull = mPZFrame->XOverpull();
+            float offset = mPZStartScrollOffset + overpull;
+            if (offset < ScrollMin()) {
+              mScrollOffset = ScrollMin();
+              mScrollBounce = offset - ScrollMin();
+              mThumbFade = 1;
+            } else if (offset > ScrollMax()) {
+              mScrollOffset = ScrollMax();
+              mScrollBounce = offset - ScrollMax();
+              mThumbFade = 1;
+            } else {
+              mScrollOffset = offset;
+            }
+          }
+        }
+        break;
+        
+      case TOUCH_ENDED:
+        // Decide if we snap or let PZFrame handle movement
+        if (mIsPZEvent && event.touchVec.empty()) {
+          float overpull = mPZFrame->XOverpull();
+          if (mOverpullOnTex && mScrollBounce < OverpullPixels()) {
+            OnOverpullRelease();
+            mScrollBounce = 0;
+          } else if (overpull > mFrameDim/2 && mSelectedFrameIdx < mFrameVec.size() - 1) {
+            Snap(mFrameVec[mSelectedFrameIdx + 1], 0.15);
+            mIsPZEvent = false;
+          } else if (overpull < -mFrameDim/2 && mSelectedFrameIdx > 0) {
+            Snap(mFrameVec[mSelectedFrameIdx - 1], 0.15);
+            mIsPZEvent = false;
+          } else {
+            mPZFrame->SnapToUVCenter(mPZFrame->UCenter(), mPZFrame->VCenter(),
+                                     true);   // Sets dirty flag for animation
+          }
+        }
+        break;
+        
+      case TOUCH_CANCELLED:
+        break;
+    }
+    
+    if (mIsPZEvent) {
+      mLongPressSeconds = 0;
+      return true;
+    }
+  }
+  
+  return FlinglistImpl::Touch(event);
+}
+
+
+bool FilmstripImpl::Step(float seconds) {
+  if (mPZFrame) {
+    if (!mPZFrame->Step(seconds))
+      return false;
+    if (!mIsLocked && mIsPZEvent) {
+      mScrollVelocity = 0;
+      float overpull = mPZFrame->XOverpull();
+      float offset = mPZStartScrollOffset + overpull;
+      if (offset < ScrollMin()) {
+        mScrollOffset = ScrollMin();
+        mScrollBounce = offset - ScrollMin();
+        mThumbFade = 1;
+      } else if (offset > ScrollMax()) {
+        mScrollOffset = ScrollMax();
+        mScrollBounce = offset - ScrollMax();
+        mThumbFade = 1;
+      } else {
+        mScrollOffset = offset;
+      }
+    }
+    if (mPZFrame->IsScaling() || mPZFrame->IsDragging())
+      return true;
+  }
+  if (!FlinglistImpl::Step(seconds))
+    return false;
+  return true;
+}
+
+
+bool FilmstripImpl::DrawFrame(FlinglistImpl::Frame *frame) {
+  if (mPZFrame && mSelectedFrameIdx >= 0 &&
+      mFrameVec[mSelectedFrameIdx] == frame) {
+    glViewport(mPZFrame->Left(), mPZFrame->Bottom(),
+               mPZFrame->Width(), mPZFrame->Height());
+    if (!mPZFrame->Draw())
+      return false;
+    return true;
+  }
+  
+  return FlinglistImpl::DrawFrame(frame);
+}
+
+
+bool FilmstripImpl::Dormant() const {
+  if (!FlinglistImpl::Dormant())
+    return false;
+  if (mPZFrame && !mPZFrame->Dormant())
+    return false;
+  return true;
+}
+
+
+bool FilmstripImpl::Prepend(FlinglistImpl::Frame *frame) {
   if (!FlinglistImpl::Prepend(frame))
     return false;
   if (mSelectedFrameIdx >= 0) {
     mSelectedFrameIdx++;
     OnSelectionChanged();
+    if (mPZFrame)
+      mPZFrame->SnapToFitFrame();
   }
   
   return true;
 }
 
 
-bool FilmstripImpl::Delete(Frame *frame) {
+bool FilmstripImpl::Delete(FlinglistImpl::Frame *frame) {
   int idx = FrameIdx(frame);
   if (idx < 0)
     return false;
@@ -2492,6 +2776,8 @@ void FilmstripImpl::SnapIdx(size_t idx, float seconds) {
   if (mSelectedFrameIdx != idx) {
     mSelectedFrameIdx = idx;
     OnSelectionChanged();
+    if (mPZFrame)
+      mPZFrame->SnapToFitFrame();
   }
   FlinglistImpl::SnapIdx(idx, seconds);
 }
@@ -2504,6 +2790,29 @@ void FilmstripImpl::SnapIdx(size_t idx, float seconds) {
 bool Frame::Reset() {
   ComputeScaleRange();
   return true;
+}
+
+
+float Frame::XOverpull() const {
+  if (mSnapMode != SNAP_CENTER)               // FIXME: Handle all modes!
+    return 0;
+
+  float x0, y0, x1, y1, u0, v0, u1, v1;
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+  x0 = x0 < -1 ? -1 : (x0 > 1 ? 1 : x0);
+  x1 = x1 < -1 ? -1 : (x1 > 1 ? 1 : x1);
+
+  float dx0 = x0 + 1;
+  float dx1 = 1 - x1;
+  float d = (dx0 - dx1) / 2;
+  
+  return Width() * d;
+}
+
+
+float Frame::YOverpull() const {
+  abort();
+  return 0;
 }
 
 
@@ -2532,8 +2841,8 @@ void Frame::ComputeScaleRange() {
   
   mScaleMin = FitScale();
   mScaleMax = std::max(32.0f, mScaleMin * 4); // Increase past 32 smoothly
-  if (mScaleMin > 1)
-    mScaleMin = 1;
+//  if (mScaleMin > 1)
+//    mScaleMin = 1;
 
   assert(mScaleMin < mScaleMax);
 }
@@ -2553,6 +2862,8 @@ bool Frame::Step(float seconds) {
     return true;
   if (!ImageWidth() || !ImageHeight())
     return true;
+  if (IsDragging() || IsScaling())
+    return true;                              // No motion during touch events
   if (mIsDirty)
     mIsDirty = false;
 
@@ -2568,17 +2879,17 @@ bool Frame::Step(float seconds) {
   if (mIsScaleLocked) {
     mIsTargetScaleActive = false;
     mTargetScale = 0;
-  } else if (mScale > mScaleMax && mScaleVelocity > 0.01) {
+  } else if (mScale > mScaleMax /* && mScaleVelocity > 0.01*/) {
     mTargetScale = mScaleMax;
     mIsTargetScaleActive = true;
-  } else if (mScale < mScaleMin && mScaleVelocity < -0.01) {
+  } else if (mScale < mScaleMin /* && mScaleVelocity < -0.01*/) {
     mTargetScale = mScaleMin;
     mIsTargetScaleActive = true;
     mIsTargetScaleCenterActive = true;
   }
   
   // Apply target scale if enabled & not actively moving
-  if (!IsScaling() && mIsTargetScaleActive) {
+  if (mIsTargetScaleActive) {
     if (fabs(mScale - mTargetScale) < 0.01) {
       mScale = mTargetScale;
       mScaleVelocity = 0;
@@ -2590,7 +2901,7 @@ bool Frame::Step(float seconds) {
   }
   
   // Apply target center if enabled & not actively moving
-  if (!IsDragging() && (mIsTargetCenterActive || mIsTargetScaleActive)) {
+  if (mIsTargetCenterActive || mIsTargetScaleActive) {
     if (mIsSnapDirty) {
       // Check to see if the target center is past the limit at target scale.
       // We don't want to stop translating, just limit the translation to
@@ -2648,105 +2959,103 @@ bool Frame::Step(float seconds) {
   if (!IsDragging() && !mIsLocked[1] && mCenterVelocityUV[1] != 0)
     mCenterUV[1] += mCenterVelocityUV[1] * seconds;
 
-  // Snap the NDC window to specified limit mode.
-  if (!IsDragging() && !IsScaling()) {
-    const int sw = mScale * iw;                           // Screen pixel dim
-    const int sh = mScale * ih;
-    const float padW = std::max((int(Width()) - sw) / float(Width()), 0.0f);
-    const float padH = std::max((int(Height()) - sh) / float(Height()), 0.0f);
-    const float pw = clamp(U2Ndc(1.0 / iw), -1.0f, 1.0f); // One pixel in NDC
-    const float ph = clamp(V2Ndc(1.0 / ih), -1.0f, 1.0f);
-
-    float tx0, ty0, tx1, ty1;                             // Target NDC window
-    switch (mSnapMode) {
-      case SNAP_CENTER:     tx0 = -1 + padW;        ty0 = -1 + padH;
-                            tx1 = 1 - padW;         ty1 = 1 - padH;       break;
-      case SNAP_UPPER_LEFT: tx0 = -1;               ty0 = -1 + 2 * padH;
-                            tx1 = 1 - 2 * padW;     ty1 = 1;              break;
-      case SNAP_PIXEL:      tx0 = -pw/2;            ty0 = -ph/2;
-                            tx1 = pw/2;             ty1 = ph/2;           break;
-      case SNAP_NDC_RECT:   tx0 = mSnapNDCRect[0];  ty0 = mSnapNDCRect[1];
-                            tx1 = mSnapNDCRect[2];  ty1 = mSnapNDCRect[3];break;
-    }
-
-    // Compute the current window and compare edges to target window
-    // converting the distance from the edges in NDC into UV coords.
-    // When the crop window is smaller than the image, we keep it inside,
-    // and when the crop window is larger, we keep the image inside the crop.
-    float x0, y0, x1, y1, u0, v0, u1, v1;
-    ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
-    float su = 0.75, sv = 0.75;                           // UV Scaling
-    float du = 0, dv = 0;                                 // Change in UV
-    const bool isWider = tx1 - tx0 > x1 - x0;             // Crop wider image?
-    if (mSnapMode == SNAP_NDC_RECT && isWider) {          // Image inside crop
-      if (x0 < tx0)                                       // Left
-        du = Ndc2U(x0 - tx0);
-      else if (x1 > tx1)                                  // Right
-        du = Ndc2U(x1 - tx1);
-    } else {                                              // Crop inside image
-      if (x0 > tx0)                                       // Left
-        du = Ndc2U(x0 - tx0);
-      else if (x1 < tx1)                                  // Right
-        du = Ndc2U(x1 - tx1);
-    }
-    const bool isTaller = ty1 - ty0 > y1 - y0;            // Crop taller image?
-    if (mSnapMode == SNAP_NDC_RECT && isTaller) {         // Image inside crop
-      if (y0 < ty0)                                       // Bottom
-        dv = Ndc2V(y0 - ty0);
-      else if (y1 > ty1)                                  // Top
-        dv = Ndc2V(y1 - ty1);
-    } else {                                              // Crop inside image
-      if (y0 > ty0)                                       // Bottom
-        dv = Ndc2V(y0 - ty0);
-      else if (y1 < ty1)                                  // Top
-        dv = Ndc2V(y1 - ty1);
-    }
-    
-    // Snap the central pixel when the velocity falls below a threshold
-    const float dUVPixels = 5;                            // pixel threshold
-    const float spu = Ndc2U(2.0f / Width()), spv = Ndc2V(2.0f /Height());
-    if (mSnapMode == SNAP_PIXEL && du == 0 && dv == 0 &&  // No motion
-        fabsf(mCenterVelocityUV[0]) < dUVPixels / iw &&   // No momentum
-        fabsf(mCenterVelocityUV[1]) < dUVPixels / ih) {
-      const float pix[2] = { mCenterUV[0] * iw, mCenterUV[1] * ih };
-      float cpix[2] = { floor(pix[0]), floor(pix[1]) };   // Center pixel
-      assert(cpix[0] >= 0 && cpix[0] < iw);               // du == dv == 0
-      assert(cpix[1] >= 0 && cpix[1] < ih);
-      mCenterVelocityUV[0] = mCenterVelocityUV[1] = 0;    // Force to zero
-      du = (0.5 - (pix[0] - cpix[0])) / iw;               // Move to pix center
-      dv = -(0.5 -(pix[1] - cpix[1])) / ih;
-    }
-
-    // Snap target scale to computed final scale.
-    // This is a backup, and should not be needed if the target clamp
-    // math is correct above, but just in case we're wrong...
-    if (!mIsTargetScaleActive) {                          // At final scale?
-      if (du != 0)                                        // Clamping U?
-        mTargetCenterUV[0] = mCenterUV[0] + du;           // Target clamp U
-      if (dv != 0)                                        // Clamping V?
-        mTargetCenterUV[1] = mCenterUV[1] + dv;           // Target clamp V
-    }
-    
-    // Snap to the final target position if we are within the threshold
-    if (fabsf(du) < dUVPixels * 0.5 * spu)                // Within U thresh?
-      su = 1;                                             // Snap to target U
-    if (fabsf(dv) < dUVPixels * 0.5 * spv)                // Within V thresh?
-      sv = 1;                                             // Snap to target V
-
-    // Adjust the center of the current window by moving toward target
-    assert(du == 0 || !mIsLocked[0]);
-    assert(dv == 0 || !mIsLocked[1]);
-    assert(!isinf(du) && !isinf(dv) && !isinf(su) && !isinf(sv));
-    mCenterUV[0] += su * du;                              // Move toward target
-    mCenterUV[1] -= sv * dv;
-    
-    // Determine if we need to continue moving or if we've hit the target
-    if (su < 1 || sv < 1)
-      mIsTargetScaleCenterActive = true;
-    else
-      mIsTargetScaleCenterActive = false;
-    mIsDirty = fabsf((1 - su) * du) > 0.5 * spu || fabsf((1 - sv) * dv) > 0.5 * spv;
+  // Snap the NDC window to specified limit mode
+  const int sw = mScale * iw;                           // Screen pixel dim
+  const int sh = mScale * ih;
+  const float padW = std::max((int(Width()) - sw) / float(Width()), 0.0f);
+  const float padH = std::max((int(Height()) - sh) / float(Height()), 0.0f);
+  const float pw = clamp(U2Ndc(1.0 / iw), -1.0f, 1.0f); // One pixel in NDC
+  const float ph = clamp(V2Ndc(1.0 / ih), -1.0f, 1.0f);
+  
+  float tx0, ty0, tx1, ty1;                             // Target NDC window
+  switch (mSnapMode) {
+    case SNAP_CENTER:     tx0 = -1 + padW;        ty0 = -1 + padH;
+      tx1 = 1 - padW;         ty1 = 1 - padH;       break;
+    case SNAP_UPPER_LEFT: tx0 = -1;               ty0 = -1 + 2 * padH;
+      tx1 = 1 - 2 * padW;     ty1 = 1;              break;
+    case SNAP_PIXEL:      tx0 = -pw/2;            ty0 = -ph/2;
+      tx1 = pw/2;             ty1 = ph/2;           break;
+    case SNAP_NDC_RECT:   tx0 = mSnapNDCRect[0];  ty0 = mSnapNDCRect[1];
+      tx1 = mSnapNDCRect[2];  ty1 = mSnapNDCRect[3];break;
   }
+  
+  // Compute the current window and compare edges to target window
+  // converting the distance from the edges in NDC into UV coords.
+  // When the crop window is smaller than the image, we keep it inside,
+  // and when the crop window is larger, we keep the image inside the crop.
+  float x0, y0, x1, y1, u0, v0, u1, v1;
+  ComputeDisplayRect(&x0, &y0, &x1, &y1, &u0, &v0, &u1, &v1);
+  float su = 0.75, sv = 0.75;                           // UV Scaling
+  float du = 0, dv = 0;                                 // Change in UV
+  const bool isWider = tx1 - tx0 > x1 - x0;             // Crop wider image?
+  if (mSnapMode == SNAP_NDC_RECT && isWider) {          // Image inside crop
+    if (x0 < tx0)                                       // Left
+      du = Ndc2U(x0 - tx0);
+    else if (x1 > tx1)                                  // Right
+      du = Ndc2U(x1 - tx1);
+  } else {                                              // Crop inside image
+    if (x0 > tx0)                                       // Left
+      du = Ndc2U(x0 - tx0);
+    else if (x1 < tx1)                                  // Right
+      du = Ndc2U(x1 - tx1);
+  }
+  const bool isTaller = ty1 - ty0 > y1 - y0;            // Crop taller image?
+  if (mSnapMode == SNAP_NDC_RECT && isTaller) {         // Image inside crop
+    if (y0 < ty0)                                       // Bottom
+      dv = Ndc2V(y0 - ty0);
+    else if (y1 > ty1)                                  // Top
+      dv = Ndc2V(y1 - ty1);
+  } else {                                              // Crop inside image
+    if (y0 > ty0)                                       // Bottom
+      dv = Ndc2V(y0 - ty0);
+    else if (y1 < ty1)                                  // Top
+      dv = Ndc2V(y1 - ty1);
+  }
+  
+  // Snap the central pixel when the velocity falls below a threshold
+  const float dUVPixels = 5;                            // pixel threshold
+  const float spu = Ndc2U(2.0f / Width()), spv = Ndc2V(2.0f /Height());
+  if (mSnapMode == SNAP_PIXEL && du == 0 && dv == 0 &&  // No motion
+      fabsf(mCenterVelocityUV[0]) < dUVPixels / iw &&   // No momentum
+      fabsf(mCenterVelocityUV[1]) < dUVPixels / ih) {
+    const float pix[2] = { mCenterUV[0] * iw, mCenterUV[1] * ih };
+    float cpix[2] = { floor(pix[0]), floor(pix[1]) };   // Center pixel
+    assert(cpix[0] >= 0 && cpix[0] < iw);               // du == dv == 0
+    assert(cpix[1] >= 0 && cpix[1] < ih);
+    mCenterVelocityUV[0] = mCenterVelocityUV[1] = 0;    // Force to zero
+    du = (0.5 - (pix[0] - cpix[0])) / iw;               // Move to pix center
+    dv = -(0.5 -(pix[1] - cpix[1])) / ih;
+  }
+  
+  // Snap target scale to computed final scale.
+  // This is a backup, and should not be needed if the target clamp
+  // math is correct above, but just in case we're wrong...
+  if (!mIsTargetScaleActive) {                          // At final scale?
+    if (du != 0)                                        // Clamping U?
+      mTargetCenterUV[0] = mCenterUV[0] + du;           // Target clamp U
+    if (dv != 0)                                        // Clamping V?
+      mTargetCenterUV[1] = mCenterUV[1] + dv;           // Target clamp V
+  }
+  
+  // Snap to the final target position if we are within the threshold
+  if (fabsf(du) < dUVPixels * 0.5 * spu)                // Within U thresh?
+    su = 1;                                             // Snap to target U
+  if (fabsf(dv) < dUVPixels * 0.5 * spv)                // Within V thresh?
+    sv = 1;                                             // Snap to target V
+  
+  // Adjust the center of the current window by moving toward target
+  assert(du == 0 || !mIsLocked[0]);
+  //    assert(dv == 0 || !mIsLocked[1]);
+  assert(!isinf(du) && !isinf(dv) && !isinf(su) && !isinf(sv));
+  mCenterUV[0] += su * du;                              // Move toward target
+  mCenterUV[1] -= sv * dv;
+  
+  // Determine if we need to continue moving or if we've hit the target
+  if (su < 1 || sv < 1)
+    mIsTargetScaleCenterActive = true;
+  else
+    mIsTargetScaleCenterActive = false;
+  mIsDirty = fabsf((1 - su) * du) > 0.5 * spu || fabsf((1 - sv) * dv) > 0.5 * spv;
 
   return true;
 }
@@ -2772,9 +3081,6 @@ bool Frame::Dormant() const {
 
 bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
                     double timestamp) {
-  if (!TouchStartInside())
-    return false;
-  
   assert(!isnan(scale));
   if (mIsScaleLocked) {
     mScaleVelocity = 0;
@@ -2844,9 +3150,6 @@ bool Frame::OnScale(EventPhase phase, float scale, float x, float y,
 // in screen pixels.
 
 bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
-  if (!TouchStartInside())
-    return false;
-
   if (phase == TOUCH_BEGAN) {
     mStartCenterUV[0] = mCenterUV[0];
     mStartCenterUV[1] = mCenterUV[1];
@@ -2866,9 +3169,9 @@ bool Frame::OnDrag(EventPhase phase, float x, float y, double timestamp) {
   
   if (mSnapMode == SNAP_CENTER) {             // FIXME: Handle all modes!
     if (fabsf(x0) != fabsf(x1))               // Translated off-center
-      du *= 0.5;
+      du *= mOverpullDeceleration;
     if (fabsf(y0) != fabsf(y1))
-      dv *= 0.5;
+      dv *= mOverpullDeceleration;
   }
 
   if (phase == TOUCH_MOVED) {                 // Update position on move
@@ -2898,6 +3201,30 @@ void Frame::OnTouchBegan(const tui::Event::Touch &touch) {
   mCenterVelocityUV[0] = 0;                   // Stop animation
   mCenterVelocityUV[1] = 0;
   mScaleVelocity = 0;
+}
+
+
+void Frame::OnTouchEnded(const Event::Touch &touch) {
+  mIsDirty = true;                            // Snap to center if touch dormant
+}
+
+
+bool Frame::OnDoubleTap(const Event::Touch &touch) {
+  float min = MinScale();                     // Zoom from min -> 1:1 -> 4x min
+  float fit = FitScale();                     // Special case for low rez images
+  float target = min < fit ? fit : std::max(4 * min, 1.0f);
+  float t = (Scale() - min) / (target - min);
+  if (t < 0.5) {                              // Closer to the target or fit?
+    float x = 2 * touch.x / float(Width()) - 1;
+    float y = 2 * touch.y / float(Height()) - 1;
+    float u, v;
+    NDCToUV(x, y, &u, &v);
+    SnapToUVCenter(u, v, true);
+    SnapToScale(target, true);
+  } else {
+    SnapToScale(min, true);                   // 1:1 or fit screen
+  }
+  return true;
 }
 
 
@@ -2994,7 +3321,7 @@ void Frame::SnapToUVCenter(float u, float v, bool isAnimated) {
     float v2 = clamp(v, h2, 1 - h2);
     mCenterUV[0] = u2;
     mCenterUV[1] = v2;
-    CancelMotion();
+//    CancelMotion();
   }
 }
 

@@ -33,7 +33,9 @@ namespace tui {
   // Touch finite state machine stage
   enum EventPhase { TOUCH_BEGAN, TOUCH_MOVED, TOUCH_ENDED, TOUCH_CANCELLED };
   
-  // Event structure, used in Obj-C, to pass OS events
+  class Widget;                               // Forward decl
+  
+  // Finite state machine holding multi-touch event state passed from OS to App
   struct Event {
     struct Touch {                            // One finger
       Touch(size_t id, int x, int y, double timestamp)
@@ -44,9 +46,47 @@ namespace tui {
     };
     
     Event(EventPhase phase) : phase(phase) {}
+    
+    void Init(EventPhase phase);              // Call before adding touches
+    void AddTouch(size_t id, int x, int y, double timestamp) {
+      touchVec.push_back(Touch(id, x, y, timestamp));
+    }
+    void PrepareToSend();                     // Call after adding touches
+    
+    void OnTouchBegan(Widget *widget) const;  // Call widget OnTouchBegin
+    void OnTouchEnded(Widget *widget) const;  // Call widget OnTouchEnd
+    
+    const float *StartCentroid() const { return mStartCentroid; }
+    const float *CurCentroid() const { return mCurCentroid; }
+    const float *Pan() const { return mPan; }
+    float StartRadius() const { return mStartRadius; }
+    float CurRadius() const { return mCurRadius; }
+    float Scale() const { return mScale; }
+    size_t TouchCount() const { return touchVec.size(); }
+    size_t ActiveTouchCount() const { return mCurTouchVec.size(); }
+    const Touch &StartTouch(size_t idx) const { return mStartTouchVec[idx]; }
+    bool Done() const {
+      assert(mEndTouchVec.size() <= ActiveTouchCount());
+      return ActiveTouchCount() - int(mEndTouchVec.size()) == 0;
+    }
+    void Print() const;
+    
+    // FIXME: Make these two instance variables private!
     EventPhase phase;                         // FSM location
     std::vector<Touch> touchVec;              // List of touches
-  };
+    
+  private:
+    std::vector<Touch> mStartTouchVec;        // Starting touches
+    std::vector<Touch> mCurTouchVec;          // Current touches
+    std::vector<Touch> mBeginTouchVec;        // New touches in this event
+    std::vector<Touch> mEndTouchVec;          // Finished touches in this event
+    float mStartCentroid[2];                  // Centroid of start touches
+    float mCurCentroid[2];                    // Centroid of current touches
+    float mPan[2];                            // Delta of cur and start centroid
+    float mStartRadius;                       // Avg radius for start touches
+    float mCurRadius;                         // Avg radius for current touches
+    float mScale;                             // Ratio of cur to start radius
+};
   
   
   // Base class for all user interaction elements.
@@ -74,6 +114,7 @@ namespace tui {
     virtual bool OnDrag(EventPhase phase, float x, float y,
                         double timestamp) { return false; }
     virtual void OnTouchBegan(const Event::Touch &touch) {}
+    virtual void OnTouchEnded(const Event::Touch &touch) {}
     virtual bool IsScaling() const { return mIsScaling; }
     virtual bool IsDragging() const { return mIsDragging; }
     virtual bool IsHorizontalDrag() const { return mIsHorizontalDrag; }
@@ -86,17 +127,15 @@ namespace tui {
     virtual bool Hidden() const { return mIsHidden; }
     virtual void Hide(bool status) { mIsHidden = status; }
     
-    virtual size_t TouchStartCount() const { return mTouchStart.size(); }
-    virtual const Event::Touch &TouchStart(size_t idx) const {
-      return mTouchStart[idx];
-    }
-    
     virtual void SetMVP(const float *mvp) { mMVP = mvp; }
     virtual const float *MVP() const { return mMVP; }
     virtual void GetNDCRect(float *x0, float *y0, float *x1, float *y1) const {
       *x0 = *y0 = -1; *x1 = *y1 = 1;
     }
     
+  protected:
+    virtual bool TouchStartInside(const Event &event) const { return true; }
+
   private:
     static const float kMinScale;             // Min scaling amount before event
     static const int kMinPanPix;              // Min pan motion before event
@@ -109,7 +148,7 @@ namespace tui {
     bool mIsScaling;                          // True if processing scale event
     bool mIsDragging;                         // True if processing pan event
     bool mIsHorizontalDrag;                   // True if drag started horiz
-    std::vector<Event::Touch> mTouchStart;    // Tracking touches
+    bool mIsCanceled;                         // True when widget is canceled
     const float *mMVP;
   };
   
@@ -119,7 +158,8 @@ namespace tui {
   public:
     static void SetDefaultCancelPad(int pad) { sDefaultCancelPad = pad; }
     
-    ViewportWidget() : mCancelPad(sDefaultCancelPad), mEventOpaque(false) {
+    ViewportWidget() : mCancelPad(sDefaultCancelPad), mEventOpaque(false),
+                       mLastTapTimestamp(0) {
       mViewport[0] = mViewport[1] = mViewport[2] = mViewport[3] = 0;
     }
     virtual ~ViewportWidget() {}
@@ -155,17 +195,21 @@ namespace tui {
     }
 
     virtual bool OnTouchTap(const Event::Touch &touch) { return false; }
+    virtual bool OnDoubleTap(const Event::Touch &touch) { return false; }
     virtual bool ProcessGestures(const Event &event);
     
   protected:
-    virtual bool TouchStartInside() const;
+    virtual bool TouchStartInside(const Event &event) const;
     
     int mViewport[4];                         // [x, y, w, h]
     int mCancelPad;                           // Pixel pad around button
     
   private:
     static int sDefaultCancelPad;             // Relax touch-up clipping
+    static const float kDoubleTapSec;         // Threshold for OnDoubleTap
+    
     int mEventOpaque;                         // Consume event that start inside
+    float mLastTapTimestamp;                  // Signal OnDoubleTap
   };
   
   
@@ -789,7 +833,7 @@ namespace tui {
                       mOverpullOffTex(0), mOverpullOnTex(0),
                       mDragHandleTex(0), mGlowDragHandle(false),mGlowSeconds(0),
                       mLongPressSeconds(0), mLongPressTimeout(1),
-                      mSingleFrameFling(false) {
+                      mSingleFrameFling(false), mIsLocked(false) {
       mTouchStart[0] = mTouchStart[1] = 0;
       mOverpullDim[0] = mOverpullDim[1] = 0;
       mOverpullColor[0] = 0; mOverpullColor[1] = 0.75;
@@ -819,6 +863,7 @@ namespace tui {
     virtual bool Snap(const Frame *frame, float seconds);
     virtual bool CancelSnap();
     virtual bool Jiggle();
+    virtual void Lock(bool status) { mIsLocked = status; }
     virtual bool Touch(const Event &event);
     virtual size_t Size() const { return mFrameVec.size(); }
     virtual bool Viewport(const Frame *frame, int viewport[4]) const;
@@ -846,6 +891,7 @@ namespace tui {
     virtual bool Append(Frame *frame);        // Do not allow generic frames,
     virtual bool Prepend(Frame *frame);       //   use templates instead.
     virtual bool Delete(Frame *frame);
+    virtual bool DrawFrame(Frame *frame);     // Set viewport and draw
     int FindFrameIdx(int x, int y) const;
     int TotalHeight() const { return mFrameDim * mFrameVec.size(); }
     int ScrollMin() const { const int dim = mVertical ? Height() : Width();
@@ -896,6 +942,7 @@ namespace tui {
     float mLongPressSeconds;                  // Seconds since not moved
     float mLongPressTimeout;                  // Seconds to trigger long press
     bool mSingleFrameFling;                   // Fling interaction mode
+    bool mIsLocked;                           // Disable sliding only
     static unsigned int mFlingProgram;        // Non-item drawing
     static unsigned int mGlowProgram;         // Drag handle glow
   };
@@ -918,19 +965,45 @@ namespace tui {
   };
   
   
-  // Flinglist that only moves one frame at a time with a recticle selector
+  // Flinglist that only moves one frame at a time with a recticle selector.
+  // Optionally support for pinch & zoom via an embedded tui::Frame for the
+  // selected filmstrip frame. The tui::Frame stays centered over the filmstrip,
+  // controlling motion until the end of each touch sequence when a decision
+  // is made to either scroll to the next frame, or allow the tui::Frame to
+  // restore to the rest location. The filmstrip in the background is moved
+  // to align with the overpull borders of the frame as it is moved. The active
+  // frame is drawn inside the tui::Frame's static viewport, while all other
+  // frames are drawn in the flinglist viewports. This allows the tui::Frame
+  // event processing to proceed without any viewport adjustments. When active,
+  // Frame::Draw will be called instead of FlinglistImpl::Frame::Draw.
+  
+  class Frame;                                // Forward decl for P&Z in strip
+  
   class FilmstripImpl : public FlinglistImpl {
   public:
-    FilmstripImpl() : mSelectedFrameIdx(-1) {}
+    FilmstripImpl() : mSelectedFrameIdx(-1), mPZFrame(NULL), mIsPZEvent(false),
+                      mPZStartScrollOffset(0) {}
     virtual ~FilmstripImpl() {}
+    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual bool Touch(const Event &event);
+    virtual bool Step(float seconds);
+    virtual bool Dormant() const;
     virtual void OnSelectionChanged() {}
+
+    // Optional support for P&Z for the selected frame.
+    virtual void SetPinchAndZoom(class tui::Frame *frame);
+    virtual tui::Frame *Frame() { return mPZFrame; }
     
   protected:
-    virtual bool Prepend(Frame *frame);
-    virtual bool Delete(Frame *frame);
+    virtual bool Prepend(FlinglistImpl::Frame *frame);
+    virtual bool Delete(FlinglistImpl::Frame *frame);
     virtual void SnapIdx(size_t idx, float seconds);
+    virtual bool DrawFrame(FlinglistImpl::Frame *frame);
     
     int mSelectedFrameIdx;                    // Selected (and centered) frame
+    class tui::Frame *mPZFrame;               // Pinch & Zoom inside cur frame
+    bool mIsPZEvent;
+    float mPZStartScrollOffset;
   };
   
   
@@ -981,7 +1054,8 @@ namespace tui {
               mIsDirty(false),
               mScaleMin(0), mScaleMax(0),
               mViewportMinScalePad(0),
-              mIsSnapDirty(false) {
+              mIsSnapDirty(false),
+              mOverpullDeceleration(0.5) {
       memset(mDim, 0, sizeof(mDim));
       memset(mIsLocked, 0, sizeof(mIsLocked));
       memset(mCenterUV, 0, sizeof(mCenterUV));
@@ -1003,6 +1077,9 @@ namespace tui {
     virtual bool IsYLocked() const { return mIsLocked[1]; }
     virtual float UCenter() const { return mCenterUV[0]; }
     virtual float VCenter() const { return mCenterUV[1]; }
+    virtual float XOverpull() const;
+    virtual float YOverpull() const;
+    virtual void SetOverpullDeceleration(float k) { mOverpullDeceleration = k; }
     virtual void SetViewportMinScalePad(int pix) { mViewportMinScalePad = pix; }
     virtual int ViewportMinScalePad() const { return mViewportMinScalePad; }
     virtual void SetSnapModeCenter() { mSnapMode = SNAP_CENTER; }
@@ -1025,6 +1102,8 @@ namespace tui {
                          double timestamp);
     virtual bool OnDrag(EventPhase phase, float x, float y, double timestamp);
     virtual void OnTouchBegan(const Event::Touch &touch);
+    virtual void OnTouchEnded(const Event::Touch &touch);
+    virtual bool OnDoubleTap(const Event::Touch &touch);
     
     // Frame adjustments
     virtual void SnapToFitFrame(bool isAnimated=false);
@@ -1089,6 +1168,7 @@ namespace tui {
     float mScaleMin, mScaleMax;               // Valid scale range
     int mViewportMinScalePad;                 // Pad to inset for fit-to-frame
     bool mIsSnapDirty;                        // True after snap for clip
+    float mOverpullDeceleration;              // Slow motion on overpull
   };
   
   
