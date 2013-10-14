@@ -2634,7 +2634,8 @@ bool FilmstripImpl::Touch(const tui::Event &event) {
         break;
         
       case TOUCH_MOVED:
-        if (mIsPZEvent && mPZFrame->IsDragging() && !mPZFrame->IsScaling() && isFit) {
+        if (mIsPZEvent && mPZFrame->IsDragging() && !mPZFrame->IsScaling() &&
+            isFit) {
           mPZFrame->SnapToFitFrame();
           mPZFrame->Touch(Event(TOUCH_CANCELLED));
           mIsPZEvent = false;
@@ -2661,12 +2662,13 @@ bool FilmstripImpl::Touch(const tui::Event &event) {
         
       case TOUCH_ENDED:
         // Decide if we snap or let PZFrame handle movement
-        if (mIsPZEvent && event.touchVec.empty()) {
+        if (mIsPZEvent && event.Done()) {
           float overpull = mPZFrame->XOverpull();
           if (mOverpullOnTex && mScrollBounce < OverpullPixels()) {
             OnOverpullRelease();
             mScrollBounce = 0;
-          } else if (overpull > mFrameDim/2 && mSelectedFrameIdx < mFrameVec.size() - 1) {
+          } else if (overpull > mFrameDim/2 &&
+                     mSelectedFrameIdx < mFrameVec.size() - 1) {
             Snap(mFrameVec[mSelectedFrameIdx + 1], 0.15);
             mIsPZEvent = false;
           } else if (overpull < -mFrameDim/2 && mSelectedFrameIdx > 0) {
@@ -2724,7 +2726,9 @@ bool FilmstripImpl::Step(float seconds) {
 
 bool FilmstripImpl::DrawFrame(FlinglistImpl::Frame *frame) {
   if (mPZFrame && mSelectedFrameIdx >= 0 &&
-      mFrameVec[mSelectedFrameIdx] == frame) {
+      mFrameVec[mSelectedFrameIdx] == frame &&
+      (mPZFrame->Scale() != mPZFrame->FitScale() ||
+       mPZFrame->IsScaling() || mPZFrame->IsDragging())) {
     glViewport(mPZFrame->Left(), mPZFrame->Bottom(),
                mPZFrame->Width(), mPZFrame->Height());
     if (!mPZFrame->Draw())
