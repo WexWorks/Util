@@ -86,7 +86,7 @@ namespace tui {
     float mStartRadius;                       // Avg radius for start touches
     float mCurRadius;                         // Avg radius for current touches
     float mScale;                             // Ratio of cur to start radius
-};
+  };
   
   
   // Base class for all user interaction elements.
