@@ -864,6 +864,7 @@ namespace tui {
     virtual bool CancelSnap();
     virtual bool Jiggle();
     virtual void Lock(bool status) { mIsLocked = status; }
+    virtual bool IsLocked() const { return mIsLocked; }
     virtual bool Touch(const Event &event);
     virtual size_t Size() const { return mFrameVec.size(); }
     virtual bool Viewport(const Frame *frame, int viewport[4]) const;
@@ -1070,6 +1071,9 @@ namespace tui {
     virtual void SetImageDim(size_t w, size_t h) { mDim[0] = w; mDim[1] = h; }
     virtual size_t ImageWidth() const { return mDim[0]; }
     virtual size_t ImageHeight() const { return mDim[1]; }
+    virtual bool IsAnimating() const { return mIsTargetScaleActive ||
+      mIsTargetScaleCenterActive || mIsTargetCenterActive || mScaleVelocity!=0||
+      mCenterVelocityUV[0] != 0 || mCenterVelocityUV[1] != 0; }
     virtual void Lock(bool horizontal, bool vertical, bool scale) {
       mIsLocked[0] = horizontal; mIsLocked[1] = vertical; mIsScaleLocked =scale;
     }

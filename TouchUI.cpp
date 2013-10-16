@@ -2664,17 +2664,19 @@ bool FilmstripImpl::Touch(const tui::Event &event) {
         // Decide if we snap or let PZFrame handle movement
         if (mIsPZEvent && event.Done()) {
           float overpull = mPZFrame->XOverpull();
-          if (mOverpullOnTex && mScrollBounce < OverpullPixels()) {
+          if (!IsLocked() && mOverpullOnTex &&
+              mScrollBounce < OverpullPixels()) {
             OnOverpullRelease();
             mScrollBounce = 0;
-          } else if (overpull > mFrameDim/2 &&
+          } else if (!IsLocked() && overpull > mFrameDim/2 &&
                      mSelectedFrameIdx < mFrameVec.size() - 1) {
             Snap(mFrameVec[mSelectedFrameIdx + 1], 0.15);
             mIsPZEvent = false;
-          } else if (overpull < -mFrameDim/2 && mSelectedFrameIdx > 0) {
+          } else if (!IsLocked() && overpull < -mFrameDim/2 &&
+                     mSelectedFrameIdx > 0) {
             Snap(mFrameVec[mSelectedFrameIdx - 1], 0.15);
             mIsPZEvent = false;
-          } else {
+          } else if (!mPZFrame->IsAnimating()) {
             mPZFrame->SnapToUVCenter(mPZFrame->UCenter(), mPZFrame->VCenter(),
                                      true);   // Sets dirty flag for animation
           }
