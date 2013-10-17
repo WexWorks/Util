@@ -2663,6 +2663,7 @@ bool FilmstripImpl::Touch(const tui::Event &event) {
       case TOUCH_ENDED:
         // Decide if we snap or let PZFrame handle movement
         if (mIsPZEvent && event.Done()) {
+          OnTouchEnded();
           float overpull = mPZFrame->XOverpull();
           if (!IsLocked() && mOverpullOnTex &&
               mScrollBounce < OverpullPixels()) {
