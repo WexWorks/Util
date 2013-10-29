@@ -262,7 +262,7 @@ bool Widget::ProcessGestures(const tui::Event &event) {
   
   event.OnTouchEnded(this);                         // Invoke OnTouchEnded
   
-  if (event.Done()) {                               // All done!
+  if (event.IsDone()) {                             // All done!
     mIsDragging = false;
     mIsScaling = false;
     mIsCanceled = false;
@@ -2662,7 +2662,7 @@ bool FilmstripImpl::Touch(const tui::Event &event) {
         
       case TOUCH_ENDED:
         // Decide if we snap or let PZFrame handle movement
-        if (mIsPZEvent && event.Done()) {
+        if (mIsPZEvent && event.IsDone()) {
           OnTouchEnded();
           float overpull = mPZFrame->XOverpull();
           if (!IsLocked() && mOverpullOnTex &&

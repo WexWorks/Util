@@ -65,7 +65,7 @@ namespace tui {
     size_t TouchCount() const { return touchVec.size(); }
     size_t ActiveTouchCount() const { return mCurTouchVec.size(); }
     const Touch &StartTouch(size_t idx) const { return mStartTouchVec[idx]; }
-    bool Done() const {
+    bool IsDone() const {
       assert(mEndTouchVec.size() <= ActiveTouchCount());
       return ActiveTouchCount() - int(mEndTouchVec.size()) == 0;
     }
