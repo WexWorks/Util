@@ -17,7 +17,7 @@ const float Widget::kMinScale = 0.03;
 const int Widget::kMinPanPix = 40;
 const float ViewportWidget::kDoubleTapSec = 0.25;
 const size_t Toolbar::kStdHeight = 44;
-const int FlinglistImpl::kDragMm = 10;
+const int FlinglistImpl::kDragMm = 4;
 const int FlinglistImpl::kJiggleMm = 10;
 const float FlinglistImpl::kJiggleSeconds = 0.2;
 const int FlinglistImpl::kSnapVelocity = 10;
@@ -2317,14 +2317,11 @@ bool FlinglistImpl::Step(float seconds) {
     }
   }
   
-  if (!MovedAfterDown() && mTouchFrameIdx >= 0 &&
+  if (mLongPressSeconds > 0 && !MovedAfterDown() && mTouchFrameIdx >= 0 &&
       mScrollOffset == initialScrollOffset) {
     // Only call long touch when we first cross the threshold
     if (mLongPressSeconds < mLongPressTimeout) {
-      if (mLongPressSeconds == 0)
-        mLongPressSeconds = 0.001;  // non-zero, first touch down, start count
-      else
-        mLongPressSeconds += seconds;
+      mLongPressSeconds += seconds;
       if (mLongPressSeconds >= mLongPressTimeout) {
         // If long touch returns true, eat the next touch event,
         // otherwise, reset for another long touch after a delay
@@ -2438,7 +2435,7 @@ bool FlinglistImpl::Touch(const Event &event) {
         if (mTouchFrameIdx >= 0) {
           mSnapSeconds = mSnapRemainingSeconds = 0;
           mSnapOriginalOffset = mSnapTargetOffset = 0;
-          mLongPressSeconds = 0;
+          mLongPressSeconds = 0.0001;
           OnTouchBegan(event.touchVec[0]);
           mFrameVec[mTouchFrameIdx]->OnTouchBegan(event.touchVec[0]);
         }
@@ -2718,6 +2715,8 @@ bool FilmstripImpl::Step(float seconds) {
         mScrollOffset = offset;
       }
     }
+    if (mPZFrame->IsSnapping())
+      mLongPressSeconds = 0;      // Cancel OnLongTouch
     if (mPZFrame->IsScaling() || mPZFrame->IsDragging())
       return true;
   }

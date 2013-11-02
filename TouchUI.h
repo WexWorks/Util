@@ -1116,6 +1116,9 @@ namespace tui {
     virtual void SnapToUVCenter(float u, float v, bool isAnimated=false);
     virtual void SnapToScale(float scale, bool isAnimated=false);
     virtual void SnapToLimits(bool isAnimated=false);
+    virtual bool IsSnapping() const {
+      return mIsTargetScaleActive || mIsTargetScaleCenterActive || mIsTargetCenterActive;
+    }
     
     // Compute the current display region that would be sent to DrawImage
     virtual void ComputeDisplayRect(float *x0, float *y0, float *x1, float *y1,
