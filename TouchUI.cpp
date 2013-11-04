@@ -2321,7 +2321,8 @@ bool FlinglistImpl::Step(float seconds) {
       mScrollOffset == initialScrollOffset) {
     // Only call long touch when we first cross the threshold
     if (mLongPressSeconds < mLongPressTimeout) {
-      mLongPressSeconds += seconds;
+      // HACK: Avoid big values for seconds due to first refreshes since pause
+      mLongPressSeconds += seconds > 0.1 ? 0.05 : seconds;
       if (mLongPressSeconds >= mLongPressTimeout) {
         // If long touch returns true, eat the next touch event,
         // otherwise, reset for another long touch after a delay
