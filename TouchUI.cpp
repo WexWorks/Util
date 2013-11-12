@@ -1531,20 +1531,32 @@ void Toolbar::SetMVP(const float *mvp) {
 }
 
 
+class Spacer : public ViewportWidget { /* for dynamic typing */ };
+
 bool Toolbar::AddFixedSpacer(int w) {
   assert(w > 0);
-  ViewportWidget *widget = new ViewportWidget;   // LEAK!!
-  widget->SetViewport(0, 0, w, 1);
-  Add(widget);
+  Spacer *spacer = new Spacer;
+  spacer->SetViewport(0, 0, w, 1);
+  Add(spacer);
   return true;
 }
 
 
 bool Toolbar::AddFlexibleSpacer() {
-  ViewportWidget *widget = new ViewportWidget;   // LEAK!!
-  widget->SetViewport(0, 0, -1, -1);
-  Add(widget);
+  Spacer *spacer = new Spacer;
+  spacer->SetViewport(0, 0, -1, -1);
+  Add(spacer);
   return true;
+}
+
+
+void Toolbar::Clear() {
+  for (size_t i = 0; i < mWidgetVec.size(); ++i) {
+    Spacer *spacer = dynamic_cast<Spacer *>(mWidgetVec[i]);
+    if (spacer)
+      delete spacer;
+  }
+  mWidgetVec.clear();
 }
 
 
