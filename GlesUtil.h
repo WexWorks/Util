@@ -9,7 +9,7 @@
 // Helpful routines for common OpenGLES 2 operations.
 // Objects created by these routines must be destroyed by the caller
 
-namespace GlesUtil {
+namespace glt {
 
 
 // Called internally as needed by utility functions, and should be
@@ -277,8 +277,11 @@ void BuildRoundedFrame2fi(float x0, float y0, float x1, float y1,
                           float *P, float *UV, unsigned short *idx);
 
 
-};      // namespace GlesUtil
+};      // namespace glt
 
+
+// Deprecated naming
+namespace GlesUtil = glt;
 
 
 #endif  // GLES_UTIL_H

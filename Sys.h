@@ -27,7 +27,7 @@ struct ShareImage {
     stripLocationInfo(stripLocationInfo), stripCameraInfo(stripCameraInfo),
     orientation(orientation), starRating(starRating), author(author),
     copyright(copyright), comment(comment) {}
-  
+  virtual ~ShareImage() {}
   virtual void Done(bool status, const char *msg) const {}
   
   std::string url;                                    // Original metadata
@@ -46,17 +46,20 @@ struct ShareImage {
 // Callback functors, executed asynchronously, e.g. from system blocks
 
 struct AddImage {
+  virtual ~AddImage() {}
   enum Type { Unknown, Image, Video };
   virtual bool operator()(const char *album, const char *name,
                           const char *url, int index, Type type) = 0;
 };
 
 struct AddAlbum {
+  virtual ~AddAlbum() {}
   virtual bool operator()(const char *name, const char *url,
                           size_t assetCount, int libraryId) = 0;
 };
 
 struct SetThumbnail {
+  virtual ~SetThumbnail() {}
   virtual bool operator()(const char *url, size_t w, size_t h, int orientation,
                           size_t thumbW, size_t thumbH, bool swizzle,
                           size_t bytesPerRow, size_t bitsPerPixel,
@@ -64,18 +67,22 @@ struct SetThumbnail {
 };
 
 struct SetImageDate {
+  virtual ~SetImageDate() {}
   virtual bool operator()(const char *url, double epochSec) = 0;
 };
 
 struct SetImageMetadata {
+  virtual ~SetImageMetadata() {}
   virtual bool operator()(const char *url, const OIIO::ParamValueList *meta) =0;
 };
 
 struct SetImageCache {
+  virtual ~SetImageCache() {}
   virtual bool operator()(const char *url, const char *cachePath) = 0;
 };
 
 struct SetAlert {
+  virtual ~SetAlert() {}
   virtual bool operator()(bool isOK, const char *inputText) = 0;
 };
 
@@ -92,15 +99,15 @@ struct SetShareOptions {
 };
 
   
-// Derive a custom Callback class that implements the interface using OS-side
+// Derive a custom Os class that implements the interface using Os-side
 // code, e.g. Obj-C or Java, to provide system resources to the C++ code.
 // Most of these functions may be asynchronous, providing a callback which
-// is invoked once the operation is completed on the OS-side.
+// is invoked once the operation is completed on the Os-side.
 
-class Callbacks {
+class Os {
 public:
-  Callbacks() {}
-  virtual ~Callbacks() {}
+  Os() {}
+  virtual ~Os() {}
   
   // Returns a URL to a file within the app's resource bundle
   virtual bool FindResourcePath(const char *name, char path[1024]) = 0;
@@ -192,16 +199,16 @@ public:
 
 class GLContextGuard {
 public:
-  GLContextGuard(int id, Callbacks *callbacks) : mId(id), mCallbacks(callbacks){
-    mLastId = mCallbacks->CurrentGLContext();
-    mCallbacks->SetGLContext(mId);
+  GLContextGuard(int id, Os *os) : mId(id), mOs(os) {
+    mLastId = mOs->CurrentGLContext();
+    mOs->SetGLContext(mId);
   }
-  ~GLContextGuard() { mCallbacks->SetGLContext(mLastId); }
+  ~GLContextGuard() { mOs->SetGLContext(mLastId); }
   
 private:
   int mId;
   int mLastId;
-  Callbacks *mCallbacks;
+  Os *mOs;
 };
 
 
@@ -209,8 +216,8 @@ private:
 // App
 //
 
-// Implement this class to provide a standard framework invoked from OS-side
-// code to pass system events from the OS down to C++ code.
+// Implement this class to provide a standard framework invoked from Os-side
+// code to pass system events from the Os down to C++ code.
 
 class App {
 public:
@@ -218,7 +225,7 @@ public:
   
   static App *Create();                               // Factory
   
-  virtual bool Init(Callbacks *callbacks) = 0;        // Setup app
+  virtual bool Init(Os *os) = 0;                      // Setup app
   virtual bool Touch(const tui::Event &event) = 0;    // Process events
   virtual bool Step(float seconds) = 0;               // Animate widgets
   virtual bool Dormant() = 0;                         // True = no refresh

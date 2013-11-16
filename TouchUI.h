@@ -9,7 +9,7 @@
 #include <vector>
 #include <string>
 
-namespace GlesUtil { struct Font; struct FontSet; };
+namespace glt { struct Font; struct FontSet; };
 
 
 /*
@@ -306,21 +306,21 @@ namespace tui {
     virtual float BackgroundPadXPts() const { return mPadPt[0]; }
     virtual float BackgroundPadYPts() const { return mPadPt[1]; }
     virtual int TextLineCount() const { return mLineCount; }
-    virtual const GlesUtil::Font &Font() const { return *mFont; }
+    virtual const glt::Font &Font() const { return *mFont; }
     virtual float Points() const { return mPts; }
     virtual const char *Text() const { return mText; }
     
-    virtual bool Step(float seconds);                     // Only if fading
+    virtual bool Step(float seconds);         // Only if fading
     virtual bool Dormant() const { return mTimeoutSec == 0 || Hidden(); }
     virtual bool Draw();
     
-    static bool AddFontSet(const char *name, const GlesUtil::FontSet &fontSet);
+    static bool AddFontSet(const char *name, const glt::FontSet &fontSet);
     
   private:
-    static std::map<std::string, const GlesUtil::FontSet *> sFontMap;
+    static std::map<std::string, const glt::FontSet *> sFontMap;
     
     const char *mText;                        // Label text
-    const GlesUtil::Font *mFont;              // Rendering font
+    const glt::Font *mFont;                   // Rendering font
     float mPts;                               // Font size
     float mTextColor[4], mBkgTexColor[4];     // Text and texture colors
     float mTextDropshadowColor[4];            // Optional dropshadow color
