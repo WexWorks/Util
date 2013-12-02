@@ -16,7 +16,7 @@
 static GLint gErrorCode = GL_NO_ERROR;
 
 
-bool GlesUtil::Error() {
+bool glt::Error() {
 #if DEBUG
   gErrorCode = glGetError();            // Note: GLES only has one active err
   if (gErrorCode != GL_NO_ERROR) {
@@ -30,7 +30,7 @@ bool GlesUtil::Error() {
 }
 
 
-const char *GlesUtil::ErrorString() {
+const char *glt::ErrorString() {
   switch (gErrorCode) {
     case GL_NO_ERROR:           return "No error";
     case GL_INVALID_ENUM:       return "Invalid enum";
@@ -44,7 +44,7 @@ const char *GlesUtil::ErrorString() {
 }
 
 
-bool GlesUtil::IsFramebufferComplete() {
+bool glt::IsFramebufferComplete() {
   GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
   if (status == GL_FRAMEBUFFER_COMPLETE)
     return true;
@@ -80,14 +80,14 @@ bool GlesUtil::IsFramebufferComplete() {
 // Drawing
 //
 
-bool GlesUtil::DrawColorLines2f(unsigned int count, const float *P,
-                                float r, float g, float b, float a,
-                                const float *MVP) {
+bool glt::DrawColorLines2f(unsigned int count, const float *P,
+                           float r, float g, float b, float a,
+                           const float *MVP) {
   GLint buf = 0;
   glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   GLuint aP, uC, uMVP;
-  GLuint program = GlesUtil::ConstantProgram(&aP, &uC, &uMVP);
+  GLuint program = glt::ConstantProgram(&aP, &uC, &uMVP);
   if (!program)
     return false;
   glUseProgram(program);
@@ -107,8 +107,8 @@ bool GlesUtil::DrawColorLines2f(unsigned int count, const float *P,
 }
 
 
-bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
-                         GLuint aUV, float u0, float v0, float u1, float v1) {
+bool glt::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
+                    GLuint aUV, float u0, float v0, float u1, float v1) {
   GLint buf = 0;
   glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -131,9 +131,9 @@ bool GlesUtil::DrawBox2f(GLuint aP, float x0, float y0, float x1, float y1,
 }
 
 
-bool GlesUtil::DrawBox2fuvst(GLuint aP,  float x0, float y0, float x1, float y1,
-                             GLuint aUV, float u0, float v0, float u1, float v1,
-                             GLuint aST, float s0, float t0, float s1, float t1) {
+bool glt::DrawBox2fuvst(GLuint aP,  float x0, float y0, float x1, float y1,
+                        GLuint aUV, float u0, float v0, float u1, float v1,
+                        GLuint aST, float s0, float t0, float s1, float t1) {
   GLint buf = 0;
   glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -162,11 +162,11 @@ bool GlesUtil::DrawBox2fuvst(GLuint aP,  float x0, float y0, float x1, float y1,
 }
 
 
-bool GlesUtil::DrawColorBox2f(float x0, float y0, float x1, float y1,
-                              float r, float g, float b, float a,
-                              const float *MVP) {
+bool glt::DrawColorBox2f(float x0, float y0, float x1, float y1,
+                         float r, float g, float b, float a,
+                         const float *MVP) {
   GLuint aP, uC, uMVP;
-  GLuint program = GlesUtil::ConstantProgram(&aP, &uC, &uMVP);
+  GLuint program = glt::ConstantProgram(&aP, &uC, &uMVP);
   if (!program)
     return false;
   glUseProgram(program);
@@ -176,15 +176,15 @@ bool GlesUtil::DrawColorBox2f(float x0, float y0, float x1, float y1,
     MVP = &I[0];
   glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
   
-  if (!GlesUtil::DrawBox2f(aP, x0, y0, x1, y1, -1, 0, 0, 0, 0))
+  if (!glt::DrawBox2f(aP, x0, y0, x1, y1, -1, 0, 0, 0, 0))
     return false;
 
   return true;
 }
 
 
-bool GlesUtil::DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
-                              float w, float h, GLuint aUV) {
+bool glt::DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
+                         float w, float h, GLuint aUV) {
   GLint buf = 0, ibuf = 0;
   glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
   glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &ibuf);
@@ -217,9 +217,9 @@ bool GlesUtil::DrawBoxFrame2f(GLuint aP, float x0, float y0, float x1, float y1,
 }
 
 
-bool GlesUtil::DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
-                                   float w, float h, float r, float g, float b,
-                                   float a, const float *MVP) {
+bool glt::DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
+                              float w, float h, float r, float g, float b,
+                              float a, const float *MVP) {
   GLuint aP, uC, uMVP;
   GLuint program = ConstantProgram(&aP, &uC, &uMVP);
   if (!program)
@@ -238,14 +238,14 @@ bool GlesUtil::DrawColorBoxFrame2f(float x0, float y0, float x1, float y1,
 }
 
 
-bool GlesUtil::DrawGradientBoxFrame2f(float x0, float y0, float x1, float y1,
-                                      float w, float h,
-                                      float umin, float umax, float vmin, float vmax,
-                                      float ur0, float ug0, float ub0, float ua0,
-                                      float vr0, float vg0, float vb0, float va0,
-                                      float ur1, float ug1, float ub1, float ua1,
-                                      float vr1, float vg1, float vb1, float va1,
-                                      const float *MVP) {
+bool glt::DrawGradientBoxFrame2f(float x0, float y0, float x1, float y1,
+                                 float w, float h,
+                                 float umin, float umax, float vmin, float vmax,
+                                 float ur0, float ug0, float ub0, float ua0,
+                                 float vr0, float vg0, float vb0, float va0,
+                                 float ur1, float ug1, float ub1, float ua1,
+                                 float vr1, float vg1, float vb1, float va1,
+                                 const float *MVP) {
   GLuint aP, aUV, uCU0, uCV0, uCU1, uCV1, uUVWidth, uMVP;
   GLuint program = GradientProgram(&aP, &aUV, &uMVP, &uCU0, &uCV0,
                                    &uCU1, &uCV1, &uUVWidth);
@@ -269,9 +269,9 @@ bool GlesUtil::DrawGradientBoxFrame2f(float x0, float y0, float x1, float y1,
 }
 
 
-bool GlesUtil::DrawGradientBox2f(float x0, float y0, float x1, float y1,
-                                 bool isVertical, float r0, float g0, float b0,
-                                 float r1,float g1,float b1, const float *MVP) {
+bool glt::DrawGradientBox2f(float x0, float y0, float x1, float y1,
+                            bool isVertical, float r0, float g0, float b0,
+                            float r1,float g1,float b1, const float *MVP) {
   GLint buf = 0;
   glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -299,16 +299,16 @@ bool GlesUtil::DrawGradientBox2f(float x0, float y0, float x1, float y1,
 }
 
 
-bool GlesUtil::DrawDropshadowBox2f(float x0, float y0, float x1, float y1,
-                                   float r, float g, float b, float a,
-                                   bool isVertical, const float *MVP) {
+bool glt::DrawDropshadowBox2f(float x0, float y0, float x1, float y1,
+                              float r, float g, float b, float a,
+                              bool isVertical, const float *MVP) {
   GLint buf = 0;
   glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   GLuint aP, aUV, uC, uMVP;
-  GLuint program = GlesUtil::DropshadowFrameProgram(&aP, &aUV, &uC, &uMVP);
+  GLuint program = glt::DropshadowFrameProgram(&aP, &aUV, &uC, &uMVP);
   if (!program)
     return false;
   glUseProgram(program);
@@ -336,10 +336,10 @@ bool GlesUtil::DrawDropshadowBox2f(float x0, float y0, float x1, float y1,
 }
 
 
-bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
-                             float u0, float v0, float u1, float v1,
-                             float r, float g, float b, float a,
-                             const float *MVP) {
+bool glt::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
+                        float u0, float v0, float u1, float v1,
+                        float r, float g, float b, float a,
+                        const float *MVP) {
   GLuint aP, aUV, uC, uMVP, uTex;
   GLuint program = TextureProgram(&aP, &aUV, &uC, &uMVP, &uTex);
   glUseProgram(program);
@@ -363,19 +363,19 @@ bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
 }
 
 
-bool GlesUtil::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
-                             float u0, float v0, float u1, float v1,
-                             const float *MVP) {
+bool glt::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
+                        float u0, float v0, float u1, float v1,
+                        const float *MVP) {
   return DrawTexture2f(tex, x0, y0, x1, y1, u0, v0, u1, v1, 1, 1, 1, 1, MVP);
 }
 
 
-bool GlesUtil::Draw3SliceTexture2f(GLuint tex,
-                                   float x0, float y0, float x1, float y1,
-                                   float u0, float v0, float u1, float v1,
-                                   int texW, int texH, int vpW, int vpH,
-                                   float r, float g, float b, float a,
-                                   const float *MVP) {
+bool glt::Draw3SliceTexture2f(GLuint tex,
+                              float x0, float y0, float x1, float y1,
+                              float u0, float v0, float u1, float v1,
+                              int texW, int texH, int vpW, int vpH,
+                              float r, float g, float b, float a,
+                              const float *MVP) {
   const int pw = vpH * texW / (2 * texH);
   const float ew = pw / float(MVP ? 1 : 0.5 * vpW);
   const float ex = 0.5 * (x1 - x0);
@@ -383,28 +383,28 @@ bool GlesUtil::Draw3SliceTexture2f(GLuint tex,
   if (ew > ex) {
     const float eu = 1.0 - fabsf(u1 - u0) * ex / ew;
     const float mx = 0.5 * (x0 + x1);
-    if (!GlesUtil::DrawTexture2f(tex, x0,y0,mx,y1, u0,v0,mu-eu,v1, r,g,b,a,MVP))
+    if (!glt::DrawTexture2f(tex, x0,y0,mx,y1, u0,v0,mu-eu,v1, r,g,b,a,MVP))
       return false;
-    if (!GlesUtil::DrawTexture2f(tex, mx,y0,x1,y1, mu+eu,v0,u1,v1, r,g,b,a,MVP))
+    if (!glt::DrawTexture2f(tex, mx,y0,x1,y1, mu+eu,v0,u1,v1, r,g,b,a,MVP))
       return false;
   } else {
-    if (!GlesUtil::DrawTexture2f(tex, x0,y0,x0+ew,y1, u0,v0,mu,v1, r,g,b,a,MVP))
+    if (!glt::DrawTexture2f(tex, x0,y0,x0+ew,y1, u0,v0,mu,v1, r,g,b,a,MVP))
       return false;
-    if (!GlesUtil::DrawTexture2f(tex,x0+ew,y0,x1-ew,y1,mu,v0,mu,v1,r,g,b,a,MVP))
+    if (!glt::DrawTexture2f(tex,x0+ew,y0,x1-ew,y1,mu,v0,mu,v1,r,g,b,a,MVP))
       return false;
-    if (!GlesUtil::DrawTexture2f(tex, x1-ew,y0,x1,y1, mu,v0,u1,v1, r,g,b,a,MVP))
+    if (!glt::DrawTexture2f(tex, x1-ew,y0,x1,y1, mu,v0,u1,v1, r,g,b,a,MVP))
       return false;
   }
   return true;
 }
 
 
-bool GlesUtil::Draw9SliceTexture2f(GLuint tex,
-                                   float x0, float y0, float x1, float y1,
-                                   float u0, float v0, float u1, float v1,
-                                   int texW, int texH, int vpW, int vpH,
-                                   float r, float g, float b, float a,
-                                   const float *MVP) {
+bool glt::Draw9SliceTexture2f(GLuint tex,
+                              float x0, float y0, float x1, float y1,
+                              float u0, float v0, float u1, float v1,
+                              int texW, int texH, int vpW, int vpH,
+                              float r, float g, float b, float a,
+                              const float *MVP) {
   const int pw = vpH * texW / (2 * texH);
   const int ph = vpW * texH / (2 * texW);
   const float ew = std::min(pw / float(MVP ? 1 : 0.5f * vpW), 0.5f * (x1 - x0));
@@ -412,35 +412,35 @@ bool GlesUtil::Draw9SliceTexture2f(GLuint tex,
   const float es = std::min(ew, eh);    // Corners must be squares
   const float mu = 0.5 * (u0 + u1);
   const float mv = 0.5 * (v0 + v1);
-  if (!GlesUtil::DrawTexture2f(tex, x0,y0,x0+es,y0+es, u0,v0,mu,mv, r,g,b,a, MVP))
+  if (!glt::DrawTexture2f(tex, x0,y0,x0+es,y0+es, u0,v0,mu,mv, r,g,b,a, MVP))
     return false;
-  if (!GlesUtil::DrawTexture2f(tex, x0,y0+es,x0+es,y1-es, u0,mv,mu,mv, r,g,b,a, MVP))
+  if (!glt::DrawTexture2f(tex, x0,y0+es,x0+es,y1-es, u0,mv,mu,mv, r,g,b,a, MVP))
     return false;
-  if (!GlesUtil::DrawTexture2f(tex, x0,y1-es,x0+es,y1, u0,mv,mu,v1, r,g,b,a, MVP))
+  if (!glt::DrawTexture2f(tex, x0,y1-es,x0+es,y1, u0,mv,mu,v1, r,g,b,a, MVP))
     return false;
-  if (!GlesUtil::DrawTexture2f(tex, x0+es,y0,x1-es,y0+es,mu,v0,mu,mv,r,g,b,a, MVP))
+  if (!glt::DrawTexture2f(tex, x0+es,y0,x1-es,y0+es,mu,v0,mu,mv,r,g,b,a, MVP))
     return false;
-  if (!GlesUtil::DrawTexture2f(tex, x0+es,y0+es,x1-es,y1-es,mu,mv,mu,mv,r,g,b,a, MVP))
+  if (!glt::DrawTexture2f(tex, x0+es,y0+es,x1-es,y1-es,mu,mv,mu,mv,r,g,b,a, MVP))
     return false;
-  if (!GlesUtil::DrawTexture2f(tex, x0+es,y1-es,x1-es,y1,mu,mv,mu,v1,r,g,b,a, MVP))
+  if (!glt::DrawTexture2f(tex, x0+es,y1-es,x1-es,y1,mu,mv,mu,v1,r,g,b,a, MVP))
     return false;
-  if (!GlesUtil::DrawTexture2f(tex, x1-es,y0,x1,y0+es, mu,v0,u1,mv, r,g,b,a, MVP))
+  if (!glt::DrawTexture2f(tex, x1-es,y0,x1,y0+es, mu,v0,u1,mv, r,g,b,a, MVP))
     return false;
-  if (!GlesUtil::DrawTexture2f(tex, x1-es,y0+es,x1,y1-es, mu,mv,u1,mv, r,g,b,a, MVP))
+  if (!glt::DrawTexture2f(tex, x1-es,y0+es,x1,y1-es, mu,mv,u1,mv, r,g,b,a, MVP))
     return false;
-  if (!GlesUtil::DrawTexture2f(tex, x1-es,y1-es,x1,y1, mu,mv,u1,v1, r,g,b,a, MVP))
+  if (!glt::DrawTexture2f(tex, x1-es,y1-es,x1,y1, mu,mv,u1,v1, r,g,b,a, MVP))
     return false;
   return true;
 }
 
 
-bool GlesUtil::DrawTwoTexture2f(GLuint uvTex, float stTex,
-                                float x0, float y0, float x1, float y1,
-                                float u0, float v0, float u1, float v1,
-                                float s0, float t0, float s1, float t1,
-                                float r0, float g0, float b0, float a0,
-                                float r1, float g1, float b1, float a1,
-                                const float *MVP) {
+bool glt::DrawTwoTexture2f(GLuint uvTex, float stTex,
+                           float x0, float y0, float x1, float y1,
+                           float u0, float v0, float u1, float v1,
+                           float s0, float t0, float s1, float t1,
+                           float r0, float g0, float b0, float a0,
+                           float r1, float g1, float b1, float a1,
+                           const float *MVP) {
   GLuint aP, aUV, aST, uC0, uC1, uMVP, uUVTex, uSTTex;
   GLuint program = TwoTextureProgram(&aP, &aUV, &aST, &uC0, &uC1, &uMVP,
                                      &uUVTex, &uSTTex);
@@ -472,12 +472,12 @@ bool GlesUtil::DrawTwoTexture2f(GLuint uvTex, float stTex,
 }
 
 
-bool GlesUtil::DrawTextureHighlight2f(GLuint tex,
-                                      float x0, float y0, float x1, float y1,
-                                      float u0, float v0, float u1, float v1,
-                                      float s0, float t0, float s1, float t1,
-                                      float r, float g, float b, float a,
-                                       const float *MVP) {
+bool glt::DrawTextureHighlight2f(GLuint tex,
+                                 float x0, float y0, float x1, float y1,
+                                 float u0, float v0, float u1, float v1,
+                                 float s0, float t0, float s1, float t1,
+                                 float r, float g, float b, float a,
+                                 const float *MVP) {
   GLuint aP, aUV, aST, uC, uMVP, uTex;
   GLuint program = TextureHighlightProgram(&aP, &aUV, &aST, &uC, &uMVP, &uTex);
   glUseProgram(program);
@@ -504,9 +504,9 @@ bool GlesUtil::DrawTextureHighlight2f(GLuint tex,
 }
 
 
-bool GlesUtil::DrawTextureStrip2f(GLuint tex, GLuint vcount, const float *P,
-                                  const float *UV, float r, float g, float b,
-                                  float a, const float *MVP) {
+bool glt::DrawTextureStrip2f(GLuint tex, GLuint vcount, const float *P,
+                             const float *UV, float r, float g, float b,
+                             float a, const float *MVP) {
   GLint buf = 0;
   glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -537,10 +537,10 @@ bool GlesUtil::DrawTextureStrip2f(GLuint tex, GLuint vcount, const float *P,
 }
 
 
-bool GlesUtil::DrawTextureStrip2fi(GLuint tex, unsigned short icount,
-                                   const float *P, const float *UV,
-                                   const unsigned short *idx, float r, float g,
-                                   float b, float a, const float *MVP) {
+bool glt::DrawTextureStrip2fi(GLuint tex, unsigned short icount,
+                              const float *P, const float *UV,
+                              const unsigned short *idx, float r, float g,
+                              float b, float a, const float *MVP) {
   GLint buf = 0, ibuf = 0;
   glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
   glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &ibuf);
@@ -574,17 +574,17 @@ bool GlesUtil::DrawTextureStrip2fi(GLuint tex, unsigned short icount,
 }
 
 
-bool GlesUtil::DrawDropshadowStrip2fi(unsigned short icount, const float *P,
-                                      const float *UV, const unsigned short *idx,
-                                      float r, float g, float b, float a,
-                                      const float *MVP) {
+bool glt::DrawDropshadowStrip2fi(unsigned short icount, const float *P,
+                                 const float *UV, const unsigned short *idx,
+                                 float r, float g, float b, float a,
+                                 const float *MVP) {
   GLint buf = 0, ibuf = 0;
   glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buf);
   glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &ibuf);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   GLuint aP, aUV, uC, uMVP;
-  GLuint program = GlesUtil::DropshadowFrameProgram(&aP, &aUV, &uC, &uMVP);
+  GLuint program = glt::DropshadowFrameProgram(&aP, &aUV, &uC, &uMVP);
   if (!program)
     return false;
   glUseProgram(program);
@@ -613,12 +613,12 @@ bool GlesUtil::DrawDropshadowStrip2fi(unsigned short icount, const float *P,
 // Texture
 //
 
-bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
-                            GLenum minFilter, GLenum magFilter,
-                            GLenum clampS, GLenum clampT,
-                            GLsizei w, GLsizei h, GLenum format, GLenum type,
-                            const void *pix, const char *name,
-                            GLuint pixelFormat) {
+bool glt::StoreTexture(GLuint tex, GLenum target,
+                       GLenum minFilter, GLenum magFilter,
+                       GLenum clampS, GLenum clampT,
+                       GLsizei w, GLsizei h, GLenum format, GLenum type,
+                       const void *pix, const char *name,
+                       GLuint pixelFormat) {
   if (magFilter != GL_NEAREST && magFilter != GL_LINEAR)
     return false;
   GLenum bindTarget = target == GL_TEXTURE_2D ? GL_TEXTURE_2D :
@@ -667,10 +667,10 @@ bool GlesUtil::StoreTexture(GLuint tex, GLenum target,
 }
 
 
-bool GlesUtil::StoreSubTexture(GLuint tex, GLenum target, GLint miplevel,
-                               GLint x, GLint y, GLsizei w, GLsizei h,
-                               GLenum format, GLenum type,
-                               const void *pix) {
+bool glt::StoreSubTexture(GLuint tex, GLenum target, GLint miplevel,
+                          GLint x, GLint y, GLsizei w, GLsizei h,
+                          GLenum format, GLenum type,
+                          const void *pix) {
   glBindTexture(target, tex);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   glTexSubImage2D(target, miplevel, x, y, w, h, format, type, pix);
@@ -681,20 +681,20 @@ bool GlesUtil::StoreSubTexture(GLuint tex, GLenum target, GLint miplevel,
 }
 
 
-GLint GlesUtil::MaxTextureSize() {
+GLint glt::MaxTextureSize() {
   GLint texSize;
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &texSize);
   return texSize;
 }
 
 
-bool GlesUtil::IsMSAAResolutionSupported(GLuint w, GLuint h) {
+bool glt::IsMSAAResolutionSupported(GLuint w, GLuint h) {
   const GLint maxSize = MaxTextureSize() / 2;
   return w <= maxSize && h <= maxSize;
 }
 
 
-GLuint GlesUtil::CreateShader(GLenum type, const char *source) {
+GLuint glt::CreateShader(GLenum type, const char *source) {
   GLuint shader = glCreateShader(type);
   if (!shader)
     return 0;
@@ -728,7 +728,7 @@ GLuint GlesUtil::CreateShader(GLenum type, const char *source) {
 // Programs
 //
 
-GLuint GlesUtil::CreateProgram(GLuint vp, GLuint fp, const char *name) {
+GLuint glt::CreateProgram(GLuint vp, GLuint fp, const char *name) {
   if (!vp || !fp)
     return 0;
   
@@ -763,7 +763,7 @@ GLuint GlesUtil::CreateProgram(GLuint vp, GLuint fp, const char *name) {
 }
 
 
-GLuint GlesUtil::ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP) {
+GLuint glt::ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP) {
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
   static GLuint gAP = 0, gUC = 0, gUMVP = 0;
@@ -809,7 +809,7 @@ GLuint GlesUtil::ConstantProgram(GLuint *aP, GLuint *uC, GLuint *uMVP) {
 }
 
 
-GLuint GlesUtil::UVProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP) {
+GLuint glt::UVProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP) {
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
   static GLuint gAP = 0, gAUV = 0, gUMVP = 0;
@@ -859,7 +859,7 @@ GLuint GlesUtil::UVProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP) {
 
 
 
-GLuint GlesUtil::VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP) {
+GLuint glt::VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP) {
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
   static GLuint gAP = 0, gAC = 0, gUMVP = 0;
@@ -908,9 +908,9 @@ GLuint GlesUtil::VertexColorProgram(GLuint *aP, GLuint *aC, GLuint *uMVP) {
 }
 
 
-GLuint GlesUtil::GradientProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
-                                 GLuint *uCU0, GLuint *uCV0,
-                                 GLuint *uCU1, GLuint *uCV1, GLuint *uUVWidth) {
+GLuint glt::GradientProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
+                            GLuint *uCU0, GLuint *uCV0,
+                            GLuint *uCU1, GLuint *uCV1, GLuint *uUVWidth) {
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
   static GLuint gAP = 0, gAUV = 0, gUMVP = 0;
@@ -983,8 +983,8 @@ GLuint GlesUtil::GradientProgram(GLuint *aP, GLuint *aUV, GLuint *uMVP,
 }
 
 
-GLuint GlesUtil::DropshadowFrameProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
-                                        GLuint *uMVP) {
+GLuint glt::DropshadowFrameProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
+                                   GLuint *uMVP) {
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
   static GLuint gAP = 0, gAUV = 0, gUC = 0, gUMVP = 0;
@@ -1038,8 +1038,8 @@ GLuint GlesUtil::DropshadowFrameProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
 
 
 
-GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
-                                GLuint *uMVP, GLuint *uTex) {
+GLuint glt::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
+                           GLuint *uMVP, GLuint *uTex) {
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
   static GLuint gAP = 0, gAUV = 0, gUC = 0, gUMVP = 0, gUCTex = 0;
@@ -1094,8 +1094,8 @@ GLuint GlesUtil::TextureProgram(GLuint *aP, GLuint *aUV, GLuint *uC,
 }
 
 
-GLuint GlesUtil::ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP,
-                                      GLuint *uTex) {
+GLuint glt::ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP,
+                                 GLuint *uTex) {
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
   static GLuint gAP = 0, gUC = 0, gUMVP = 0, gUCTex = 0;
@@ -1144,9 +1144,9 @@ GLuint GlesUtil::ScreenTextureProgram(GLuint *aP, GLuint *uC, GLuint *uMVP,
 }
 
 
-GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *aST,
-                                   GLuint *uC0, GLuint *uC1, GLuint *uMVP,
-                                   GLuint *uUVTex, GLuint *uSTTex) {
+GLuint glt::TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *aST,
+                              GLuint *uC0, GLuint *uC1, GLuint *uMVP,
+                              GLuint *uUVTex, GLuint *uSTTex) {
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
   static GLuint gAP=0, gAUV=0, gAST=0,gUC0=0,gUC1=0,gUMVP=0,gUUVTex=0,gUSTTex=0;
@@ -1213,8 +1213,8 @@ GLuint GlesUtil::TwoTextureProgram(GLuint *aP, GLuint *aUV, GLuint *aST,
 }
 
 
-GLuint GlesUtil::TextureHighlightProgram(GLuint *aP, GLuint *aUV, GLuint *aST,
-                                         GLuint *uC, GLuint *uMVP,GLuint *uTex){
+GLuint glt::TextureHighlightProgram(GLuint *aP, GLuint *aUV, GLuint *aST,
+                                    GLuint *uC, GLuint *uMVP,GLuint *uTex){
   static bool gInitialized = false;             // WARNING: Static variables!
   static GLuint gProgram = 0;
   static GLuint gAP=0, gAUV=0, gAST=0, gUC=0, gUMVP=0, gUTex=0;
@@ -1281,8 +1281,8 @@ GLuint GlesUtil::TextureHighlightProgram(GLuint *aP, GLuint *aUV, GLuint *aST,
 }
 
 
-GLuint GlesUtil::CreateBuffer(GLenum target, GLsizeiptr bytes, void *data,
-                              GLenum usage, const char *name) {
+GLuint glt::CreateBuffer(GLenum target, GLsizeiptr bytes, void *data,
+                         GLenum usage, const char *name) {
   GLuint buf;
   glGenBuffers(1, &buf);
   if (buf) {
@@ -1297,8 +1297,8 @@ GLuint GlesUtil::CreateBuffer(GLenum target, GLsizeiptr bytes, void *data,
 }
 
 
-bool GlesUtil::StoreSubBuffer(GLuint id, GLenum target, GLintptr offset,
-                               GLsizeiptr size, void *data) {
+bool glt::StoreSubBuffer(GLuint id, GLenum target, GLintptr offset,
+                         GLsizeiptr size, void *data) {
   glBindBuffer(target, id);
   glBufferSubData(target, offset, size, data);
   glBindBuffer(target, 0);
@@ -1308,7 +1308,7 @@ bool GlesUtil::StoreSubBuffer(GLuint id, GLenum target, GLintptr offset,
 }
 
 
-bool GlesUtil::IsExtensionEnabled(const char *extension) {
+bool glt::IsExtensionEnabled(const char *extension) {
   static const unsigned char *extensionString = NULL;
   if (!extensionString)
     extensionString = glGetString(GL_EXTENSIONS);
@@ -1324,18 +1324,17 @@ bool GlesUtil::IsExtensionEnabled(const char *extension) {
 
 static std::set<int> sDebugFontPtSet;
 static char sDebugFontName[1024] = { 0 };
-static const GlesUtil::FontSet *sDebugFontSet = NULL;
+static const glt::FontSet *sDebugFontSet = NULL;
 
 
-void GlesUtil::DebugFontSizes(const GlesUtil::FontSet &fontSet,
-                              const char *name) {
+void glt::DebugFontSizes(const glt::FontSet &fontSet, const char *name) {
   sDebugFontSet = &fontSet;
   strcpy(sDebugFontName, name);
   sDebugFontPtSet.clear();
 }
 
 
-const GlesUtil::Font &GlesUtil::FontSet::Font(float pts) const {
+const glt::Font &glt::FontSet::Font(float pts) const {
   if (this == sDebugFontSet) {
     if (sDebugFontPtSet.find(int(pts)) == sDebugFontPtSet.end()) {
       printf("Loading \"%s\" size %d\n", sDebugFontName, int(pts));
@@ -1351,13 +1350,12 @@ const GlesUtil::Font &GlesUtil::FontSet::Font(float pts) const {
 }
 
 
-GlesUtil::Font::Font() {
+glt::Font::Font() {
   memset(this, 0, sizeof(Font));                      // Zero out all fields
 }
 
 
-unsigned int GlesUtil::TextWidth(const char *text, const Font *font,
-                                 bool isKerned) {
+unsigned int glt::TextWidth(const char *text, const Font *font, bool isKerned) {
   if (!text)
     return 0;
   
@@ -1427,10 +1425,10 @@ static void MultiplyM44f(const float ap[16], const float bp[16], float cp[16]) {
 }
 
 
-bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
-                        float ptW, float ptH, const FontStyle *style,
-                        const float *MVP, float charPadPt,
-                        int firstChar, int lastChar) {
+bool glt::DrawText(const char *text, float x, float y, const Font *font,
+                   float ptW, float ptH, const FontStyle *style,
+                   const float *MVP, float charPadPt,
+                   int firstChar, int lastChar) {
   if (text == NULL)
     return false;
   if (font == NULL)
@@ -1570,17 +1568,17 @@ bool GlesUtil::DrawText(const char *text, float x, float y, const Font *font,
 
 
 static bool DrawJustified(const char *text, float x0, float x1,
-                          float y, float textW, GlesUtil::Align align,
-                          const GlesUtil::Font *font, float ptW, float ptH,
-                          const GlesUtil::FontStyle *style, const float *MVP,
+                          float y, float textW, glt::Align align,
+                          const glt::Font *font, float ptW, float ptH,
+                          const glt::FontStyle *style, const float *MVP,
                           int fc, int lc) {
   const float w = x1 - x0;
   float x, pad = 0;
   switch (align) {
-    case GlesUtil::LeftJustify:   x = 0;                break;
-    case GlesUtil::RightJustify:  x = w - textW;        break;
-    case GlesUtil::CenterJustify: x = (w - textW) / 2;  break;
-    case GlesUtil::FullJustify:
+    case glt::LeftJustify:   x = 0;                break;
+    case glt::RightJustify:  x = w - textW;        break;
+    case glt::CenterJustify: x = (w - textW) / 2;  break;
+    case glt::FullJustify:
       x = 0;
       pad = std::max(textW - w, 0.0f);
       if (pad > 0) {
@@ -1595,11 +1593,11 @@ static bool DrawJustified(const char *text, float x0, float x1,
 }
 
 
-bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
-                             float x1, float y1, Align align, const Font *font,
-                             float ptW, float ptH, const FontStyle *style,
-                             const float *MVP, int firstChar, int lastChar,
-                             bool wrapLines) {
+bool glt::DrawParagraph(const char *text, float x0, float y0,
+                        float x1, float y1, Align align, const Font *font,
+                        float ptW, float ptH, const FontStyle *style,
+                        const float *MVP, int firstChar, int lastChar,
+                        bool wrapLines) {
   const float wrapW = x1 - x0;
   const float eps = ptW / 4;          // Due to width accumulation
   if (wrapW <= 0)
@@ -1670,8 +1668,8 @@ bool GlesUtil::DrawParagraph(const char *text, float x0, float y0,
 }
 
 
-void GlesUtil::RoundedRectSize2fi(int segments, unsigned short *vertexCount,
-                                  unsigned short *idxCount) {
+void glt::RoundedRectSize2fi(int segments, unsigned short *vertexCount,
+                             unsigned short *idxCount) {
   *vertexCount = 4 * (segments + 1 /*inset corner*/);
   *idxCount = 3*5 /*rects*/ + 4 /*fans*/ * 4 /*pts/tri*/ * (segments - 1);
 }
@@ -1681,10 +1679,10 @@ void GlesUtil::RoundedRectSize2fi(int segments, unsigned short *vertexCount,
 // Tristrip Shapes
 //
 
-void GlesUtil::BuildRoundedRect2fi(float x0, float y0, float x1, float y1,
-                                   float u0, float v0, float u1, float v1,
-                                   float radiusX, float radiusY, int segments,
-                                   float *P, float *UV, unsigned short *idx) {
+void glt::BuildRoundedRect2fi(float x0, float y0, float x1, float y1,
+                              float u0, float v0, float u1, float v1,
+                              float radiusX, float radiusY, int segments,
+                              float *P, float *UV, unsigned short *idx) {
   // Compute the inset corners and put them into the vertex array
   P[0*2+0] = x0 + radiusX;  P[0*2+1] = y0 + radiusY;
   P[1*2+0] = x0 + radiusX;  P[1*2+1] = y1 - radiusY;
@@ -1785,16 +1783,16 @@ void GlesUtil::BuildRoundedRect2fi(float x0, float y0, float x1, float y1,
 }
 
 
-void GlesUtil::RoundedFrameSize2fi(int segments, unsigned short *vertexCount,
-                                   unsigned short *idxCount) {
+void glt::RoundedFrameSize2fi(int segments, unsigned short *vertexCount,
+                              unsigned short *idxCount) {
   *vertexCount = 4 * (segments + 1 /*inset corner*/);
   *idxCount = 4*5 /*rects*/ + 4 /*fans*/ * 4 /*pts/tri*/ * (segments - 1) + 7;
 }
 
 
-void GlesUtil::BuildRoundedFrame2fi(float x0, float y0, float x1, float y1,
-                                    float radiusX, float radiusY, int segments,
-                                    float *P, float *UV, unsigned short *idx) {
+void glt::BuildRoundedFrame2fi(float x0, float y0, float x1, float y1,
+                               float radiusX, float radiusY, int segments,
+                               float *P, float *UV, unsigned short *idx) {
   // Compute the inset corners and put them into the vertex array
   P[0*2+0] = x0 + radiusX;  P[0*2+1] = y0 + radiusY;
   P[1*2+0] = x0 + radiusX;  P[1*2+1] = y1 - radiusY;

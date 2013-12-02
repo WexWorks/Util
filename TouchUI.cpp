@@ -326,10 +326,10 @@ bool ViewportWidget::TouchStartInside(const Event &event) const {
 // Label
 //
 
-std::map<std::string, const GlesUtil::FontSet *> Label::sFontMap;
+std::map<std::string, const glt::FontSet *> Label::sFontMap;
 
 
-bool Label::AddFontSet(const char *name, const GlesUtil::FontSet &fontSet) {
+bool Label::AddFontSet(const char *name, const glt::FontSet &fontSet) {
   std::string key(name);
   if (sFontMap.find(key) != sFontMap.end())
     return false;
@@ -355,7 +355,7 @@ bool Label::SetText(const char *text, float pts, const char *font) {
     mPts = pts;
   else if (mPts == 0)                                 // Fail if already zero
     return false;
-  std::map<std::string, const GlesUtil::FontSet *>::const_iterator i;
+  std::map<std::string, const glt::FontSet *>::const_iterator i;
   if (font == NULL)
     font = "System";
   i = sFontMap.find(font);
@@ -372,7 +372,7 @@ bool Label::SetText(const char *text, float pts, const char *font) {
 
 bool Label::FitViewport() {
   const float ptScale = mPts / float(mFont->charDimPt[0]);
-  int tw = ceilf(ptScale * GlesUtil::TextWidth(mText, mFont, true /*kern*/));
+  int tw = ceilf(ptScale * glt::TextWidth(mText, mFont, true /*kern*/));
   int th = ceilf(ptScale * mLineCount * mFont->charDimPt[1]);
   int w = tw + 2 * mPadPt[0];
   int h = th + 2 * mPadPt[1];
@@ -425,9 +425,9 @@ bool Label::Draw() {
   if (mTex) {
     r = k * mBkgTexColor[0]; g = k * mBkgTexColor[1];
     b = k * mBkgTexColor[2]; a = mOpacity * k * mBkgTexColor[3];
-    if (!GlesUtil::Draw3SliceTexture2f(mTex, x0, y0, x1, y1, 0, 1, 1, 0,
-                                       mTexDim[0], mTexDim[1], Width(),Height(),
-                                       r, g, b, a, MVP()))
+    if (!glt::Draw3SliceTexture2f(mTex, x0, y0, x1, y1, 0, 1, 1, 0,
+                                  mTexDim[0], mTexDim[1], Width(), Height(),
+                                  r, g, b, a, MVP()))
       return false;
   }
 
@@ -450,11 +450,11 @@ bool Label::Draw() {
     ptW = ptH = ptScale;
   }
   
-  GlesUtil::Align align = (GlesUtil::Align)mAlign;
+  glt::Align align = (glt::Align)mAlign;
   const float textNDCHeight = ptH * mLineCount * mFont->charDimPt[1];
   const float padNDCHeight = 0.5 * (ndcH - textNDCHeight);
   float y = y1 - padNDCHeight;
-  GlesUtil::FontStyle style;
+  glt::FontStyle style;
   style.C[0] = k * mTextColor[0]; style.C[1] = k * mTextColor[1];
   style.C[2] = k * mTextColor[2]; style.C[3] = mOpacity * mTextColor[3];
   style.dropshadowC[0] = mTextDropshadowColor[0];
@@ -463,9 +463,8 @@ bool Label::Draw() {
   style.dropshadowC[3] = mOpacity * mTextDropshadowColor[3];
   style.dropshadowOffsetPts[0] = mTextDropshadowOffsetPts[0];
   style.dropshadowOffsetPts[1] = mTextDropshadowOffsetPts[1];
-  if (!GlesUtil::DrawParagraph(mText, x0, y0, x1, y, align,
-                               mFont, ptW, ptH, &style, MVP(),
-                               mTextRange[0], mTextRange[1], mWrapLines))
+  if (!glt::DrawParagraph(mText, x0, y0, x1, y, align, mFont, ptW, ptH, &style,
+                          MVP(), mTextRange[0], mTextRange[1], mWrapLines))
     return false;
   glDisable(GL_BLEND);
   return true;
@@ -498,11 +497,11 @@ bool ProgressBar::Draw() {
   }
   
   if (mShellTex) {
-    if (!GlesUtil::Draw3SliceTexture2f(mShellTex, x0, y0, x1, y1, 0, 1, 1, 0,
+    if (!glt::Draw3SliceTexture2f(mShellTex, x0, y0, x1, y1, 0, 1, 1, 0,
                                        mTexDim[0], mTexDim[1], Width(),Height(),
                                        1, 1, 1, 1))
       return false;
-  } else if (!GlesUtil::DrawColorBox2f(x0, y0, x1, y1, 0.8, 0.8, 0.8, 1))
+  } else if (!glt::DrawColorBox2f(x0, y0, x1, y1, 0.8, 0.8, 0.8, 1))
     return false;
   float t = (mValue - mRange[0]) / (mRange[1] - mRange[0]);
   if (t > 0)
@@ -512,12 +511,12 @@ bool ProgressBar::Draw() {
   float x = x0 + t * (x1 - x0);
   float k = 0.1 * sinf(mSeconds*3) + 1;
   if (mCoreTex) {
-    if (!GlesUtil::Draw3SliceTexture2f(mCoreTex, x0, y0, x, y1, 0, 1, 1, 0,
-                                       mTexDim[0], mTexDim[1], Width(),Height(),
-                                       k, k, k, 1))
+    if (!glt::Draw3SliceTexture2f(mCoreTex, x0, y0, x, y1, 0, 1, 1, 0,
+                                  mTexDim[0], mTexDim[1], Width(),Height(),
+                                  k, k, k, 1))
       return false;
-  } else if (!GlesUtil::DrawColorBox2f(x0, y0, x, y1, k * mRGBA[0], k * mRGBA[1],
-                                       k * mRGBA[2], mRGBA[3]))
+  } else if (!glt::DrawColorBox2f(x0, y0, x, y1, k * mRGBA[0], k * mRGBA[1],
+                                  k * mRGBA[2], mRGBA[3]))
     return false;
 
   glDisable(GL_BLEND);
@@ -561,13 +560,13 @@ bool Sprite::Init(float opacity, float u0, float v0, float u1, float v1,
     "  vec4 C = texture2D(uCTex, vUV);\n"
     "  gl_FragColor = vec4(C.xyz, C.w * uOpacity);\n"
     "}\n";
-    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vpCode);
+    GLuint vp = glt::CreateShader(GL_VERTEX_SHADER, vpCode);
     if (!vp)
       return false;
-    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    GLuint fp = glt::CreateShader(GL_FRAGMENT_SHADER, fpCode);
     if (!fp)
       return false;
-    mSpriteProgram = GlesUtil::CreateProgram(vp, fp, "tui::Sprite");
+    mSpriteProgram = glt::CreateProgram(vp, fp, "tui::Sprite");
     if (!mSpriteProgram)
       return false;
     glDeleteShader(vp);
@@ -577,7 +576,7 @@ bool Sprite::Init(float opacity, float u0, float v0, float u1, float v1,
     mSpriteAP = glGetAttribLocation(mSpriteProgram, "aP");
     mSpriteUCTex = glGetUniformLocation(mSpriteProgram, "uCTex");
     mSpriteUOpacity = glGetUniformLocation(mSpriteProgram, "uOpacity");
-    if (GlesUtil::Error())
+    if (glt::Error())
       return false;
   }
   
@@ -636,7 +635,7 @@ bool Sprite::Draw() {
   glUniform1f(mSpriteUOpacity, mOpacity);
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
-  if (!GlesUtil::DrawBox2f(mSpriteAP, x0, y0, x1, y1, mSpriteAUV, mSpriteUV[0],
+  if (!glt::DrawBox2f(mSpriteAP, x0, y0, x1, y1, mSpriteAUV, mSpriteUV[0],
                            mSpriteUV[1], mSpriteUV[2], mSpriteUV[3]))
     return false;
   
@@ -711,7 +710,7 @@ bool Spinner::Draw() {
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
   glBlendEquation(GL_FUNC_ADD);
   const float g = Enabled() ? 1 : 0.5;
-  if (!GlesUtil::DrawTexture2f(mTex, x0,y0,x1,y1, 0,1,1,0, g,g,g,1, mvp))
+  if (!glt::DrawTexture2f(mTex, x0,y0,x1,y1, 0,1,1,0, g,g,g,1, mvp))
     return false;
   glDisable(GL_BLEND);
   
@@ -866,8 +865,7 @@ bool ImageButton::Draw() {
   GetNDCRect(&x0, &y0, &x1, &y1);
   unsigned int texture = Pressed() ? mPressedTex : mDefaultTex;
   const float g = Enabled() ? 1 : 0.5;
-  if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0,
-                               g, g, g, 1, MVP()))
+  if (!glt::DrawTexture2f(texture, x0,y0,x1,y1, 0,1,1,0, g,g,g,1, MVP()))
     return false;
   
   return true;
@@ -913,8 +911,7 @@ bool CheckboxImageButton::Draw() {
   unsigned int texture = Pressed() ? mPressedTex : Selected() ?
                                     mSelectedTex : mDeselectedTex;
   const float g = Enabled() ? 1 : 0.5;
-  if (!GlesUtil::DrawTexture2f(texture, x0, y0, x1, y1, 0, 1, 1, 0,
-                               g, g, g, 1, MVP()))
+  if (!glt::DrawTexture2f(texture, x0,y0,x1,y1, 0,1,1,0, g,g,g,1, MVP()))
     return false;
   
   glDisable(GL_BLEND);
@@ -1277,7 +1274,7 @@ bool ImageHandle::Draw() {
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
   float g = Enabled() ? 1 : 0.5;
-  if (!GlesUtil::DrawTexture2f(tex, x0, y0, x1, y1, 0, 1, 1, 0, g,g,g,1, MVP()))
+  if (!glt::DrawTexture2f(tex, x0, y0, x1, y1, 0, 1, 1, 0, g,g,g,1, MVP()))
     return false;
   glDisable(GL_BLEND);
   
@@ -1346,9 +1343,9 @@ bool Slider::Draw() {
   float x0, y0, x1, y1;
   GetNDCRect(&x0, &y0, &x1, &y1);
   float g = Enabled() ? 1 : 0.5;
-  if (!GlesUtil::DrawTexture2f(mSliderTex, x0, y0, x1, y1, 0, 1, 1, 0,
-                               g * mBkgTexColor[0], g * mBkgTexColor[1],
-                               g * mBkgTexColor[2], mBkgTexColor[3], MVP()))
+  if (!glt::DrawTexture2f(mSliderTex, x0, y0, x1, y1, 0, 1, 1, 0,
+                          g * mBkgTexColor[0], g * mBkgTexColor[1],
+                          g * mBkgTexColor[2], mBkgTexColor[3], MVP()))
     return false;
   glDisable(GL_BLEND);
   if (!mHandle->Draw())
@@ -1400,7 +1397,7 @@ bool StarRating::Init(size_t count, float pts, const char *font) {
   mSelectedColor[3] = 1;
   char text[512];
   for (size_t i = 0; i < count; ++i)
-    text[i] = GlesUtil::Font::StarChar;
+    text[i] = glt::Font::StarChar;
   text[count] = '\0';
   if (!mLabel.Init(text, pts, font))
     return false;
@@ -1718,9 +1715,9 @@ bool Toolbar::Draw() {
     glBlendEquation(GL_FUNC_ADD);
     float x0, y0, x1, y1;
     GetNDCRect(&x0, &y0, &x1, &y1);
-    if (!GlesUtil::Draw3SliceTexture2f(mBackgroundTex, x0, y0, x1, y1, 0,1,1,0,
-                                       mBackgroundTexDim[0],mBackgroundTexDim[1],
-                                       Width(), Height(), 1, 1, 1, 1))
+    if (!glt::Draw3SliceTexture2f(mBackgroundTex, x0, y0, x1, y1, 0,1,1,0,
+                                  mBackgroundTexDim[0],mBackgroundTexDim[1],
+                                  Width(), Height(), 1, 1, 1, 1))
       return false;
     glDisable(GL_BLEND);
   }
@@ -1758,7 +1755,7 @@ bool FlinglistImpl::Init(int frameDim, bool vertical, float pixelsPerCm) {
     "void main() {\n"
     "  gl_Position = vec4(aP.x, aP.y, 0, 1);\n"
     "}\n";
-    GLuint vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, vp_code);
+    GLuint vp = glt::CreateShader(GL_VERTEX_SHADER, vp_code);
     if (!vp)
       return false;
     static const char *fp_code =
@@ -1767,10 +1764,10 @@ bool FlinglistImpl::Init(int frameDim, bool vertical, float pixelsPerCm) {
 #endif
     "uniform vec4 uC;\n"
     "void main() { gl_FragColor = uC; }";
-    GLuint fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, fp_code);
+    GLuint fp = glt::CreateShader(GL_FRAGMENT_SHADER, fp_code);
     if (!vp)
       return false;
-    mFlingProgram = GlesUtil::CreateProgram(vp, fp, "tui::Fling");
+    mFlingProgram = glt::CreateProgram(vp, fp, "tui::Fling");
     if (!mFlingProgram)
       return false;
     glDeleteShader(vp);
@@ -1784,7 +1781,7 @@ bool FlinglistImpl::Init(int frameDim, bool vertical, float pixelsPerCm) {
     "  vUV = aUV;\n"
     "  gl_Position = aP;\n"
     "}\n";
-    vp = GlesUtil::CreateShader(GL_VERTEX_SHADER, glow_vp_code);
+    vp = glt::CreateShader(GL_VERTEX_SHADER, glow_vp_code);
     if (!vp)
       return false;
     
@@ -1796,10 +1793,10 @@ bool FlinglistImpl::Init(int frameDim, bool vertical, float pixelsPerCm) {
     "  float opacity = sin(vUV.y * 1.571);\n"
     "  gl_FragColor = vec4(uC.xyz, uC.w * opacity);\n"
     "}";
-    fp = GlesUtil::CreateShader(GL_FRAGMENT_SHADER, glow_fp_code);
+    fp = glt::CreateShader(GL_FRAGMENT_SHADER, glow_fp_code);
     if (!fp)
       return false;
-    mGlowProgram = GlesUtil::CreateProgram(vp, fp, "tui::FlingGlow");
+    mGlowProgram = glt::CreateProgram(vp, fp, "tui::FlingGlow");
     if (!mGlowProgram)
       return false;
     glDeleteShader(vp);
@@ -2016,7 +2013,7 @@ bool FlinglistImpl::DrawFrame(FlinglistImpl::Frame *frame) {
              frameViewport[2], frameViewport[3]);
   glScissor(scissor[0], scissor[1], scissor[2], scissor[3]);
   glEnable(GL_SCISSOR_TEST);
-  if (GlesUtil::Error())
+  if (glt::Error())
     return false;
   
   if (!frame->Draw())
@@ -2083,7 +2080,7 @@ bool FlinglistImpl::Draw() {
     glVertexAttribPointer(aP, 2, GL_FLOAT, false, 0, v);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glDisableVertexAttribArray(aP);
-    if (GlesUtil::Error())
+    if (glt::Error())
       return false;
     
     // Currently hardcoded to only appear on right side.
@@ -2113,7 +2110,7 @@ bool FlinglistImpl::Draw() {
           xf1 = x1;
         }
   
-        if (!GlesUtil::DrawTexture2f(overpullTex, xf0,y0,xf1,y1, 0,1,1,0,MVP()))
+        if (!glt::DrawTexture2f(overpullTex, xf0,y0,xf1,y1, 0,1,1,0,MVP()))
           return false;
       }
     }
@@ -2147,7 +2144,7 @@ bool FlinglistImpl::Draw() {
         x = 2 * mScrollBounce / vp[2] - 1;
       }
     }
-    if (!GlesUtil::DrawTexture2f(mDragHandleTex, x, y, x+w, y+h, 0,1,1,0,MVP()))
+    if (!glt::DrawTexture2f(mDragHandleTex, x, y, x+w, y+h, 0,1,1,0,MVP()))
       return false;
     
     if (mGlowDragHandle) {
@@ -2159,7 +2156,7 @@ bool FlinglistImpl::Draw() {
       const float dim = 8 * (1 + sin(mGlowSeconds * 3));
       const float gw = dim / Width();
       const float gh = dim / Height();
-      if (!GlesUtil::DrawBoxFrame2f(aP, x-gw, y-gh, x+w+gw, y+h+gh, gw, gh, aUV))
+      if (!glt::DrawBoxFrame2f(aP, x-gw, y-gh, x+w+gw, y+h+gh, gw, gh, aUV))
         return false;
     }
   }
@@ -2230,7 +2227,7 @@ bool FlinglistImpl::Draw() {
       glVertexAttribPointer(aP, 2, GL_FLOAT, false, 0, v);
       glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
       glDisableVertexAttribArray(aP);
-      if (GlesUtil::Error())
+      if (glt::Error())
         return false;
     }
   }
@@ -3231,6 +3228,7 @@ bool Frame::OnDoubleTap(const Event::Touch &touch) {
   } else {
     SnapToScale(min, true);                   // 1:1 or fit screen
   }
+  
   return true;
 }
 
