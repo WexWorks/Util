@@ -72,7 +72,7 @@ size_t Filename::FileSize(const char *filename) {
   struct stat sbuf;
   if (stat(filename, &sbuf) < 0)
     return 0;
-  return sbuf.st_size;
+  return size_t(sbuf.st_size);
 }
 
 

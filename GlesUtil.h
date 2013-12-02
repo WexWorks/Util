@@ -194,15 +194,26 @@ bool DrawParagraph(const char *text, float x0, float y0, float x1, float y1,
 //            Note: Avoid mips with min=near|linear & mag=near
 //   Wraps:   GL_CLAMP_TO_EDGE, GL_REPEAT, GL_MIRRORED_REPEAT
 //            Note: Rectangular textures require clamp or GL_OES_texture_npot
-//   Format:  GL_RGBA, GL_RGB, GL_LIMINANCE_ALPHA, GL_LUMINANCE, GL_ALPHA
+//   Format:  GL_ALPHA, GL_ALPHA4, GL_ALPHA8, GL_ALPHA12, GL_ALPHA16,
+//            GL_LUMINANCE, GL_LUMINANCE4, GL_LUMINANCE8, GL_LUMINANCE12,
+//            GL_LUMINANCE16, GL_LUMINANCE_ALPHA, GL_LUMINANCE4_ALPHA4,
+//            GL_LUMINANCE6_ALPHA2, GL_LUMINANCE8_ALPHA8,
+//            GL_LUMINANCE12_ALPHA4, GL_LUMINANCE12_ALPHA12,
+//            GL_LUMINANCE16_ALPHA16, GL_INTENSITY, GL_INTENSITY4,
+//            GL_INTENSITY8, GL_INTENSITY12, GL_INTENSITY16,
+//            GL_R3_G3_B2, GL_RGB, GL_RGB4, GL_RGB5, GL_RGB8, GL_RGB10,
+//            GL_RGB12, GL_RGB16, GL_RGBA, GL_RGBA2, GL_RGBA4, GL_RGB5_A1,
+//            GL_RGBA8, GL_RGB10_A2, GL_RGBA12, GL_RGBA16.
 //   Type:    GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT_4_4_4_4, *_5_5_5_1, *_5_6_5
 //   Name:    Debugging only. Names texture in XCode.
+//   PixelFormat: GL_COLOR_INDEX, GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA, GL_RGB,
+//                GL_BGR  GL_RGBA, GL_BGRA, GL_LUMINANCE, and GL_LUMINANCE_ALPHA
 
 bool StoreTexture(GLuint tex, GLenum target,
                   GLenum minFilter, GLenum magFilter,
                   GLenum clampS, GLenum clampT,
                   GLsizei w, GLsizei h, GLenum format, GLenum type,
-                  const void *pix, const char *name=0);
+                  const void *pix, const char *name=0, GLenum pixelFormat=0);
 bool StoreSubTexture(GLuint tex, GLenum target, GLint miplevel, GLint x,GLint y,
                      GLsizei w, GLsizei h, GLenum format, GLenum type,
                      const void *pix);

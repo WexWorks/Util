@@ -13,7 +13,17 @@
 
 using namespace tui;
 
-const float tui::FlinglistImpl::kJiggleSeconds = 0.2;
+const float Widget::kMinScale = 0.03;
+const int Widget::kMinPanPix = 40;
+const size_t Toolbar::kStdHeight = 44;
+const int FlinglistImpl::kDragMm = 4;
+const int FlinglistImpl::kJiggleMm = 10;
+const float FlinglistImpl::kJiggleSeconds = 0.2;
+const int FlinglistImpl::kSnapVelocity = 10;
+const float Frame::kDragDamping = 0.9;
+const float Frame::kDragFling = 2;
+const float Frame::kScaleDamping = 0.9;
+const float Frame::kScaleFling = 1;
 
 unsigned int FlinglistImpl::mFlingProgram = 0;
 unsigned int FlinglistImpl::mGlowProgram = 0;
@@ -2580,7 +2590,7 @@ bool Frame::Step(float seconds) {
   }
   
   // Apply target center if enabled & not actively moving
-  if (!IsDragging() && mIsTargetCenterActive) {
+  if (!IsDragging() && (mIsTargetCenterActive || mIsTargetScaleActive)) {
     if (mIsSnapDirty) {
       // Check to see if the target center is past the limit at target scale.
       // We don't want to stop translating, just limit the translation to
@@ -3231,8 +3241,8 @@ void ButtonGridFrame::VisibleButtonRange(float u0, float v0, float u1, float v1,
   if (v0 > v1)
     std::swap(v0, v1);
   
-  const int s0 = u0 * ImageWidth(), t0 = v0 * ImageHeight();  // visible pixels
-  const int s1 = u1 * ImageWidth(), t1 = v1 * ImageHeight();
+  const int t0 = v0 * ImageHeight();                          // visible pixels
+  const int t1 = v1 * ImageHeight();
   
   // Button index 0 starts at y=height-(top+dim)
   const int horizCount = mButtonHorizCount[mButtonHorizCountIdx];

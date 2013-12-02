@@ -98,8 +98,8 @@ namespace tui {
     }
     
   private:
-    static const float kMinScale = 0.03;      // Min scaling amount before event
-    static const int kMinPanPix = 40;         // Min pan motion before event
+    static const float kMinScale;             // Min scaling amount before event
+    static const int kMinPanPix;              // Min pan motion before event
 
     Widget(const Widget&);                    // Disallow copy ctor
     void operator=(const Widget&);            // Disallow assignment
@@ -735,7 +735,7 @@ namespace tui {
   // Set the size of each widget for spacing, but the (x,y) is ignored.
   class Toolbar : public AnimatedViewport {
   public:
-    static const size_t kStdHeight = 44;
+    static const size_t kStdHeight;
     
     Toolbar() : mBackgroundTex(0) {
       mBackgroundTexDim[0] = mBackgroundTexDim[1] = 0;
@@ -838,9 +838,9 @@ namespace tui {
     virtual void OnTouchEnded() {}
 
   protected:
-    static const int kDragMm = 4;             // Threshold for drag events
-    static const int kJiggleMm = 10;          // Offset 
-    static const int kSnapVelocity = 10;      // In pixels/sec
+    static const int kDragMm;                 // Threshold for drag events
+    static const int kJiggleMm;               // Offset
+    static const int kSnapVelocity;           // In pixels/sec
     static const float kJiggleSeconds;        // Length of jiggle
 
     virtual bool Append(Frame *frame);        // Do not allow generic frames,
@@ -1049,10 +1049,10 @@ namespace tui {
                              float u0, float v0, float u1, float v1);
     
   private:
-    static const float kDragDamping = 0.9;
-    static const float kDragFling = 2;
-    static const float kScaleDamping = 0.9;
-    static const float kScaleFling = 1;
+    static const float kDragDamping;
+    static const float kDragFling;
+    static const float kScaleDamping;
+    static const float kScaleFling;
     
     Frame(const Frame &);                     // Disallow copy ctor
     void operator=(const Frame &);            // Disallow assignment
