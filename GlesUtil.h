@@ -3,7 +3,19 @@
 #ifndef GLES_UTIL_H
 #define GLES_UTIL_H
 
+#if defined(IOS)
 #include <OpenGLES/ES2/gl.h>
+#include <OpenGLES/ES2/glext.h>
+#elif defined(ANDROID)
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+#define glLabelObjectEXT(A,B,C,D)                     // Apple debugger info
+#elif defined(OSX)
+#include <OpenGL/gl.h>
+#include <OpenGL/glext.h>
+#endif
 
 
 // Helpful routines for common OpenGLES 2 operations.
@@ -24,7 +36,7 @@ bool IsFramebufferComplete();                         // Validate FBO
 bool IsExtensionEnabled(const char *extension);       // Check for extension
 bool IsMSAAResolutionSupported(GLuint w, GLuint h);   // Test MSAA res
 
-  
+
 // Drawing functions:
 //   Attributes: aP is used for position, aUV for texture coordinates.
 //   MVP defaults to unit matrix, implying NDC space [-1,-1]x[1,1]
@@ -128,7 +140,7 @@ struct FontSet {                                      // Sizes for one font
   FontSet() : fontVec(0), fontCount(0) {}             // Zero out memory
   const Font *fontVec;                                // Increasing pt size
   unsigned int fontCount;                             // Size of fontVec
-  const Font &Font(float pts) const;                  // Return best match
+  const Font &ClosestFont(float pts) const;          // Return best match
 };
 
 struct FontStyle {                                    // Render style (one pass)

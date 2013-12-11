@@ -2,8 +2,6 @@
 
 #include "GlesUtil.h"
 
-#include <OpenGLES/ES2/glext.h>
-
 #include <assert.h>
 #include <limits>
 #include <stdlib.h>
@@ -11,6 +9,7 @@
 #include <stdio.h>
 #include <vector>
 #include <math.h>
+#include <ctype.h>
 
 
 static GLint gErrorCode = GL_NO_ERROR;
@@ -1334,7 +1333,7 @@ void glt::DebugFontSizes(const glt::FontSet &fontSet, const char *name) {
 }
 
 
-const glt::Font &glt::FontSet::Font(float pts) const {
+const glt::Font &glt::FontSet::ClosestFont(float pts) const {
   if (this == sDebugFontSet) {
     if (sDebugFontPtSet.find(int(pts)) == sDebugFontPtSet.end()) {
       printf("Loading \"%s\" size %d\n", sDebugFontName, int(pts));

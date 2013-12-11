@@ -3,13 +3,12 @@
 #ifndef SYS_H
 #define SYS_H
 
-#include "paramlist.h"
-
 #include <map>
 #include <string>
 #include <vector>
 
 namespace tui { class Event; }
+namespace OIIO { class ParamValueList; }
 
 namespace sys {
 
@@ -222,8 +221,6 @@ private:
 class App {
 public:
   virtual ~App() {}
-  
-  static App *Create();                               // Factory
   
   virtual bool Init(Os *os) = 0;                      // Setup app
   virtual bool Touch(const tui::Event &event) = 0;    // Process events
