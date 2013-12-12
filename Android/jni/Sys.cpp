@@ -16,7 +16,33 @@
 class AndroidOs : public sys::Os {
 public:
 
+  AndroidOs() : mEnv(NULL), mObj(NULL), mFindResourcePathMid(NULL) {}
+
+  bool Init(JNIEnv *env, jobject obj) {
+    mEnv = env;
+    mObj = obj;
+    mFindResourcePathMid = NULL;
+    return true;
+  }
+
   bool FindResourcePath(const char *name, char path[1024]) {
+    if (!mFindResourcePathMid) {
+      jclass clazz = mEnv->GetObjectClass(mObj);
+      mFindResourcePathMid = mEnv->GetMethodID(clazz, "FindResourcePath", "(Ljava/lang/String;)Ljava/lang/String;");
+      if (!mFindResourcePathMid)
+        return false;
+    }
+
+    jstring n = mEnv->NewStringUTF(name);
+    jstring p = (jstring)mEnv->CallObjectMethod(mObj, mFindResourcePathMid, n);
+    const char *np = mEnv->GetStringUTFChars(p, 0);
+    if (np)
+      strcpy(path, np);
+    else
+      path[0] = '\0';
+    mEnv->DeleteLocalRef(n);
+    mEnv->DeleteLocalRef(p);
+
     return true;
   }
 
@@ -122,12 +148,32 @@ public:
 
 
   // OS-specific error logging
-  static void Error(const char *fmt, ...) {
+  void Info(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    __android_log_vprint(ANDROID_LOG_INFO,"WexWorks.Util.Sys", fmt, ap);
+    va_end(ap);
+  }
+
+  void Warning(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    __android_log_vprint(ANDROID_LOG_WARN,"WexWorks.Util.Sys", fmt, ap);
+    va_end(ap);
+  }
+
+  void Error(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     __android_log_vprint(ANDROID_LOG_ERROR,"WexWorks.Util.Sys", fmt, ap);
     va_end(ap);
   }
+
+private:
+  JNIEnv *mEnv;
+  jobject mObj;
+  jmethodID mFindResourcePathMid;
+
 };  // class AndroidOs
 
 
@@ -136,7 +182,7 @@ public:
 //
 
 static sys::App *gApp = NULL;
-
+static AndroidOs *gOs = NULL;
 
 extern "C" {
 JNIEXPORT void JNICALL Java_com_WexWorks_Util_Sys_Init(JNIEnv *env, jobject obj, jlong app);
@@ -159,9 +205,11 @@ Java_com_WexWorks_Util_Sys_Init(JNIEnv* env, jobject obj, jlong app) {
     gApp = NULL;
   }
   gApp = (sys::App *)app;
-  sys::Os *os = new AndroidOs;
-  if (!gApp->Init(os)) {
-    AndroidOs::Error("Cannot initialize application");
+  gOs = new AndroidOs;
+  if (!gOs->Init(env, obj))
+    return;
+  if (!gApp->Init(gOs)) {
+    gOs->Error("Cannot initialize application");
     return;
   }
 }
@@ -171,11 +219,11 @@ JNIEXPORT void JNICALL
 Java_com_WexWorks_Util_Sys_SetDeviceResolution(JNIEnv* env, jobject obj,
                                                jint w, jint h) {
   if (!gApp) {
-    AndroidOs::Error("Invalid app in resize");
+    gOs->Error("Invalid app in resize");
     return;
   }
   if (!gApp->SetDeviceResolution(w, h)) {
-    AndroidOs::Error("Error setting device resolution %d x %d", w, h);
+    gOs->Error("Error setting device resolution %d x %d", w, h);
   }
 }
 
@@ -183,7 +231,7 @@ Java_com_WexWorks_Util_Sys_SetDeviceResolution(JNIEnv* env, jobject obj,
 JNIEXPORT void JNICALL
 Java_com_WexWorks_Util_Sys_Step(JNIEnv* env, jobject obj) {
   if (!gApp) {
-    AndroidOs::Error("Invalid app in step");
+    gOs->Error("Invalid app in step");
     return;
   }
 
@@ -194,12 +242,12 @@ Java_com_WexWorks_Util_Sys_Step(JNIEnv* env, jobject obj) {
   sLastFrameSec = sec;
 
   if (!gApp->Step(dSec)) {
-    AndroidOs::Error("Error stepping %f seconds", dSec);
+    gOs->Error("Error stepping %f seconds", dSec);
     return;
   }
 
   if (!gApp->Draw()) {
-    AndroidOs::Error("Error redrawing");
+    gOs->Error("Error redrawing");
     return;
   }
 }

@@ -108,6 +108,11 @@ public:
   Os() {}
   virtual ~Os() {}
   
+  // Write information to the console
+  virtual void Info(const char *fmt, ...) = 0;
+  virtual void Warning(const char *fmt, ...) = 0;
+  virtual void Error(const char *fmt, ...) = 0;
+
   // Returns a URL to a file within the app's resource bundle
   virtual bool FindResourcePath(const char *name, char path[1024]) = 0;
   
