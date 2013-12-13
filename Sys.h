@@ -113,9 +113,10 @@ public:
   virtual void Warning(const char *fmt, ...) = 0;
   virtual void Error(const char *fmt, ...) = 0;
 
-  // Returns a URL to a file within the app's resource bundle
-  virtual bool FindResourcePath(const char *name, char path[1024]) = 0;
-  
+  // Returns a newly created texture id for the named resource
+  virtual bool CreateResourceGLTexture(const char *name, int *id,
+                                       int *w, int *h) = 0;
+
   // Returns a URL to a file in the app's local documents folder
   virtual bool FindAppCachePath(const char *name, char path[1024]) = 0;
   

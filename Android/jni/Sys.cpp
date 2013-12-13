@@ -16,35 +16,49 @@
 class AndroidOs : public sys::Os {
 public:
 
-  AndroidOs() : mEnv(NULL), mObj(NULL), mFindResourcePathMid(NULL) {}
+  AndroidOs() : mEnv(NULL), mObj(NULL), mCreateResourceGLTextureMid(NULL) {}
 
   bool Init(JNIEnv *env, jobject obj) {
     mEnv = env;
     mObj = obj;
-    mFindResourcePathMid = NULL;
+    mCreateResourceGLTextureMid = NULL;
     return true;
   }
 
-  bool FindResourcePath(const char *name, char path[1024]) {
-    if (!mFindResourcePathMid) {
+  bool CreateResourceGLTexture(const char *name, int *id, int *w, int *h) {
+    if (!mCreateResourceGLTextureMid) {
       jclass clazz = mEnv->GetObjectClass(mObj);
-      mFindResourcePathMid = mEnv->GetMethodID(clazz, "FindResourcePath", "(Ljava/lang/String;)Ljava/lang/String;");
-      if (!mFindResourcePathMid)
+      const char *fname = "CreateResourceGLTexture";
+      const char *sig = "(Ljava/lang/String;)Lcom/WexWorks/Util/Sys$CreateTexture;";
+      mCreateResourceGLTextureMid = mEnv->GetMethodID(clazz, fname, sig);
+      Info("Found CreateResourceGLTexture %d\n", mCreateResourceGLTextureMid);
+      if (!mCreateResourceGLTextureMid)
         return false;
     }
 
+    Info("Calling CreateResourceGLTexture %d\n", mCreateResourceGLTextureMid);
     jstring n = mEnv->NewStringUTF(name);
-    jstring p = (jstring)mEnv->CallObjectMethod(mObj, mFindResourcePathMid, n);
-    const char *np = mEnv->GetStringUTFChars(p, 0);
-    if (np)
-      strcpy(path, np);
-    else
-      path[0] = '\0';
+    jobject o = mEnv->CallObjectMethod(mObj, mCreateResourceGLTextureMid, n);
+
+    Info("Called CreateResourceGLTexture returned %p\n", o);
+    if (o) {
+      jclass clazz = mEnv->GetObjectClass(o);
+      jfieldID fid = mEnv->GetFieldID(clazz, "id", "I");
+      *id = mEnv->GetIntField(o, fid);
+      fid = mEnv->GetFieldID(clazz, "w", "I");
+      *w = mEnv->GetIntField(o, fid);
+      fid = mEnv->GetFieldID(clazz, "h", "I");
+      *h = mEnv->GetIntField(o, fid);
+    } else {
+      *id = *w = *h = 0;
+    }
+
     mEnv->DeleteLocalRef(n);
-    mEnv->DeleteLocalRef(p);
+    mEnv->DeleteLocalRef(o);
 
     return true;
   }
+
 
   bool FindAppCachePath(const char *name, char path[1024]) {
     return true;
@@ -172,7 +186,7 @@ public:
 private:
   JNIEnv *mEnv;
   jobject mObj;
-  jmethodID mFindResourcePathMid;
+  jmethodID mCreateResourceGLTextureMid;
 
 };  // class AndroidOs
 
