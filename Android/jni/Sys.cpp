@@ -16,21 +16,20 @@
 class AndroidOs : public sys::Os {
 public:
 
-  AndroidOs() : mEnv(NULL), mObj(NULL), mCreateResourceGLTextureMid(NULL) {}
+  AndroidOs() : mEnv(NULL), mSysClazz(NULL), mCreateResourceGLTextureMid(NULL) {}
 
-  bool Init(JNIEnv *env, jobject obj) {
+  bool Init(JNIEnv *env, jobject sysObj) {
     mEnv = env;
-    mObj = obj;
+    mSysClazz = mEnv->FindClass("com.WexWorks.Util.Sys");
     mCreateResourceGLTextureMid = NULL;
     return true;
   }
 
   bool CreateResourceGLTexture(const char *name, int *id, int *w, int *h) {
     if (!mCreateResourceGLTextureMid) {
-      jclass clazz = mEnv->GetObjectClass(mObj);
       const char *fname = "CreateResourceGLTexture";
-      const char *sig = "(Ljava/lang/String;)Lcom/WexWorks/Util/Sys$CreateTexture;";
-      mCreateResourceGLTextureMid = mEnv->GetMethodID(clazz, fname, sig);
+      const char *sig = "(Ljava/lang/String;)Lcom/WexWorks/Util/Sys$GLTexture;";
+      mCreateResourceGLTextureMid = mEnv->GetStaticMethodID(mSysClazz, fname, sig);
       Info("Found CreateResourceGLTexture %d\n", mCreateResourceGLTextureMid);
       if (!mCreateResourceGLTextureMid)
         return false;
@@ -38,7 +37,7 @@ public:
 
     Info("Calling CreateResourceGLTexture %d\n", mCreateResourceGLTextureMid);
     jstring n = mEnv->NewStringUTF(name);
-    jobject o = mEnv->CallObjectMethod(mObj, mCreateResourceGLTextureMid, n);
+    jobject o = mEnv->CallStaticObjectMethod(mSysClazz, mCreateResourceGLTextureMid, n);
 
     Info("Called CreateResourceGLTexture returned %p\n", o);
     if (o) {
@@ -185,7 +184,7 @@ public:
 
 private:
   JNIEnv *mEnv;
-  jobject mObj;
+  jclass mSysClazz;
   jmethodID mCreateResourceGLTextureMid;
 
 };  // class AndroidOs
