@@ -120,5 +120,15 @@
 			<type>1</type>
 			<location>/Users/wex/WexWorks/Util/Timer.h</location>
 		</link>
+		<link>
+			<name>jni/TouchUI.cpp</name>
+			<type>1</type>
+			<location>/Users/wex/WexWorks/Util/TouchUI.cpp</location>
+		</link>
+		<link>
+			<name>jni/TouchUI.h</name>
+			<type>1</type>
+			<location>/Users/wex/WexWorks/Util/TouchUI.h</location>
+		</link>
 	</linkedResources>
 </projectDescription>
