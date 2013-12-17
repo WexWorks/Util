@@ -494,7 +494,7 @@ namespace tui {
     }
 
   protected:
-    const double kLongTouchSec = 2;
+    static const double kLongTouchSec = 2;
     virtual bool InvokeTouchTap(const Event::Touch &touch) {
       double dt = touch.timestamp - mToggleStartTimestamp;
       if (dt < kLongTouchSec)
@@ -681,7 +681,7 @@ namespace tui {
     virtual bool SetValue(float value);
     virtual float Value() const { return mHandleT; }
     virtual bool OnValueChanged(float value) { return false; }
-    virtual const Handle *Handle() const { return mHandle; }
+    virtual const class Handle *Handle() const { return mHandle; }
     
   private:
     class Handle *mHandle;

@@ -3,6 +3,7 @@
 #include "TriStrip.h"
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 #include <limits>
 
@@ -228,9 +229,9 @@ void TriStrip::InitExtrusion(size_t vertexCount, const V3f *face,
       break;
     }
       
-    default: {
+    default:
       abort();
-    }
+      break;
   }
 }
 

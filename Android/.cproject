@@ -29,6 +29,7 @@
 								</outputEntries>
 							</builder>
 							<tool id="com.android.gcc.compiler.1261967558" name="Android GCC Compiler" superClass="com.android.gcc.compiler">
+								<option id="com.android.gcc.option.includePath.1415753315" superClass="com.android.gcc.option.includePath" valueType="includePath"/>
 								<inputType id="com.android.gcc.inputType.1228907154" superClass="com.android.gcc.inputType"/>
 							</tool>
 						</toolChain>
@@ -49,5 +50,8 @@
 		<scannerConfigBuildInfo instanceId="com.android.toolchain.gcc.984010855;com.android.toolchain.gcc.984010855.1898607336;com.android.gcc.compiler.1261967558;com.android.gcc.inputType.1228907154">
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.android.AndroidPerProjectProfile"/>
 		</scannerConfigBuildInfo>
+	</storageModule>
+	<storageModule moduleId="refreshScope" versionNumber="1">
+		<resource resourceType="PROJECT" workspacePath="/Util"/>
 	</storageModule>
 </cproject>

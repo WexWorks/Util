@@ -1,4 +1,4 @@
-//  Copyright (c) 2012 The 11ers. All rights reserved.
+//  Copyright (c) 2012 WexWorks. All rights reserved.
 
 #ifndef SYS_H
 #define SYS_H

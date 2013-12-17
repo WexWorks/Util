@@ -130,5 +130,21 @@
 			<type>1</type>
 			<location>/Users/wex/WexWorks/Util/TouchUI.h</location>
 		</link>
+		<link>
+			<name>jni/TriStrip.cpp</name>
+			<type>1</type>
+			<location>/Users/wex/WexWorks/Util/TriStrip.cpp</location>
+		</link>
+		<link>
+			<name>jni/TriStrip.h</name>
+			<type>1</type>
+			<location>/Users/wex/WexWorks/Util/TriStrip.h</location>
+		</link>
 	</linkedResources>
+	<variableList>
+		<variable>
+			<name>ILMBASE</name>
+			<value>file:/Users/wex/WexWorks/ilmbase-2.1.0</value>
+		</variable>
+	</variableList>
 </projectDescription>

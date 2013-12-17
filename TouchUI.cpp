@@ -361,7 +361,7 @@ bool Label::SetText(const char *text, float pts, const char *font) {
   i = sFontMap.find(font);
   if (i == sFontMap.end())
     return false;
-  mFont = &i->second->Font(mPts);
+  mFont = &i->second->ClosestFont(mPts);
   size_t len = strlen(mText);
   mLineCount = len > 0 ? 1 : 0;
   for (size_t i = 0; i < len; ++i)
