@@ -772,7 +772,7 @@ namespace tui {
   };
   
   
-  // A set of horizontally arrangend widgets over a stretched background tex.
+  // A set of horizontally arranged widgets over a stretched background tex.
   // Add widgets from left to right, with spacers interspersed, and the
   // widgets will be automatically adjusted on rotation. Use ViewportWidget
   // for fixed spacing (flexible spacer is a ViewportWidget with negative size).

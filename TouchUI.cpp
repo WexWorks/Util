@@ -63,7 +63,7 @@ void Event::Init(tui::EventPhase phase) {
 }
 
 
-static float length(int ax, int ay, int bx, int by) {
+static float Length(int ax, int ay, int bx, int by) {
   float dx = ax - bx;
   float dy = ay - by;
   return sqrtf(dx * dx + dy * dy);
@@ -130,9 +130,9 @@ void Event::PrepareToSend() {
   // all active points (including ones that are on their END phase).
   mStartRadius = mCurRadius = 0;
   for (size_t i = 0; i < ActiveTouchCount(); ++i) {
-    mStartRadius += length(mStartCentroid[0], mStartCentroid[1],
+    mStartRadius += Length(mStartCentroid[0], mStartCentroid[1],
                            mStartTouchVec[i].x, mStartTouchVec[i].y);
-    mCurRadius += length(mCurCentroid[0], mCurCentroid[1],
+    mCurRadius += Length(mCurCentroid[0], mCurCentroid[1],
                          mCurTouchVec[i].x, mCurTouchVec[i].y);
   }
   mStartRadius /= ActiveTouchCount();
@@ -587,7 +587,7 @@ bool Sprite::Init(float opacity, float u0, float v0, float u1, float v1,
 // A simple ease-in-ease out function that is a bit more continuous
 // than the usual S-curve function.
 
-static float smootherstep(float v0, float v1, float t) {
+static float Smootherstep(float v0, float v1, float t) {
   t = t * t * t * (t * (t * 6 - 15) + 10);
   return v0 + t * (v1 - v0);
 }
@@ -607,9 +607,9 @@ bool Sprite::Step(float seconds) {
   }
   mSecondsRemaining -= seconds;
   const float t = 1 - mSecondsRemaining / mSecondsToTarget;
-  mOpacity = smootherstep(mOriginalOpacity, mTargetOpacity, t);
+  mOpacity = Smootherstep(mOriginalOpacity, mTargetOpacity, t);
   for (size_t i = 0; i < 4; ++i)
-    mViewport[i] = smootherstep(mOriginalViewport[i], mTargetViewport[i], t);
+    mViewport[i] = Smootherstep(mOriginalViewport[i], mTargetViewport[i], t);
   return true;
 }
 

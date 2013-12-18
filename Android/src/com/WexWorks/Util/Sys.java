@@ -38,7 +38,8 @@ public class Sys {
     GLTexture(int id, int w, int h) { this.id = id; this.w = w; this.h = h; }
   };
   
-  public static GLTexture CreateResourceGLTexture(String name) {
+  public static GLTexture CreateResourceGLTexture(String name,
+      int minFilter, int magFilter, int wrapS, int wrapT) {
     String pkgName = sContext.getApplicationInfo().packageName;
     int resId = sContext.getResources().getIdentifier(name, "drawable", pkgName);
     BitmapFactory.Options opt = new BitmapFactory.Options();
@@ -57,10 +58,10 @@ public class Sys {
     glBindTexture(GL_TEXTURE_2D, tid[0]);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     GLUtils.texImage2D(GL_TEXTURE_2D, 0/*level*/, bitmap, 0/*border*/);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
     glBindTexture(GL_TEXTURE_2D, 0);
     return new GLTexture(tid[0], bitmap.getWidth(), bitmap.getHeight());
   }

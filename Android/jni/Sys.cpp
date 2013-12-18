@@ -25,39 +25,27 @@ public:
     return true;
   }
 
-  bool CreateResourceGLTexture(const char *name, int *id, int *w, int *h) {
-    if (!mCreateResourceGLTextureMid) {
-      const char *fname = "CreateResourceGLTexture";
-      const char *sig = "(Ljava/lang/String;)Lcom/WexWorks/Util/Sys$GLTexture;";
-      mCreateResourceGLTextureMid = mEnv->GetStaticMethodID(mSysClazz, fname, sig);
-      Info("Found CreateResourceGLTexture %d\n", mCreateResourceGLTextureMid);
-      if (!mCreateResourceGLTextureMid)
-        return false;
-    }
-
-    Info("Calling CreateResourceGLTexture %d\n", mCreateResourceGLTextureMid);
-    jstring n = mEnv->NewStringUTF(name);
-    jobject o = mEnv->CallStaticObjectMethod(mSysClazz, mCreateResourceGLTextureMid, n);
-
-    Info("Called CreateResourceGLTexture returned %p\n", o);
-    if (o) {
-      jclass clazz = mEnv->GetObjectClass(o);
-      jfieldID fid = mEnv->GetFieldID(clazz, "id", "I");
-      *id = mEnv->GetIntField(o, fid);
-      fid = mEnv->GetFieldID(clazz, "w", "I");
-      *w = mEnv->GetIntField(o, fid);
-      fid = mEnv->GetFieldID(clazz, "h", "I");
-      *h = mEnv->GetIntField(o, fid);
-    } else {
-      *id = *w = *h = 0;
-    }
-
-    mEnv->DeleteLocalRef(n);
-    mEnv->DeleteLocalRef(o);
-
-    return true;
+  // OS-specific error logging
+  void Info(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    __android_log_vprint(ANDROID_LOG_INFO,"WexWorks.Util.Sys", fmt, ap);
+    va_end(ap);
   }
 
+  void Warning(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    __android_log_vprint(ANDROID_LOG_WARN,"WexWorks.Util.Sys", fmt, ap);
+    va_end(ap);
+  }
+
+  void Error(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    __android_log_vprint(ANDROID_LOG_ERROR,"WexWorks.Util.Sys", fmt, ap);
+    va_end(ap);
+  }
 
   bool FindAppCachePath(const char *name, char path[1024]) {
     return true;
@@ -103,6 +91,10 @@ public:
     return true;
   }
 
+  bool PickImage(sys::PickImage *pickImage) {
+    return true;
+  }
+
   bool ComputeHistogram(const char *url, size_t w, size_t h,
                         const unsigned char *rgba,
                         size_t hCount, unsigned long *histogram) {
@@ -110,7 +102,7 @@ public:
   }
 
   float PixelScale() const {
-    return 1;
+    return 2;
   }
 
   void AlertBox(const char *title, const char *msg, const char *ok,
@@ -139,6 +131,10 @@ public:
     return true;
   }
 
+  void ForceRedraw() {
+
+  }
+
   bool CreateGLContext(int id, int shareId = -1) {
     return true;
   }
@@ -155,31 +151,40 @@ public:
     return 0;
   }
 
-  void ForceRedraw() {
+  bool CreateGLTexture(const char *name, int minFilter, int magFilter,
+                       int wrapS, int wrapT, unsigned int *id,
+                       size_t *w, size_t *h) {
+    if (!mCreateResourceGLTextureMid) {
+      const char *fname = "CreateResourceGLTexture";
+      const char *sig = "(Ljava/lang/String;IIII)Lcom/WexWorks/Util/Sys$GLTexture;";
+      mCreateResourceGLTextureMid = mEnv->GetStaticMethodID(mSysClazz, fname, sig);
+      Info("Found CreateResourceGLTexture %d\n", mCreateResourceGLTextureMid);
+      if (!mCreateResourceGLTextureMid)
+        return false;
+    }
 
-  }
+    Info("Calling CreateResourceGLTexture %d\n", mCreateResourceGLTextureMid);
+    jstring n = mEnv->NewStringUTF(name);
+    jobject o = mEnv->CallStaticObjectMethod(mSysClazz, mCreateResourceGLTextureMid,
+                                             n, minFilter, magFilter, wrapS, wrapT);
 
+    Info("Called CreateResourceGLTexture returned %p\n", o);
+    if (o) {
+      jclass clazz = mEnv->GetObjectClass(o);
+      jfieldID fid = mEnv->GetFieldID(clazz, "id", "I");
+      *id = mEnv->GetIntField(o, fid);
+      fid = mEnv->GetFieldID(clazz, "w", "I");
+      *w = mEnv->GetIntField(o, fid);
+      fid = mEnv->GetFieldID(clazz, "h", "I");
+      *h = mEnv->GetIntField(o, fid);
+    } else {
+      *id = *w = *h = 0;
+    }
 
-  // OS-specific error logging
-  void Info(const char *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-    __android_log_vprint(ANDROID_LOG_INFO,"WexWorks.Util.Sys", fmt, ap);
-    va_end(ap);
-  }
+    mEnv->DeleteLocalRef(n);
+    mEnv->DeleteLocalRef(o);
 
-  void Warning(const char *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-    __android_log_vprint(ANDROID_LOG_WARN,"WexWorks.Util.Sys", fmt, ap);
-    va_end(ap);
-  }
-
-  void Error(const char *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-    __android_log_vprint(ANDROID_LOG_ERROR,"WexWorks.Util.Sys", fmt, ap);
-    va_end(ap);
+    return true;
   }
 
 private:

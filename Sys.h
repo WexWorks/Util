@@ -80,6 +80,11 @@ struct SetImageCache {
   virtual bool operator()(const char *url, const char *cachePath) = 0;
 };
 
+struct PickImage {
+  virtual ~PickImage() {}
+  virtual bool operator()(const char *url) = 0;
+};
+
 struct SetAlert {
   virtual ~SetAlert() {}
   virtual bool operator()(bool isOK, const char *inputText) = 0;
@@ -108,14 +113,10 @@ public:
   Os() {}
   virtual ~Os() {}
   
-  // Write information to the console
+  // Write information to the console or log file
   virtual void Info(const char *fmt, ...) = 0;
   virtual void Warning(const char *fmt, ...) = 0;
   virtual void Error(const char *fmt, ...) = 0;
-
-  // Returns a newly created texture id for the named resource
-  virtual bool CreateResourceGLTexture(const char *name, int *id,
-                                       int *w, int *h) = 0;
 
   // Returns a URL to a file in the app's local documents folder
   virtual bool FindAppCachePath(const char *name, char path[1024]) = 0;
@@ -151,6 +152,9 @@ public:
   virtual bool CacheImage(const char *url, const char *cachePath,
                           SetImageCache *setCache) = 0;
 
+  // Open the system image picker and return the picked image
+  virtual bool PickImage(PickImage *pickImage) = 0;
+
   // Compute an image histogram for a block of pixels using background render
   virtual bool ComputeHistogram(const char *url, size_t w, size_t h,
                                 const unsigned char *rgba,
@@ -181,6 +185,9 @@ public:
   // Open a window and show a video playback
   virtual bool ShowVideo(const char *url, size_t w, size_t h) = 0;
   
+  // Bring the app out of paused mode, if enabled, and force at least one redraw
+  virtual void ForceRedraw() = 0;
+
   // Create a new OpenGL context, sharing optionally. Context 0 is UI thread.
   virtual bool CreateGLContext(int id, int shareId = -1) = 0;
   
@@ -193,8 +200,10 @@ public:
   // Return the OpenGL context for the current thread, or -1 for none
   virtual int CurrentGLContext() = 0;
   
-  // Bring the app out of paused mode, if enabled, and force at least one redraw
-  virtual void ForceRedraw() = 0;
+  // Returns a newly created texture id for the named resource
+  virtual bool CreateGLTexture(const char *name, int minFilter, int magFilter,
+                               int wrapS, int wrapT, unsigned int *id,
+                               size_t *w, size_t *h) = 0;
 };
 
 
