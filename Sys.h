@@ -204,6 +204,10 @@ public:
   virtual bool CreateGLTexture(const char *name, int minFilter, int magFilter,
                                int wrapS, int wrapT, unsigned int *id,
                                size_t *w, size_t *h) = 0;
+
+  // Calls CreateGLTexture for each file in the list, verifying same size
+  virtual bool CreateGLTextures(size_t count, const char **file,
+                                size_t *w, size_t *h, unsigned int tex[]);
 };
 
 

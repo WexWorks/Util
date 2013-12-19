@@ -1,11 +1,14 @@
 package com.WexWorks.Util;
 
-import android.content.Context;
-import android.util.Log;
+import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import static android.opengl.GLES20.*;
+import android.net.Uri;
 import android.opengl.GLUtils;
+import android.util.Log;
+
 
 
 public class Sys {
@@ -14,23 +17,28 @@ public class Sys {
     System.loadLibrary("Util");
   }
 
-  private static Context sContext;
+  public static int PICK_IMAGE_INTENT = 1;
+  private static Activity sActivity;
+
+  public static void Init(Activity activity, long app) {
+    sActivity = activity;
+    Init(app);
+  }
   
   //
   // OS -> C++ calls
   //
   
-  public static void Init(Context context, long app) {
-    sContext = context;
-    Init(app);
-  }
-  
   public static native void Init(long app);
   public static native void SetDeviceResolution(int w, int h);
   public static native void Step();
-
+  public static native void Touch(int phase, float timestamp,
+      int count, float xy[], int id[]);
+  public static native void SetPickedImage(String path);
+  
+  
   //
-  // C++ -> OS Calls
+  // C++ -> OS Calls from Sys.cpp
   //
   
   public static class GLTexture {
@@ -38,13 +46,13 @@ public class Sys {
     GLTexture(int id, int w, int h) { this.id = id; this.w = w; this.h = h; }
   };
   
-  public static GLTexture CreateResourceGLTexture(String name,
+  public static GLTexture CreateGLTexture(String name,
       int minFilter, int magFilter, int wrapS, int wrapT) {
-    String pkgName = sContext.getApplicationInfo().packageName;
-    int resId = sContext.getResources().getIdentifier(name, "drawable", pkgName);
+    String pkgName = sActivity.getApplicationInfo().packageName;
+    int resId = sActivity.getResources().getIdentifier(name, "drawable", pkgName);
     BitmapFactory.Options opt = new BitmapFactory.Options();
     opt.inScaled = false;
-    Bitmap bitmap = BitmapFactory.decodeResource(sContext.getResources(), resId, opt);
+    Bitmap bitmap = BitmapFactory.decodeResource(sActivity.getResources(), resId, opt);
     if (bitmap == null) {
       Log.e("WexWorks.Util.Sys", "Cannot find drawable " + name);
       return null;
@@ -66,4 +74,9 @@ public class Sys {
     return new GLTexture(tid[0], bitmap.getWidth(), bitmap.getHeight());
   }
   
+  public static void PickImage() {
+    Intent intent = new Intent(Intent.ACTION_PICK);
+    intent.setType("image/*");
+    sActivity.startActivityForResult(intent, PICK_IMAGE_INTENT);
+  }
 }
