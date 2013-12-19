@@ -63,7 +63,7 @@ class AndroidOs : public sys::Os {
 public:
 
   AndroidOs() : mEnv(NULL), mSysClazz(NULL), mCreateGLTextureMid(NULL),
-                mPickImageMid(NULL) {}
+                mPickImageMid(NULL), mPickImage(NULL) {}
 
   bool Init(JNIEnv *env, jobject sysObj) {
     mEnv = env;
@@ -150,7 +150,19 @@ public:
       if (!mPickImageMid)
         return false;
     }
+    if (mPickImage)
+      return false;
+    mPickImage = pickImage;     // Store for FSM
     jobject o = mEnv->CallStaticObjectMethod(mSysClazz, mPickImageMid);
+    return true;
+  }
+
+  bool PickedImage(const char *url) {
+    if (!mPickImage)            // Only allow one outstanding pick via FSM
+      return false;
+    if (!(*mPickImage)(url))
+      return false;
+    mPickImage = NULL;          // Clear for FSM
     return true;
   }
 
@@ -247,6 +259,7 @@ private:
   jclass mSysClazz;
   jmethodID mCreateGLTextureMid;
   jmethodID mPickImageMid;
+  sys::PickImage *mPickImage;
 
 };  // class AndroidOs
 
@@ -364,7 +377,8 @@ Java_com_WexWorks_Util_Sys_SetPickedImage(JNIEnv *env, jobject obj, jstring path
   if (!gApp)
     return;
   const char *p = path ? env->GetStringUTFChars(path, 0) : "<none>";
-  gOs->Info("Picked image \"%s\"", p);
-  env->ReleaseStringUTFChars(path, p);
+  gOs->PickedImage(p);
+  if (path)
+    env->ReleaseStringUTFChars(path, p);
 }
 

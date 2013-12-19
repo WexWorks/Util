@@ -200,7 +200,7 @@ public:
   // Return the OpenGL context for the current thread, or -1 for none
   virtual int CurrentGLContext() = 0;
   
-  // Returns a newly created texture id for the named resource
+  // Returns a newly created texture id for the named resource or file ("/foo")
   virtual bool CreateGLTexture(const char *name, int minFilter, int magFilter,
                                int wrapS, int wrapT, unsigned int *id,
                                size_t *w, size_t *h) = 0;

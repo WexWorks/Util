@@ -48,13 +48,18 @@ public class Sys {
   
   public static GLTexture CreateGLTexture(String name,
       int minFilter, int magFilter, int wrapS, int wrapT) {
-    String pkgName = sActivity.getApplicationInfo().packageName;
-    int resId = sActivity.getResources().getIdentifier(name, "drawable", pkgName);
-    BitmapFactory.Options opt = new BitmapFactory.Options();
-    opt.inScaled = false;
-    Bitmap bitmap = BitmapFactory.decodeResource(sActivity.getResources(), resId, opt);
+    Bitmap bitmap = null;
+    if (name.charAt(0) == '/') {
+      bitmap = BitmapFactory.decodeFile(name);
+    } else {
+      BitmapFactory.Options opt = new BitmapFactory.Options();
+      opt.inScaled = false;
+      String pkgName = sActivity.getApplicationInfo().packageName;
+      int resId = sActivity.getResources().getIdentifier(name, "drawable", pkgName);
+      bitmap = BitmapFactory.decodeResource(sActivity.getResources(), resId, opt);
+    }
     if (bitmap == null) {
-      Log.e("WexWorks.Util.Sys", "Cannot find drawable " + name);
+      Log.e("WexWorks.Util.Sys", "Cannot find texture image " + name);
       return null;
     }
     final int[] tid = new int[1];
@@ -71,11 +76,20 @@ public class Sys {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
     glBindTexture(GL_TEXTURE_2D, 0);
+    if (glGetError() != GL_NO_ERROR) {
+      Log.e("WexWorks.Util.Sys", "GL Error creating texture");
+      return null;
+    }
+    
+    Log.i("WexWorks.Util.Sys", "Created texture " + name + " " + tid[0] + " " +
+        bitmap.getWidth() + " x " + bitmap.getHeight());
+    
     return new GLTexture(tid[0], bitmap.getWidth(), bitmap.getHeight());
   }
   
   public static void PickImage() {
-    Intent intent = new Intent(Intent.ACTION_PICK);
+    Intent intent = new Intent(Intent.ACTION_PICK,
+        android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
     intent.setType("image/*");
     sActivity.startActivityForResult(intent, PICK_IMAGE_INTENT);
   }
