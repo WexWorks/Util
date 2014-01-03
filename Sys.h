@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+namespace glt { class Font; class FontSet; }
 namespace tui { class Event; }
 namespace OIIO { class ParamValueList; }
 
@@ -124,9 +125,17 @@ public:
   // Returns the requested user default setting, returned as string
   virtual bool FindUserDefault(const char *name, char value[1024]) = 0;
   
-  // Load a text file from the app's resource bundle (blocking)
+  // Load a text file from the app's resource bundle (blocking).
+  // Note: Caller must free(text). Store text files in assets folder in Android.
   virtual bool LoadText(const char *name, const char **text) = 0;
   
+  // Loads font texture and kerning data from resources
+  virtual bool LoadFont(const char *name, glt::Font *font);
+
+  // Loads multiple fonts of different sizes into a set
+  virtual bool LoadFontSet(size_t count, const char *name[],
+                           glt::FontSet *fontSet);
+
   // Load all image albums in the system
   virtual bool LoadSystemAlbums(AddAlbum *addAlbum) = 0;
   
@@ -160,8 +169,11 @@ public:
                                 const unsigned char *rgba,
                                 size_t hCount, unsigned long *histogram) = 0;
   
-  // Return the "scaling factor" for this display (poorly defined!)
+  // Return the "scaling factor" for this display (1 = 64 pixels/cm = iPhone)
   virtual float PixelScale() const = 0;
+
+  // Return the dot pitch for the device in pixels/cm
+  virtual float PixelsPerCm() const { return PixelScale() * 64; }
   
   // Display an alert box with optional text input and button names
   virtual void AlertBox(const char *title, const char *msg, const char *ok,
@@ -202,8 +214,8 @@ public:
   
   // Returns a newly created texture id for the named resource or file ("/foo")
   virtual bool CreateGLTexture(const char *name, int minFilter, int magFilter,
-                               int wrapS, int wrapT, unsigned int *id,
-                               size_t *w, size_t *h) = 0;
+                               int wrapS, int wrapT, size_t *w, size_t *h,
+                               unsigned int *id) = 0;
 
   // Calls CreateGLTexture for each file in the list, verifying same size
   virtual bool CreateGLTextures(size_t count, const char **file,
@@ -247,7 +259,7 @@ public:
   virtual bool Dormant() = 0;                         // True = no refresh
   virtual bool Draw() = 0;                            // Draw UI & images
   virtual void SetDeviceName(const char *name) = 0;   // Device-specific fixes
-  virtual bool SetDeviceResolution(int w, int h) = 0; // Startup & orientation
+  virtual bool SetDeviceResolution(int w, int h) = 0; // Size & orientation
   virtual void ReduceMemory() = 0;                    // Low mem warning
   virtual void DeleteCache(int level) = 0;            // level=0..2
   virtual void ReportError(const std::string &msg) = 0;

@@ -13,7 +13,7 @@ namespace glt { struct Font; struct FontSet; };
 
 
 /*
- The touch user interface library provides a lightweight,
+ The Touch User Interface library provides a lightweight,
  non-invasive widget collection with OpenGL-ES rendering.
  
  Widgets are designed to work with touch-based interfaces and include
@@ -66,7 +66,8 @@ namespace tui {
     size_t ActiveTouchCount() const { return mCurTouchVec.size(); }
     const Touch &StartTouch(size_t idx) const { return mStartTouchVec[idx]; }
     bool IsDone() const {
-      assert(mEndTouchVec.size() <= ActiveTouchCount());
+      // FIXME: Figure out event patterns!
+//      assert(mEndTouchVec.size() <= ActiveTouchCount());
       return ActiveTouchCount() - int(mEndTouchVec.size()) == 0;
     }
     void Print() const;
@@ -337,6 +338,19 @@ namespace tui {
   };
   
   
+  // Fading label inside a transparent box
+  class InfoBox : public Label {
+  public:
+    InfoBox() {}
+    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual bool SetText(const char *text, float pts, const char *font = NULL);
+
+  private:
+    static const int kTimeoutSec;                         // Total visible time
+    static const float kFadeSec;                          // Fade in & out time
+  };
+
+
   // Moves a texture from one viewport to another
   class Sprite : public AnimatedViewport {
   public:
@@ -841,7 +855,7 @@ namespace tui {
       mDragHandleDim[0] = mDragHandleDim[1] = 0;
     }
     virtual ~FlinglistImpl() {}
-    virtual bool Init(int frameDim, bool vertical, float pixelsPerCm);
+    virtual bool Init(bool vertical, float pixelsPerCm);
     virtual bool SetViewport(int x, int y, int w, int h);
     virtual void SetFrameDim(int dim);
     virtual void SetSnapToCenter(bool status) { mSnapToCenter = status; }
@@ -867,6 +881,7 @@ namespace tui {
     virtual bool IsLocked() const { return mIsLocked; }
     virtual bool Touch(const Event &event);
     virtual size_t Size() const { return mFrameVec.size(); }
+    virtual void SetViewportInset(float inset) { mViewportInset = inset; }
     virtual bool Viewport(const Frame *frame, int viewport[4]) const;
     virtual void OverpullViewport(int viewport[4]) const;
     virtual bool VisibleFrameRange(int *min, int *max) const;
@@ -1181,6 +1196,7 @@ namespace tui {
   
   // Implement to compare two buttons for ordering in the ButtonGridFrame::Sort
   struct CompareFunctor {
+    virtual ~CompareFunctor() {}
     virtual bool operator()(const Button *a, const Button *b) const = 0;
   };
   

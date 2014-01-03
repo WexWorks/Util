@@ -3,6 +3,7 @@
 #ifndef BASE64_H
 #define BASE64_H
 
+#include <stdlib.h>
 #include <vector>
 
 // Implements URL-safe Base-64 encoding of arbitrary binary data.

@@ -16,6 +16,8 @@ using namespace tui;
 const float Widget::kMinScale = 0.03;
 const int Widget::kMinPanPix = 40;
 const float ViewportWidget::kDoubleTapSec = 0.25;
+const int InfoBox::kTimeoutSec = 6;
+const float InfoBox::kFadeSec = 0.5;
 const size_t Toolbar::kStdHeight = 44;
 const int FlinglistImpl::kDragMm = 4;
 const int FlinglistImpl::kJiggleMm = 10;
@@ -355,13 +357,15 @@ bool Label::SetText(const char *text, float pts, const char *font) {
     mPts = pts;
   else if (mPts == 0)                                 // Fail if already zero
     return false;
-  std::map<std::string, const glt::FontSet *>::const_iterator i;
-  if (font == NULL)
-    font = "System";
-  i = sFontMap.find(font);
-  if (i == sFontMap.end())
-    return false;
-  mFont = &i->second->ClosestFont(mPts);
+  if (font || !mFont) {
+    std::map<std::string, const glt::FontSet *>::const_iterator i;
+    if (font == NULL)
+      font = "System";
+    i = sFontMap.find(font);
+    if (i == sFontMap.end())
+      return false;
+    mFont = &i->second->ClosestFont(mPts);
+  }
   size_t len = strlen(mText);
   mLineCount = len > 0 ? 1 : 0;
   for (size_t i = 0; i < len; ++i)
@@ -467,6 +471,37 @@ bool Label::Draw() {
                           MVP(), mTextRange[0], mTextRange[1], mWrapLines))
     return false;
   glDisable(GL_BLEND);
+  return true;
+}
+
+
+//
+// InfoBox
+//
+
+bool InfoBox::SetViewport(int x, int y, int w, int h) {
+  const int cx = x + w / 2;                             // Center of screen
+  const int cy = y + h / 2;
+  const int ww = Width() ? Width() : 2;                 // Avoid zero
+  const int wh = Height() ? Height() : 2;
+  if (!Label::SetViewport(cx - ww / 2, cy - wh / 2, ww, wh))
+    return false;
+  return true;
+}
+
+
+bool InfoBox::SetText(const char *text, float pts, const char *font) {
+  if (!Label::SetText(text, pts, font))
+    return false;
+  SetFade(kTimeoutSec, kFadeSec);
+  Hide(false);
+  const int cx = Left() + Width() / 2;                  // Center of label
+  const int cy = Bottom() + Height() / 2;
+  FitViewport();                                        // Resize
+  const int w = Width() ? Width() : 2;
+  const int h = Height() ? Height() : 2;
+  if (!Label::SetViewport(cx - w / 2, cy - h / 2, w, h))
+    return false;
   return true;
 }
 
@@ -1735,8 +1770,7 @@ bool Toolbar::Draw() {
 // Flinglist
 //
 
-bool FlinglistImpl::Init(int frameDim, bool vertical, float pixelsPerCm) {
-  mFrameDim = frameDim;
+bool FlinglistImpl::Init(bool vertical, float pixelsPerCm) {
   mVertical = vertical;
   mPixelsPerCm = pixelsPerCm;
 
