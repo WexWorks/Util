@@ -19,7 +19,8 @@ bool glt::Error() {
 #if DEBUG
   gErrorCode = glGetError();            // Note: GLES only has one active err
   if (gErrorCode != GL_NO_ERROR) {
-    printf("GL ERROR: %s\n", ErrorString());
+    char msg[1024];
+    sprintf(msg, "GL ERROR: %s\n", ErrorString());
     return true;
   }
   return false;
@@ -59,9 +60,11 @@ bool glt::IsFramebufferComplete() {
     case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS:
       errstr = "Attachments do not have the same dimensions";
       break;
+#if defined(IOS) || defined(OSX)
     case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE_APPLE:
       errstr = "Internal attachment format not renderable";
       break;
+#endif
     case GL_FRAMEBUFFER_UNSUPPORTED:
       errstr = "Combination of attachment internal formats is not renderable";
       break;
@@ -368,6 +371,36 @@ bool glt::DrawTexture2f(GLuint tex, float x0, float y0, float x1, float y1,
   return DrawTexture2f(tex, x0, y0, x1, y1, u0, v0, u1, v1, 1, 1, 1, 1, MVP);
 }
 
+
+bool glt::DrawClockWipeTexture2f(GLuint offTex, GLuint onTex, float wipeT,
+                                 float x0, float y0, float x1, float y1,
+                                 float u0, float v0, float u1, float v1,
+                                 float r, float g, float b, float a,
+                                 const float *MVP) {
+  static GLuint aP=0, aUV=0, uT=0, uC=0, uMVP=0, uTex=0;
+  GLuint program = ClockWipeTextureProgram(&aP, &aUV, &uTex, &uT, &uC, &uMVP);
+  glUseProgram(program);
+  glActiveTexture(GL_TEXTURE0);
+  GLuint tex = wipeT >= 1 ? onTex : offTex;
+  glBindTexture(GL_TEXTURE_2D, tex);
+  glUniform1i(uTex, 0);
+  glUniform4f(uT, wipeT * 2 * M_PI, 2 * M_PI, 0, 1);
+  glUniform4f(uC, r, g, b, a);
+  static const float I[16] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+  if (!MVP)
+    MVP = &I[0];
+  glUniformMatrix4fv(uMVP, 1, GL_FALSE, MVP);
+  glEnable(GL_BLEND);
+  glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+                      GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+  if (!glt::DrawBox2f(aP, x0, y0, x1, y1, aUV, u0, v0, u1, v1))
+    return false;
+
+  glDisable(GL_BLEND);
+
+  return true;
+}
 
 bool glt::Draw3SliceTexture2f(GLuint tex,
                               float x0, float y0, float x1, float y1,
@@ -1276,6 +1309,75 @@ GLuint glt::TextureHighlightProgram(GLuint *aP, GLuint *aUV, GLuint *aST,
   *uMVP = gUMVP;
   *uTex = gUTex;
   
+  return gProgram;
+}
+
+
+GLuint glt::ClockWipeTextureProgram(GLuint *aP, GLuint *aUV, GLuint *uTex,
+                                    GLuint *uT, GLuint *uC, GLuint *uMVP) {
+  static bool gInitialized = false;             // WARNING: Static variables!
+  static GLuint gProgram = 0;
+  static GLuint gAP=0, gAUV=0, gUT=0, gUC=0, gUMVP=0, gUTex=0;
+  if (!gInitialized) {
+    gInitialized = true;
+
+    // Note: the program below is leaked and should be destroyed in _atexit()
+    static const char *vpCode =
+    "attribute vec4 aP;\n"
+    "attribute vec2 aUV;\n"
+    "uniform mat4 uMVP;\n"
+    "varying vec2 vUV;\n"
+    "void main() {\n"
+    "  vUV = aUV;\n"
+    "  gl_Position = uMVP * aP;\n"
+    "}\n";
+    static const char *fpCode =
+        "precision mediump float;\n"
+        "uniform sampler2D uTex;\n"
+        "uniform vec4 uRing;\n"
+        "varying vec2 vUV;\n"
+        "uniform vec4 uC;\n"
+        "void main() {\n"
+        "  vec4 C = texture2D(uTex, vUV);\n"
+        "  vec2 cuv = vec2(vUV.x - 0.5, vUV.y - 0.5);\n"
+        "  float theta = atan(cuv.x, -cuv.y);\n"
+        "  if (theta < 0.0)\n"
+        "    theta = 2.0 * 3.1415926 + theta;\n"
+        "  float r = 2.0 * length(cuv);\n"
+        "  if (theta > uRing.x && theta < uRing.y && r > uRing.z && r < uRing.w)\n"
+        "    C.w = 0.0;\n"
+        "  gl_FragColor = C * uC;\n"
+        "}\n";
+
+    GLuint vp = CreateShader(GL_VERTEX_SHADER, vpCode);
+    if (!vp)
+      return false;
+    GLuint fp = CreateShader(GL_FRAGMENT_SHADER, fpCode);
+    if (!fp)
+      return false;
+    gProgram = CreateProgram(vp, fp, "ClockWipeTexture");
+    if (!gProgram)
+      return false;
+    glDeleteShader(vp);
+    glDeleteShader(fp);
+    glUseProgram(gProgram);
+    gAP = glGetAttribLocation(gProgram, "aP");
+    gAUV = glGetAttribLocation(gProgram, "aUV");
+    gUC = glGetUniformLocation(gProgram, "uC");
+    gUT = glGetUniformLocation(gProgram, "uRing");
+    gUMVP = glGetUniformLocation(gProgram, "uMVP");
+    gUTex = glGetUniformLocation(gProgram, "uTex");
+    if (Error())
+      return false;
+  }
+
+  *aP = gAP;
+  *aUV = gAUV;
+  *uC = gUC;
+  *uT = gUT;
+  *uMVP = gUMVP;
+  *uTex = gUTex;
+
   return gProgram;
 }
 

@@ -16,6 +16,8 @@ using namespace tui;
 const float Widget::kMinScale = 0.03;
 const int Widget::kMinPanPix = 40;
 const float ViewportWidget::kDoubleTapSec = 0.25;
+const int InfoBox::kTimeoutSec = 6;
+const float InfoBox::kFadeSec = 0.5;
 const size_t Toolbar::kStdHeight = 44;
 const int FlinglistImpl::kDragMm = 4;
 const int FlinglistImpl::kJiggleMm = 10;
@@ -63,7 +65,7 @@ void Event::Init(tui::EventPhase phase) {
 }
 
 
-static float length(int ax, int ay, int bx, int by) {
+static float Length(int ax, int ay, int bx, int by) {
   float dx = ax - bx;
   float dy = ay - by;
   return sqrtf(dx * dx + dy * dy);
@@ -76,7 +78,7 @@ void Event::PrepareToSend() {
   // for event ids A, B & C, and suffixes b = began, m = moved, and e = ended.
   // We track the starting position for each touch id along with the
   // current position for all active touches. Touches are added to the
-  // active set on a 'start' and removed on 'end' or 'cancelT'.
+  // active set on a 'start' and removed on 'end' or 'cancel'.
   
   // Run through this event's touches, adding new entries to the start
   // and cur tracking vectors and updating existing entries. After this
@@ -130,9 +132,9 @@ void Event::PrepareToSend() {
   // all active points (including ones that are on their END phase).
   mStartRadius = mCurRadius = 0;
   for (size_t i = 0; i < ActiveTouchCount(); ++i) {
-    mStartRadius += length(mStartCentroid[0], mStartCentroid[1],
+    mStartRadius += Length(mStartCentroid[0], mStartCentroid[1],
                            mStartTouchVec[i].x, mStartTouchVec[i].y);
-    mCurRadius += length(mCurCentroid[0], mCurCentroid[1],
+    mCurRadius += Length(mCurCentroid[0], mCurCentroid[1],
                          mCurTouchVec[i].x, mCurTouchVec[i].y);
   }
   mStartRadius /= ActiveTouchCount();
@@ -141,7 +143,7 @@ void Event::PrepareToSend() {
   
   if (this->phase == TOUCH_ENDED || this->phase == TOUCH_CANCELLED) {
     mEndTouchVec = touchVec;
-    // Special case foor cancel events that have no touches -- all done!
+    // Special case for cancel events that have no touches -- all done!
     if (this->phase == TOUCH_CANCELLED && touchVec.empty())
       mEndTouchVec = mCurTouchVec;
   }
@@ -355,13 +357,15 @@ bool Label::SetText(const char *text, float pts, const char *font) {
     mPts = pts;
   else if (mPts == 0)                                 // Fail if already zero
     return false;
-  std::map<std::string, const glt::FontSet *>::const_iterator i;
-  if (font == NULL)
-    font = "System";
-  i = sFontMap.find(font);
-  if (i == sFontMap.end())
-    return false;
-  mFont = &i->second->ClosestFont(mPts);
+  if (font || !mFont) {
+    std::map<std::string, const glt::FontSet *>::const_iterator i;
+    if (font == NULL)
+      font = "System";
+    i = sFontMap.find(font);
+    if (i == sFontMap.end())
+      return false;
+    mFont = &i->second->ClosestFont(mPts);
+  }
   size_t len = strlen(mText);
   mLineCount = len > 0 ? 1 : 0;
   for (size_t i = 0; i < len; ++i)
@@ -467,6 +471,37 @@ bool Label::Draw() {
                           MVP(), mTextRange[0], mTextRange[1], mWrapLines))
     return false;
   glDisable(GL_BLEND);
+  return true;
+}
+
+
+//
+// InfoBox
+//
+
+bool InfoBox::SetViewport(int x, int y, int w, int h) {
+  const int cx = x + w / 2;                             // Center of screen
+  const int cy = y + h / 2;
+  const int ww = Width() ? Width() : 2;                 // Avoid zero
+  const int wh = Height() ? Height() : 2;
+  if (!Label::SetViewport(cx - ww / 2, cy - wh / 2, ww, wh))
+    return false;
+  return true;
+}
+
+
+bool InfoBox::SetText(const char *text, float pts, const char *font) {
+  if (!Label::SetText(text, pts, font))
+    return false;
+  SetFade(kTimeoutSec, kFadeSec);
+  Hide(false);
+  const int cx = Left() + Width() / 2;                  // Center of label
+  const int cy = Bottom() + Height() / 2;
+  FitViewport();                                        // Resize
+  const int w = Width() ? Width() : 2;
+  const int h = Height() ? Height() : 2;
+  if (!Label::SetViewport(cx - w / 2, cy - h / 2, w, h))
+    return false;
   return true;
 }
 
@@ -587,7 +622,7 @@ bool Sprite::Init(float opacity, float u0, float v0, float u1, float v1,
 // A simple ease-in-ease out function that is a bit more continuous
 // than the usual S-curve function.
 
-static float smootherstep(float v0, float v1, float t) {
+static float Smootherstep(float v0, float v1, float t) {
   t = t * t * t * (t * (t * 6 - 15) + 10);
   return v0 + t * (v1 - v0);
 }
@@ -607,9 +642,9 @@ bool Sprite::Step(float seconds) {
   }
   mSecondsRemaining -= seconds;
   const float t = 1 - mSecondsRemaining / mSecondsToTarget;
-  mOpacity = smootherstep(mOriginalOpacity, mTargetOpacity, t);
+  mOpacity = Smootherstep(mOriginalOpacity, mTargetOpacity, t);
   for (size_t i = 0; i < 4; ++i)
-    mViewport[i] = smootherstep(mOriginalViewport[i], mTargetViewport[i], t);
+    mViewport[i] = Smootherstep(mOriginalViewport[i], mTargetViewport[i], t);
   return true;
 }
 
@@ -714,6 +749,47 @@ bool Spinner::Draw() {
     return false;
   glDisable(GL_BLEND);
   
+  return true;
+}
+
+
+//
+// Flipbook
+//
+
+bool Flipbook::Init(size_t count, const unsigned int *tex) {
+  mTexVec.resize(count);
+  memcpy(&mTexVec[0], tex, count * sizeof(unsigned int));
+  SetFrameRate(30);
+  return true;
+}
+
+
+bool Flipbook::Step(float seconds) {
+  if (!IsAnimating())
+    return true;
+  mFrameSec += seconds;
+  int dIdx = int(mFrameSec * mFPS);
+  mFrameIdx = (mFrameIdx + dIdx) % mTexVec.size();
+  mFrameSec -= dIdx / mFPS;
+  return true;
+}
+
+
+bool Flipbook::Draw() {
+  if (Hidden())
+    return true;
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
+  if (!glt::DrawTexture2f(mTexVec[mFrameIdx], x0, y0, x1, y1, 0,1,1,0, MVP()))
+    return false;
+  glDisable(GL_BLEND);
+
   return true;
 }
 
@@ -1735,8 +1811,7 @@ bool Toolbar::Draw() {
 // Flinglist
 //
 
-bool FlinglistImpl::Init(int frameDim, bool vertical, float pixelsPerCm) {
-  mFrameDim = frameDim;
+bool FlinglistImpl::Init(bool vertical, float pixelsPerCm) {
   mVertical = vertical;
   mPixelsPerCm = pixelsPerCm;
 
@@ -1963,6 +2038,7 @@ bool FlinglistImpl::VisibleFrameRange(int *min, int *max) const {
 
 
 int FlinglistImpl::FrameIdx(const Frame *frame) const {
+  // FIXME: Consider using a map to avoid linear search
   for (size_t i = 0; i < mFrameVec.size(); ++i)
     if (mFrameVec[i] == frame)
       return i;

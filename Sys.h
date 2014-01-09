@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+namespace glt { class Font; class FontSet; }
 namespace tui { class Event; }
 namespace OIIO { class ParamValueList; }
 
@@ -80,6 +81,11 @@ struct SetImageCache {
   virtual bool operator()(const char *url, const char *cachePath) = 0;
 };
 
+struct PickImage {
+  virtual ~PickImage() {}
+  virtual bool operator()(const char *url) = 0;
+};
+
 struct SetAlert {
   virtual ~SetAlert() {}
   virtual bool operator()(bool isOK, const char *inputText) = 0;
@@ -108,14 +114,10 @@ public:
   Os() {}
   virtual ~Os() {}
   
-  // Write information to the console
+  // Write information to the console or log file
   virtual void Info(const char *fmt, ...) = 0;
   virtual void Warning(const char *fmt, ...) = 0;
   virtual void Error(const char *fmt, ...) = 0;
-
-  // Returns a newly created texture id for the named resource
-  virtual bool CreateResourceGLTexture(const char *name, int *id,
-                                       int *w, int *h) = 0;
 
   // Returns a URL to a file in the app's local documents folder
   virtual bool FindAppCachePath(const char *name, char path[1024]) = 0;
@@ -123,9 +125,17 @@ public:
   // Returns the requested user default setting, returned as string
   virtual bool FindUserDefault(const char *name, char value[1024]) = 0;
   
-  // Load a text file from the app's resource bundle (blocking)
+  // Load a text file from the app's resource bundle (blocking).
+  // Note: Caller must free(text). Store text files in assets folder in Android.
   virtual bool LoadText(const char *name, const char **text) = 0;
   
+  // Loads font texture and kerning data from resources
+  virtual bool LoadFont(const char *name, glt::Font *font);
+
+  // Loads multiple fonts of different sizes into a set
+  virtual bool LoadFontSet(size_t count, const char *name[],
+                           glt::FontSet *fontSet);
+
   // Load all image albums in the system
   virtual bool LoadSystemAlbums(AddAlbum *addAlbum) = 0;
   
@@ -151,13 +161,19 @@ public:
   virtual bool CacheImage(const char *url, const char *cachePath,
                           SetImageCache *setCache) = 0;
 
+  // Open the system image picker and return the picked image
+  virtual bool PickImage(PickImage *pickImage) = 0;
+
   // Compute an image histogram for a block of pixels using background render
   virtual bool ComputeHistogram(const char *url, size_t w, size_t h,
                                 const unsigned char *rgba,
                                 size_t hCount, unsigned long *histogram) = 0;
   
-  // Return the "scaling factor" for this display (poorly defined!)
+  // Return the "scaling factor" for this display (1 = 64 pixels/cm = iPhone)
   virtual float PixelScale() const = 0;
+
+  // Return the dot pitch for the device in pixels/cm
+  virtual float PixelsPerCm() const = 0;
   
   // Display an alert box with optional text input and button names
   virtual void AlertBox(const char *title, const char *msg, const char *ok,
@@ -181,6 +197,9 @@ public:
   // Open a window and show a video playback
   virtual bool ShowVideo(const char *url, size_t w, size_t h) = 0;
   
+  // Bring the app out of paused mode, if enabled, and force at least one redraw
+  virtual void ForceRedraw() = 0;
+
   // Create a new OpenGL context, sharing optionally. Context 0 is UI thread.
   virtual bool CreateGLContext(int id, int shareId = -1) = 0;
   
@@ -193,8 +212,14 @@ public:
   // Return the OpenGL context for the current thread, or -1 for none
   virtual int CurrentGLContext() = 0;
   
-  // Bring the app out of paused mode, if enabled, and force at least one redraw
-  virtual void ForceRedraw() = 0;
+  // Returns a newly created texture id for the named resource or file ("/foo")
+  virtual bool CreateGLTexture(const char *name, int minFilter, int magFilter,
+                               int wrapS, int wrapT, size_t *w, size_t *h,
+                               unsigned int *id) = 0;
+
+  // Calls CreateGLTexture for each file in the list, verifying same size
+  virtual bool CreateGLTextures(size_t count, const char **file,
+                                size_t *w, size_t *h, unsigned int tex[]);
 };
 
 
@@ -234,7 +259,7 @@ public:
   virtual bool Dormant() = 0;                         // True = no refresh
   virtual bool Draw() = 0;                            // Draw UI & images
   virtual void SetDeviceName(const char *name) = 0;   // Device-specific fixes
-  virtual bool SetDeviceResolution(int w, int h) = 0; // Startup & orientation
+  virtual bool SetDeviceResolution(int w, int h) = 0; // Size & orientation
   virtual void ReduceMemory() = 0;                    // Low mem warning
   virtual void DeleteCache(int level) = 0;            // level=0..2
   virtual void ReportError(const std::string &msg) = 0;

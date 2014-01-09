@@ -4,7 +4,7 @@
 #define THREAD_H_
 
 #include <string.h>
-
+#include <stddef.h>
 
 /*
    Cross-platform thread, mutex, condition variables and atomic operations
@@ -79,7 +79,11 @@ public:
     char buf[16];                               // 16-character limit!
     strncpy(buf, name, 15);                     // Take first 16
     buf[15] = '\0';                             // Terminate
+#ifdef __APPLE__
     pthread_setname_np(buf);                    // Set debugging name
+#else
+    pthread_setname_np(thread_, buf);
+#endif
 #endif
   }
   virtual void Run() = 0;                       // Override with main
@@ -295,6 +299,7 @@ private:
 // Replace atom with rhs if atom==comp.  Return true if swapped
 inline bool AtomicCAS(volatile int *atom, int comp, int rhs) {
 #if defined(_GLIBCXX_ATOMIC_BUILTINS) || (__GNUC__*100+__GNUC_MINOR__ >= 401)
+  extern bool __sync_bool_compare_and_swap(volatile int *, int, int);
   return __sync_bool_compare_and_swap(atom, comp, rhs);
 #elif defined(WINDOWS)
   return (_InterlockedCompareExchange((volatile LONG *)atom,
@@ -312,6 +317,7 @@ inline bool AtomicCAS(volatile float *atom, float comp, float rhs) {
 
 inline bool AtomicCAS(volatile long long *atom, long long comp, long long rhs) {
 #if defined(_GLIBCXX_ATOMIC_BUILTINS) || (__GNUC__*100+__GNUC_MINOR__ >= 401)
+  extern bool __sync_bool_compare_and_swap(volatile long long *, long long, long long);
   return __sync_bool_compare_and_swap(atom, comp, rhs);
 #elif defined(WINDOWS)
   return (_InterlockedCompareExchange64((volatile LONGLONG *)atom,
