@@ -173,7 +173,7 @@ public:
   virtual float PixelScale() const = 0;
 
   // Return the dot pitch for the device in pixels/cm
-  virtual float PixelsPerCm() const { return PixelScale() * 64; }
+  virtual float PixelsPerCm() const = 0;
   
   // Display an alert box with optional text input and button names
   virtual void AlertBox(const char *title, const char *msg, const char *ok,

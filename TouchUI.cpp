@@ -78,7 +78,7 @@ void Event::PrepareToSend() {
   // for event ids A, B & C, and suffixes b = began, m = moved, and e = ended.
   // We track the starting position for each touch id along with the
   // current position for all active touches. Touches are added to the
-  // active set on a 'start' and removed on 'end' or 'cancelT'.
+  // active set on a 'start' and removed on 'end' or 'cancel'.
   
   // Run through this event's touches, adding new entries to the start
   // and cur tracking vectors and updating existing entries. After this
@@ -143,7 +143,7 @@ void Event::PrepareToSend() {
   
   if (this->phase == TOUCH_ENDED || this->phase == TOUCH_CANCELLED) {
     mEndTouchVec = touchVec;
-    // Special case foor cancel events that have no touches -- all done!
+    // Special case for cancel events that have no touches -- all done!
     if (this->phase == TOUCH_CANCELLED && touchVec.empty())
       mEndTouchVec = mCurTouchVec;
   }
@@ -749,6 +749,47 @@ bool Spinner::Draw() {
     return false;
   glDisable(GL_BLEND);
   
+  return true;
+}
+
+
+//
+// Flipbook
+//
+
+bool Flipbook::Init(size_t count, const unsigned int *tex) {
+  mTexVec.resize(count);
+  memcpy(&mTexVec[0], tex, count * sizeof(unsigned int));
+  SetFrameRate(30);
+  return true;
+}
+
+
+bool Flipbook::Step(float seconds) {
+  if (!IsAnimating())
+    return true;
+  mFrameSec += seconds;
+  int dIdx = int(mFrameSec * mFPS);
+  mFrameIdx = (mFrameIdx + dIdx) % mTexVec.size();
+  mFrameSec -= dIdx / mFPS;
+  return true;
+}
+
+
+bool Flipbook::Draw() {
+  if (Hidden())
+    return true;
+  if (!MVP())
+    glViewport(Left(), Bottom(), Width(), Height());
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+  glBlendEquation(GL_FUNC_ADD);
+  float x0, y0, x1, y1;
+  GetNDCRect(&x0, &y0, &x1, &y1);
+  if (!glt::DrawTexture2f(mTexVec[mFrameIdx], x0, y0, x1, y1, 0,1,1,0, MVP()))
+    return false;
+  glDisable(GL_BLEND);
+
   return true;
 }
 
@@ -1997,6 +2038,7 @@ bool FlinglistImpl::VisibleFrameRange(int *min, int *max) const {
 
 
 int FlinglistImpl::FrameIdx(const Frame *frame) const {
+  // FIXME: Consider using a map to avoid linear search
   for (size_t i = 0; i < mFrameVec.size(); ++i)
     if (mFrameVec[i] == frame)
       return i;

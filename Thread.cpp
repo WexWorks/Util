@@ -20,8 +20,8 @@ void *mtStartThread(void *data) {
   Thread *thread = static_cast<Thread *>(data);
   thread->Run();
 #if ANDROID
-  extern void DetachCurrentThread();
-  DetachCurrentThread();
+//  extern void DetachCurrentThread();
+//  DetachCurrentThread();
 #endif
   return NULL;
 }

@@ -11,6 +11,8 @@ LOCAL_SRC_FILES  := \
                     GlesUtil.cpp \
                     Json.cpp \
                     lodepng.cpp \
+                    TaskMgr.cpp \
+                    Thread.cpp \
                     Timer.cpp \
                     TouchUI.cpp \
                     TriStrip.cpp

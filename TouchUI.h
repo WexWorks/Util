@@ -14,7 +14,7 @@ namespace glt { struct Font; struct FontSet; };
 
 /*
  The Touch User Interface library provides a lightweight,
- non-invasive widget collection with OpenGL-ES rendering.
+ noninvasive widget collection with OpenGL-ES rendering.
  
  Widgets are designed to work with touch-based interfaces and include
  common widgets found on mobile platforms such as fling-able lists,
@@ -408,6 +408,29 @@ namespace tui {
   };
   
   
+  // Image sequence played back at a specified rate
+  class Flipbook : public AnimatedViewport {
+  public:
+    Flipbook() : mFPS(0), mIsAnimating(false), mFrameSec(0), mFrameIdx(0) {}
+    virtual bool Init(size_t count, const unsigned int *tex);
+    virtual bool Step(float seconds);
+    virtual bool Draw();
+    virtual bool Touch(const Event &event) { return false; }
+    virtual bool Dormant() const { return IsAnimating(); }
+    virtual void Animate(bool status) { mIsAnimating = status; }
+    virtual bool IsAnimating() const { return mIsAnimating; }
+    virtual void SetFrameRate(float fps) { mFPS = fps; }
+    virtual float FrameRate() const { return mFPS; }
+
+  private:
+    std::vector<unsigned int> mTexVec;        // Image texture sequence
+    float mFPS;                               // Frames / sec playback rate
+    bool mIsAnimating;                        // True when flipping
+    float mFrameSec;                          // Seconds on current frame
+    size_t mFrameIdx;                         // Current index in mTexVec
+  };
+
+
   //
   // Buttons
   //
@@ -875,6 +898,7 @@ namespace tui {
     virtual bool Step(float seconds);
     virtual bool Dormant() const;
     virtual bool Snap(const Frame *frame, float seconds);
+    virtual void SnapIdx(size_t idx, float seconds);
     virtual bool CancelSnap();
     virtual bool Jiggle();
     virtual void Lock(bool status) { mIsLocked = status; }
@@ -917,7 +941,6 @@ namespace tui {
       return x < ScrollMin() ? ScrollMin() : x;
     }
     int ScrollToOffset(int i) const { return i * mFrameDim + ScrollMin(); }
-    virtual void SnapIdx(size_t idx, float seconds);
     virtual int FlingingSnapIdx() const;
     virtual bool MovedAfterDown() const {
       return mMovedAfterDown || mMovedOffAxisAfterDown; }
