@@ -308,6 +308,7 @@ namespace tui {
     virtual float BackgroundPadYPts() const { return mPadPt[1]; }
     virtual int TextLineCount() const { return mLineCount; }
     virtual const glt::Font &Font() const { return *mFont; }
+    virtual const char *FontName() const { return mFontName; }
     virtual float Points() const { return mPts; }
     virtual const char *Text() const { return mText; }
     
@@ -322,6 +323,7 @@ namespace tui {
     
     const char *mText;                        // Label text
     const glt::Font *mFont;                   // Rendering font
+    char mFontName[128];                      // Font name
     float mPts;                               // Font size
     float mTextColor[4], mBkgTexColor[4];     // Text and texture colors
     float mTextDropshadowColor[4];            // Optional dropshadow color
@@ -728,17 +730,18 @@ namespace tui {
   };
   
   
-  // Star-rating widget
-  // Override OnTouchTap to get value changed on up event.
-  class StarRating : public Button {
+  // Page count widget. Shows a dot for each page, with the selected
+  // page highlighted. Pressing on either side changes page.
+  class PageCount : public TextButton {
   public:
-    StarRating() : mStarCount(0), mValue(0) {
+    PageCount() : mCount(0), mValue(0), mDragValue(0) {
       mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 0;
       mSelectedColor[0]=mSelectedColor[1]=mSelectedColor[2]=mSelectedColor[3]=0;
     }
+
     virtual bool Init(size_t count, float pts, const char *font = NULL);
-    virtual bool FitViewport();
-    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual bool SetCount(size_t count);
+    virtual size_t Count() const { return mCount; }
     virtual void SetDefaultColor(float r, float g, float b, float a) {
       mTextColor[0] = r; mTextColor[1] = g; mTextColor[2] = b; mTextColor[3] =a;
     }
@@ -747,75 +750,39 @@ namespace tui {
       mSelectedColor[2] = b; mSelectedColor[3] = a;
     }
     virtual bool Draw();
-    virtual bool OnDrag(EventPhase phase, float x, float y, double timestamp);
-    virtual void SetMVP(const float *mvp) {
-      Button::SetMVP(mvp); mLabel.SetMVP(mvp);
-    }
-    virtual void Enable(bool status) {
-      Button::Enable(status); mLabel.Enable(status);
-    }
     virtual bool SetValue(int value);
-    virtual int Value() const { return mValue; }
-    
-  private:
-    virtual void ComputeDragValue(float x) {
-      mDragValue = roundf(0.25 + (mStarCount * (x - Left())) / float(Width()));
-      mDragValue = std::min(mDragValue, int(mStarCount));
-      mDragValue = std::max(mDragValue, 0);
+    virtual int CurValue() const { return mValue; }
+    virtual bool OnDrag(EventPhase phase, float x, float y, double timestamp);
+    virtual bool OnValueChange(const Event::Touch &touch) { return true; }
+
+  protected:
+    virtual int ComputeValue(float x) {
+      int v = roundf(0.25 + (mCount * (x - Left())) / float(Width()));
+      v = std::min(v, int(mCount));
+      v = std::max(v, 0);
+      return v;
     }
+
     virtual bool InvokeTouchTap(const Event::Touch &touch) {
-      ComputeDragValue(touch.x);
+      ComputeValue(touch.x);
       SetValue(mDragValue);
       return Button::InvokeTouchTap(touch);
     }
 
-    size_t mStarCount;                        // Number of stars
-    int mValue, mDragValue;                   // Current rating
+    size_t mCount;                            // Number of characters
+    int mValue;                               // -1 for none
+    int mDragValue;                           // Drag state
     float mTextColor[4], mSelectedColor[4];   // Text colors
-    Label mLabel;                             // Draw
   };
-  
-  
-  // Page count widget. Shows a dot for each page, with the selected
-  // page highlighted. Pressing on either side changes page.
-  class PageCount : public Button {
+
+
+  // Star-rating widget
+  class StarRating : public PageCount {
   public:
-    PageCount() : mPageCount(0), mCurPage(-1) {
-      mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 0;
-      mSelectedColor[0]=mSelectedColor[1]=mSelectedColor[2]=mSelectedColor[3]=0;
-    }
-
-    virtual bool Init(float pts, const char *font = NULL);
-    virtual void SetPageCount(size_t count);
-    virtual bool FitViewport();
-    virtual bool SetViewport(int x, int y, int w, int h);
-    virtual void SetDefaultColor(float r, float g, float b, float a) {
-      mTextColor[0] = r; mTextColor[1] = g; mTextColor[2] = b; mTextColor[3] =a;
-    }
-    virtual void SetSelectedColor(float r, float g, float b, float a) {
-      mSelectedColor[0] = r; mSelectedColor[1] = g;
-      mSelectedColor[2] = b; mSelectedColor[3] = a;
-    }
     virtual bool Draw();
-    virtual void SetMVP(const float *mvp) {
-      Button::SetMVP(mvp); mLabel.SetMVP(mvp);
-    }
-    virtual void Enable(bool status) {
-      Button::Enable(status); mLabel.Enable(status);
-    }
-    virtual bool SetCurPage(int page);
-    virtual int CurPage() const { return mCurPage; }
-    virtual bool OnPageChange(const Event::Touch &touch) { return true; }
-    virtual bool OnTouchTap(const Event::Touch &touch);
-
-  private:
-    size_t mPageCount;                        // Number of stars
-    int mCurPage;                             // -1 for none?
-    float mTextColor[4], mSelectedColor[4];   // Text colors
-    Label mLabel;                             // Draw
   };
-
-
+  
+  
   //
   // Groups
   //

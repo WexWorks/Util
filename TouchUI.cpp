@@ -365,6 +365,7 @@ bool Label::SetText(const char *text, float pts, const char *font) {
     if (i == sFontMap.end())
       return false;
     mFont = &i->second->ClosestFont(mPts);
+    strcpy(&mFontName[0], font);
   }
   size_t len = strlen(mText);
   mLineCount = len > 0 ? 1 : 0;
@@ -1462,21 +1463,18 @@ bool Slider::Touch(const Event &event) {
 
 
 //
-// StarRating
+// PageCount
 //
 
-bool StarRating::Init(size_t count, float pts, const char *font) {
-  mStarCount = count;
+bool PageCount::Init(size_t count, float pts, const char *font) {
   mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 1;
   mSelectedColor[0] = 0.5;
   mSelectedColor[1] = 0.5;
   mSelectedColor[2] = 0.9;                              // Blue
   mSelectedColor[3] = 1;
-  char text[512];
-  for (size_t i = 0; i < count; ++i)
-    text[i] = glt::Font::StarChar;
-  text[count] = '\0';
-  if (!mLabel.Init(text, pts, font))
+  if (!mLabel.Init("", pts, font))
+    return false;
+  if (!SetCount(count))
     return false;
   if (!FitViewport())
     return false;
@@ -1484,24 +1482,67 @@ bool StarRating::Init(size_t count, float pts, const char *font) {
 }
 
 
-bool StarRating::FitViewport() {
-  if (!mLabel.FitViewport())
-    return false;
-  if (!Button::SetViewport(mLabel.Left(), mLabel.Bottom(),
-                           mLabel.Width(), mLabel.Height()))
-    return false;
-  return true;
-}
-
-
-bool StarRating::SetViewport(int x, int y, int w, int h) {
-  if (!Button::SetViewport(x, y, w, h))
-    return false;
-  if (!mLabel.SetViewport(x, y, w, h))
+bool PageCount::SetCount(size_t count) {
+  mCount = count;
+  char text[512];
+  for (size_t i = 0; i < count; ++i)
+    text[i] = glt::Font::StarChar;
+  text[count] = '\0';
+  if (!mLabel.SetText(text, mLabel.Points(), mLabel.FontName()))
     return false;
   return true;
 }
 
+
+bool PageCount::Draw() {
+  if (Hidden())
+    return true;
+
+  int v = Pressed() ? mDragValue : mValue;
+  v = std::max(v, 0);
+  if (v > 0) {
+    mLabel.SetTextColor(mTextColor[0], mTextColor[1],
+                        mTextColor[2], mTextColor[3]);
+    mLabel.SetTextRange(0, v - 1);
+    if (!mLabel.Draw())
+      return false;
+  }
+  if (v < mCount) {
+    mLabel.SetTextColor(mSelectedColor[0], mSelectedColor[1],
+                        mSelectedColor[2], mSelectedColor[3]);
+    mLabel.SetTextRange(v, v + 1);
+    if (!mLabel.Draw())
+      return false;
+  }
+  if (v < int(mCount - 1)) {
+    mLabel.SetTextColor(mTextColor[0], mTextColor[1],
+                        mTextColor[2], mTextColor[3]);
+    mLabel.SetTextRange(v + 1, mCount);
+    if (!mLabel.Draw())
+      return false;
+  }
+  return true;
+}
+
+
+bool PageCount::SetValue(int value) {
+  if (value > int(mCount))
+    return false;
+  mValue = value;
+  return true;
+}
+
+
+bool PageCount::OnDrag(tui::EventPhase phase, float x, float y,
+                        double timestamp) {
+  mDragValue = ComputeValue(x);
+  return true;
+}
+
+
+//
+// StarRating
+//
 
 bool StarRating::Draw() {
   if (Hidden())
@@ -1516,28 +1557,13 @@ bool StarRating::Draw() {
     if (!mLabel.Draw())
       return false;
   }
-  if (v < int(mStarCount)) {
+  if (v < int(mCount)) {
     mLabel.SetTextColor(mTextColor[0], mTextColor[1],
                         mTextColor[2], mTextColor[3]);
-    mLabel.SetTextRange(v, mStarCount);
+    mLabel.SetTextRange(v, mCount);
     if (!mLabel.Draw())
       return false;
   }
-  return true;
-}
-
-
-bool StarRating::OnDrag(tui::EventPhase phase, float x, float y,
-                        double timestamp) {
-  ComputeDragValue(x);
-  return true;
-}
-
-
-bool StarRating::SetValue(int value) {
-  if (value > int(mStarCount))
-    return false;
-  mValue = value;
   return true;
 }
 
