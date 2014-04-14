@@ -1049,7 +1049,8 @@ bool TextButton::Draw() {
     return true;
   
   const GLuint tex = Pressed() ? mPressedTex : mDefaultTex;
-  mLabel.SetBackgroundTex(tex, mDim[0], mDim[1]);
+  if (tex && mDim[0] && mDim[1])
+    mLabel.SetBackgroundTex(tex, mDim[0], mDim[1]);
   
   if (!mLabel.Draw())
     return false;
@@ -2071,10 +2072,10 @@ bool FlinglistImpl::DrawFrame(FlinglistImpl::Frame *frame) {
   int frameViewport[4] = { 0 };
   if (!Viewport(frame, frameViewport))
     return false;
-  const int vp[4] = { mViewport[0] + mViewportInset,
-                      mViewport[1] + mViewportInset,
-                      mViewport[2] - 2 * mViewportInset,
-                      mViewport[3] - 2 * mViewportInset };
+  const int vp[4] = { mViewport[0] + mViewportInset[0],
+                      mViewport[1] + mViewportInset[1],
+                      mViewport[2] - 2 * mViewportInset[0],
+                      mViewport[3] - 2 * mViewportInset[1] };
   int scissor[4] = { frameViewport[0], frameViewport[1],
                      frameViewport[2], frameViewport[3] };
   if (scissor[0] < vp[0]) scissor[0] = vp[0];
@@ -2122,10 +2123,10 @@ bool FlinglistImpl::Draw() {
   // Use an inset viewport to allow the strip to draw chrome outside the
   // displayed frame region without changing any of the other viewport-
   // dependent calculations (like the frame viewports).
-  const int vp[4] = { mViewport[0] + mViewportInset,
-                      mViewport[1] + mViewportInset,
-                      mViewport[2] - 2 * mViewportInset,
-                      mViewport[3] - 2 * mViewportInset };
+  const int vp[4] = { mViewport[0] + mViewportInset[0],
+                      mViewport[1] + mViewportInset[1],
+                      mViewport[2] - 2 * mViewportInset[0],
+                      mViewport[3] - 2 * mViewportInset[1] };
   
   // Draw the over-scrolled region with a tinted blue highlight
   if (mScrollBounce != 0) {

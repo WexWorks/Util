@@ -4,6 +4,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE     := Util
 LOCAL_CFLAGS     := -Werror -fexceptions -frtti -DDYNAMIC_ES3
+LOCAL_CFLAGS     += -march=armv6 -marm -mfloat-abi=softfp -mfpu=vfp
 LOCAL_C_INCLUDES += ${LOCAL_PATH}/../oiio/lib/OpenEXR
 LOCAL_C_INCLUDES += ${NDKROOT}/sources/cxx-stl/gnu-libstdc++/4.8/include
 LOCAL_SRC_FILES  := \

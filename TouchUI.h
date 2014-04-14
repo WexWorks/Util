@@ -776,6 +776,46 @@ namespace tui {
   };
   
   
+  // Page count widget. Shows a dot for each page, with the selected
+  // page highlighted. Pressing on either side changes page.
+  class PageCount : public Button {
+  public:
+    PageCount() : mPageCount(0), mCurPage(-1) {
+      mTextColor[0] = mTextColor[1] = mTextColor[2] = mTextColor[3] = 0;
+      mSelectedColor[0]=mSelectedColor[1]=mSelectedColor[2]=mSelectedColor[3]=0;
+    }
+
+    virtual bool Init(float pts, const char *font = NULL);
+    virtual void SetPageCount(size_t count);
+    virtual bool FitViewport();
+    virtual bool SetViewport(int x, int y, int w, int h);
+    virtual void SetDefaultColor(float r, float g, float b, float a) {
+      mTextColor[0] = r; mTextColor[1] = g; mTextColor[2] = b; mTextColor[3] =a;
+    }
+    virtual void SetSelectedColor(float r, float g, float b, float a) {
+      mSelectedColor[0] = r; mSelectedColor[1] = g;
+      mSelectedColor[2] = b; mSelectedColor[3] = a;
+    }
+    virtual bool Draw();
+    virtual void SetMVP(const float *mvp) {
+      Button::SetMVP(mvp); mLabel.SetMVP(mvp);
+    }
+    virtual void Enable(bool status) {
+      Button::Enable(status); mLabel.Enable(status);
+    }
+    virtual bool SetCurPage(int page);
+    virtual int CurPage() const { return mCurPage; }
+    virtual bool OnPageChange(const Event::Touch &touch) { return true; }
+    virtual bool OnTouchTap(const Event::Touch &touch);
+
+  private:
+    size_t mPageCount;                        // Number of stars
+    int mCurPage;                             // -1 for none?
+    float mTextColor[4], mSelectedColor[4];   // Text colors
+    Label mLabel;                             // Draw
+  };
+
+
   //
   // Groups
   //
@@ -859,8 +899,7 @@ namespace tui {
     };
     
     FlinglistImpl() : mFrameDim(0), mScrollableDim(0),
-                      mVertical(false), mPixelsPerCm(0),
-                      mViewportInset(0), mTouchFrameIdx(-1), 
+                      mVertical(false), mPixelsPerCm(0), mTouchFrameIdx(-1),
                       mMovedAfterDown(false), mMovedOffAxisAfterDown(false),
                       mScrollOffset(0), mScrollVelocity(0),
                       mScrollBounce(0), mThumbFade(0), mSnapToCenter(false),
@@ -876,6 +915,7 @@ namespace tui {
       mOverpullColor[0] = 0; mOverpullColor[1] = 0.75;
       mOverpullColor[2] = 1; mOverpullColor[3] = 0.25;
       mDragHandleDim[0] = mDragHandleDim[1] = 0;
+      mViewportInset[0] = mViewportInset[1] = 0;
     }
     virtual ~FlinglistImpl() {}
     virtual bool Init(bool vertical, float pixelsPerCm);
@@ -905,7 +945,8 @@ namespace tui {
     virtual bool IsLocked() const { return mIsLocked; }
     virtual bool Touch(const Event &event);
     virtual size_t Size() const { return mFrameVec.size(); }
-    virtual void SetViewportInset(float inset) { mViewportInset = inset; }
+    virtual void SetViewportInset(int x, int y) {
+      mViewportInset[0] = x; mViewportInset[1] = y; }
     virtual bool Viewport(const Frame *frame, int viewport[4]) const;
     virtual void OverpullViewport(int viewport[4]) const;
     virtual bool VisibleFrameRange(int *min, int *max) const;
@@ -955,7 +996,7 @@ namespace tui {
     int mScrollableDim;                       // Default to mFrameDim
     bool mVertical;                           // True=vertical, false=horizontal
     float mPixelsPerCm;                       // Adjust the drag thresholds
-    int mViewportInset;                       // Inset visible frame region
+    int mViewportInset[2];                    // Inset visible frame region
     int mTouchFrameIdx;                       // Index in mFrameVec or -1
     int mTouchStart[2];                       // Location of first down touch
     bool mMovedAfterDown;                     // True if touch moved
