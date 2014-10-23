@@ -6,8 +6,8 @@
 #include <vector>
 #include <assert.h>
 
-#include <ImathMatrix.h>
-#include <ImathVec.h>
+#include "ImathMatrix.h"
+#include "ImathVec.h"
 
 
 // Stores the geometry buffers required to render a triangle strip.
